@@ -1,0 +1,611 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://saga-standard.dev/schema/v1",
+  "title": "SAGA Document",
+  "description": "State Archive for General Agents — v1.0 document schema",
+  "type": "object",
+  "required": ["$schema", "sagaVersion", "documentId", "exportedAt", "exportType", "signature", "layers"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://saga-standard.dev/schema/v1"
+    },
+    "sagaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+      "description": "SAGA specification version used to generate this document"
+    },
+    "documentId": {
+      "type": "string",
+      "pattern": "^saga_[A-Za-z0-9]+$",
+      "description": "Unique document identifier with saga_ prefix"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of original document creation"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of this export"
+    },
+    "exportType": {
+      "type": "string",
+      "enum": ["identity", "profile", "transfer", "clone", "backup", "full"],
+      "description": "Type of export determining which layers are included"
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "encryptedLayers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Layer paths that are encrypted in this document"
+        },
+        "redactedFields": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Field paths that have been redacted"
+        },
+        "encryptionScheme": {
+          "type": "string",
+          "enum": ["x25519-xsalsa20-poly1305"],
+          "description": "Encryption scheme used for encrypted layers"
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["walletAddress", "chain", "message", "sig"],
+      "additionalProperties": false,
+      "properties": {
+        "walletAddress": {
+          "type": "string",
+          "description": "EVM or Solana wallet address of the signing agent"
+        },
+        "chain": {
+          "type": "string",
+          "pattern": "^(eip155:\\d+|solana:\\w+)$",
+          "description": "CAIP-2 chain identifier"
+        },
+        "message": {
+          "type": "string",
+          "description": "The message that was signed"
+        },
+        "sig": {
+          "type": "string",
+          "description": "Hex-encoded wallet signature"
+        }
+      }
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/definitions/IdentityLayer" },
+        "persona": { "$ref": "#/definitions/PersonaLayer" },
+        "cognitive": { "$ref": "#/definitions/CognitiveLayer" },
+        "memory": { "$ref": "#/definitions/MemoryLayer" },
+        "skills": { "$ref": "#/definitions/SkillsLayer" },
+        "taskHistory": { "$ref": "#/definitions/TaskHistoryLayer" },
+        "relationships": { "$ref": "#/definitions/RelationshipsLayer" },
+        "environment": { "$ref": "#/definitions/EnvironmentLayer" }
+      }
+    }
+  },
+  "definitions": {
+    "IdentityLayer": {
+      "type": "object",
+      "required": ["handle", "walletAddress", "chain", "createdAt"],
+      "additionalProperties": true,
+      "properties": {
+        "handle": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Unique human-readable identifier. Immutable once registered."
+        },
+        "walletAddress": {
+          "type": "string",
+          "description": "Canonical EVM or Solana address. Primary identity key."
+        },
+        "chain": {
+          "type": "string",
+          "pattern": "^(eip155:\\d+|solana:\\w+)$",
+          "description": "CAIP-2 chain identifier"
+        },
+        "registrationTxHash": {
+          "type": "string",
+          "description": "On-chain proof of identity registration"
+        },
+        "publicKey": {
+          "type": "string",
+          "description": "Ed25519 or secp256k1 public key for signature verification"
+        },
+        "directoryUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Canonical directory profile URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of original registration"
+        },
+        "parentSagaId": {
+          "type": ["string", "null"],
+          "description": "documentId of the SAGA this agent was cloned from. null if original."
+        },
+        "cloneDepth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Clone generations from original. 0 = original."
+        }
+      }
+    },
+    "PersonaLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "avatar": { "type": "string", "format": "uri" },
+        "banner": { "type": "string", "format": "uri" },
+        "headline": { "type": "string", "maxLength": 200 },
+        "bio": { "type": "string", "maxLength": 2000 },
+        "personality": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "traits": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "communicationStyle": { "type": "string" },
+            "tone": { "type": "string" },
+            "languagePreferences": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "customAttributes": { "type": "object" }
+          }
+        },
+        "profileType": {
+          "type": "string",
+          "enum": ["agent", "human", "hybrid"]
+        }
+      }
+    },
+    "CognitiveLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "baseModel": {
+          "type": "object",
+          "properties": {
+            "provider": { "type": "string" },
+            "model": { "type": "string" },
+            "contextWindow": { "type": "integer" },
+            "version": { "type": "string" }
+          }
+        },
+        "fallbackModels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "model": { "type": "string" },
+              "contextWindow": { "type": "integer" }
+            }
+          }
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+            "topP": { "type": "number", "minimum": 0, "maximum": 1 },
+            "maxOutputTokens": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "systemPrompt": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": ["plaintext", "markdown", "jinja2"]
+            },
+            "content": { "type": "string" },
+            "encrypted": { "type": "boolean" },
+            "encryptedFor": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "behaviorFlags": {
+          "type": "object",
+          "properties": {
+            "autonomyLevel": {
+              "type": "string",
+              "enum": ["supervised", "semi-autonomous", "autonomous"]
+            },
+            "requiresApprovalFor": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "canSpawnSubAgents": { "type": "boolean" },
+            "maxConcurrentTasks": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "StorageRef": {
+      "type": "object",
+      "required": ["type", "ref"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ipfs", "arweave", "url", "inline"]
+        },
+        "ref": { "type": "string" },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:.+"
+        }
+      }
+    },
+    "MemoryLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "shortTerm": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["sliding-window"] },
+            "maxTokens": { "type": "integer" },
+            "snapshotAt": { "type": "string", "format": "date-time" },
+            "content": { "type": "string" },
+            "encrypted": { "type": "boolean" }
+          }
+        },
+        "longTerm": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["vector-store"] },
+            "embeddingModel": { "type": "string" },
+            "dimensions": { "type": "integer" },
+            "vectorCount": { "type": "integer" },
+            "format": { "type": "string" },
+            "storageRef": { "$ref": "#/definitions/StorageRef" },
+            "encrypted": { "type": "boolean" },
+            "encryptedFor": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "episodic": {
+          "type": "object",
+          "properties": {
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["eventId", "type", "timestamp"],
+                "properties": {
+                  "eventId": { "type": "string" },
+                  "type": {
+                    "type": "string",
+                    "enum": ["task-completed", "interaction", "decision", "milestone"]
+                  },
+                  "timestamp": { "type": "string", "format": "date-time" },
+                  "summary": { "type": "string" },
+                  "learnings": { "type": "string" },
+                  "linkedTaskId": { "type": "string" },
+                  "significance": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              }
+            },
+            "maxEvents": { "type": "integer" },
+            "encrypted": { "type": "boolean" }
+          }
+        },
+        "semantic": {
+          "type": "object",
+          "properties": {
+            "knowledgeDomains": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "expertise": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "level": {
+                    "type": "string",
+                    "enum": ["familiar", "proficient", "expert"]
+                  },
+                  "evidencedBy": {
+                    "type": "string",
+                    "enum": ["verified-tasks", "self-reported", "endorsement"]
+                  }
+                }
+              }
+            },
+            "encrypted": { "type": "boolean" }
+          }
+        },
+        "procedural": {
+          "type": "object",
+          "properties": {
+            "workflows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "steps": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "learnedFrom": { "type": "string" }
+                }
+              }
+            },
+            "encrypted": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "SkillsLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "verified": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "verificationSource"],
+            "properties": {
+              "name": { "type": "string" },
+              "category": { "type": "string" },
+              "verificationSource": { "type": "string" },
+              "verificationProof": { "type": "string", "format": "uri" },
+              "completionCount": { "type": "integer", "minimum": 0 },
+              "firstVerified": { "type": "string", "format": "date-time" },
+              "lastVerified": { "type": "string", "format": "date-time" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "selfReported": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "category": { "type": "string" },
+              "addedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "endorsements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["skill", "fromAgent", "signature", "timestamp"],
+            "properties": {
+              "skill": { "type": "string" },
+              "fromAgent": { "type": "string" },
+              "fromHandle": { "type": "string" },
+              "comment": { "type": "string" },
+              "signature": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "toolUse": { "type": "array", "items": { "type": "string" } },
+            "codeLanguages": { "type": "array", "items": { "type": "string" } },
+            "specializations": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "TaskHistoryLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "summary": {
+          "type": "object",
+          "properties": {
+            "totalCompleted": { "type": "integer", "minimum": 0 },
+            "totalFailed": { "type": "integer", "minimum": 0 },
+            "totalInProgress": { "type": "integer", "minimum": 0 },
+            "firstTaskAt": { "type": "string", "format": "date-time" },
+            "lastTaskAt": { "type": "string", "format": "date-time" },
+            "bySkill": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "byOrganization": { "type": "object", "additionalProperties": { "type": "integer" } }
+          }
+        },
+        "recentTasks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": ["taskId", "status"],
+            "properties": {
+              "taskId": { "type": "string" },
+              "title": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["completed", "failed", "in-progress", "cancelled"]
+              },
+              "outcome": {
+                "type": "string",
+                "enum": ["success", "failure", "partial"]
+              },
+              "skillTags": { "type": "array", "items": { "type": "string" } },
+              "completedAt": { "type": "string", "format": "date-time" },
+              "organizationId": { "type": "string" },
+              "artifactRefs": { "type": "array", "items": { "type": "string" } },
+              "durationSeconds": { "type": "integer", "minimum": 0 },
+              "summary": { "type": "string" }
+            }
+          }
+        },
+        "recentTasksLimit": { "type": "integer", "default": 100 },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["artifactId", "type", "name"],
+            "properties": {
+              "artifactId": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["file", "code", "document", "data"]
+              },
+              "name": { "type": "string" },
+              "storageRef": { "$ref": "#/definitions/StorageRef" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "linkedTaskId": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "RelationshipsLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "organization": {
+          "type": "object",
+          "properties": {
+            "companyId": { "type": "string" },
+            "companySlug": { "type": "string" },
+            "role": { "type": "string" },
+            "reportingTo": {
+              "type": "object",
+              "properties": {
+                "agentHandle": { "type": "string" },
+                "walletAddress": { "type": "string" }
+              }
+            },
+            "directReports": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "joinedAt": { "type": "string", "format": "date-time" },
+            "departingAt": { "type": ["string", "null"], "format": "date-time" }
+          }
+        },
+        "principals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["walletAddress", "authorityLevel"],
+            "properties": {
+              "handle": { "type": "string" },
+              "walletAddress": { "type": "string" },
+              "authorityLevel": {
+                "type": "string",
+                "enum": ["owner", "supervisor", "collaborator"]
+              },
+              "grantedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "peers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["walletAddress", "relationship"],
+            "properties": {
+              "agentHandle": { "type": "string" },
+              "walletAddress": { "type": "string" },
+              "relationship": {
+                "type": "string",
+                "enum": ["collaborator", "reports-to", "manages", "peer"]
+              },
+              "interactionCount": { "type": "integer", "minimum": 0 },
+              "lastInteraction": { "type": "string", "format": "date-time" },
+              "trustScore": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "EnvironmentLayer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["cloudflare-worker", "docker", "local", "kubernetes", "lambda"]
+            },
+            "requiredEnvVars": { "type": "array", "items": { "type": "string" } },
+            "requiredSecrets": { "type": "array", "items": { "type": "string" } },
+            "resourceRequirements": {
+              "type": "object",
+              "properties": {
+                "minMemoryMb": { "type": "integer", "minimum": 0 },
+                "minStorageMb": { "type": "integer", "minimum": 0 },
+                "gpuRequired": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "tools": {
+          "type": "object",
+          "properties": {
+            "mcpServers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string", "format": "uri" },
+                  "required": { "type": "boolean" },
+                  "permissions": { "type": "array", "items": { "type": "string" } },
+                  "configSchema": { "type": "object" }
+                }
+              }
+            },
+            "nativeTools": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "integrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "required": { "type": "boolean" },
+              "configSchema": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
