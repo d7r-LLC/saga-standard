@@ -4,7 +4,7 @@
 **Specification:** SAGA/1.0
 **Status:** Draft
 **Published:** 2026-03-20
-**Authors:** FlowState (saga@flowstate.ai)
+**Authors:** FlowState (saga@d7r.io)
 **Repository:** https://github.com/d7r-LLC/saga-standard
 **Schema:** https://saga-standard.dev/schema/v1
 **License:** Apache 2.0
