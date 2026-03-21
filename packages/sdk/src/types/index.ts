@@ -24,6 +24,11 @@ export type {
   VaultEncryptionAlgorithm,
   VaultKeyDerivation,
   VaultKeyWrapAlgorithm,
+  DataClassification,
+  RedactionAction,
+  RedactableEntryType,
+  ExitReason,
+  DisputeStatus,
 } from './common'
 
 export type {
@@ -79,6 +84,10 @@ export type {
   VaultCertificateFields,
   VaultNoteFields,
   VaultDecryptedFields,
+  ClassificationMeta,
+  RedactionEntry,
+  RedactionSummary,
+  RedactionManifest,
 } from './layers'
 
 export type { SagaDocument, SignedSagaDocument, ConsentMessage } from './saga-document'

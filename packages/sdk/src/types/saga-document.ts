@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import type { ExportType, PrivacyConfig, SignatureEnvelope } from './common'
-import type { SagaLayers } from './layers'
+import type { RedactionManifest, SagaLayers } from './layers'
 
 /** A complete SAGA document per the v1.0 specification */
 export interface SagaDocument {
@@ -15,6 +15,8 @@ export interface SagaDocument {
   privacy?: PrivacyConfig
   signature: SignatureEnvelope
   layers: SagaLayers
+  /** Redaction manifest for exit/transfer exports (Section 13.5.4) */
+  redactionManifest?: RedactionManifest
 }
 
 /** A signed SAGA document (signature field is populated and verified) */

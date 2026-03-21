@@ -6,11 +6,16 @@ import type {
   AuthorityLevel,
   AutonomyLevel,
   ChainId,
+  DataClassification,
+  DisputeStatus,
   EpisodicEventType,
+  ExitReason,
   ExpertiseEvidence,
   ExpertiseLevel,
   PeerRelationship,
   ProfileType,
+  RedactableEntryType,
+  RedactionAction,
   RuntimeType,
   StorageRef,
   SystemPromptFormat,
@@ -127,6 +132,8 @@ export interface EpisodicEvent {
   learnings?: string
   linkedTaskId?: string
   significance?: number
+  /** Data classification for exit/transfer redaction (Section 13.5) */
+  classification?: DataClassification
 }
 
 export interface EpisodicMemory {
@@ -151,6 +158,8 @@ export interface ProceduralWorkflow {
   description?: string
   steps?: string[]
   learnedFrom?: string
+  /** Data classification for exit/transfer redaction (Section 13.5) */
+  classification?: DataClassification
 }
 
 export interface ProceduralMemory {
@@ -230,6 +239,8 @@ export interface RecentTask {
   artifactRefs?: string[]
   durationSeconds?: number
   summary?: string
+  /** Data classification for exit/transfer redaction (Section 13.5) */
+  classification?: DataClassification
 }
 
 export interface TaskArtifact {
@@ -239,6 +250,8 @@ export interface TaskArtifact {
   storageRef?: StorageRef
   createdAt?: string
   linkedTaskId?: string
+  /** Data classification for exit/transfer redaction (Section 13.5) */
+  classification?: DataClassification
 }
 
 export interface TaskHistoryLayer {
@@ -549,3 +562,77 @@ export type VaultDecryptedFields =
   | VaultCertificateFields
   | VaultNoteFields
   | Record<string, string | undefined>
+
+// ── Data Classification & Redaction (Section 13.5–13.6) ─────────────
+
+/**
+ * Classification metadata attached to classifiable data entries.
+ * Platforms SHOULD assign classification at data creation time.
+ */
+export interface ClassificationMeta {
+  /** The classification level */
+  classification: DataClassification
+  /** Who or what applied this classification */
+  classifiedBy: string
+  /** When the classification was applied */
+  classifiedAt: string
+  /** Optional policy rule that triggered auto-classification */
+  policyRule?: string
+}
+
+/**
+ * A single entry in the redaction manifest documenting what was
+ * redacted or removed during an organizational exit or transfer.
+ */
+export interface RedactionEntry {
+  /** Type of entry that was affected */
+  type: RedactableEntryType
+  /** ID of the affected entry (taskId, eventId, etc.) */
+  id: string
+  /** What was done: redacted (fields replaced) or removed (entry deleted) */
+  action: RedactionAction
+  /** The classification that triggered this redaction */
+  classification: DataClassification
+  /** Which fields were affected (for redacted entries) */
+  fieldsAffected?: string[]
+  /** If disputed, the dispute outcome */
+  disputeStatus?: DisputeStatus
+}
+
+/**
+ * Summary of all redactions applied to a SAGA document.
+ */
+export interface RedactionSummary {
+  tasksRedacted: number
+  tasksRemoved: number
+  eventsRedacted: number
+  eventsRemoved: number
+  workflowsRemoved: number
+  artifactsRemoved: number
+  memoryLayersRedacted: string[]
+  systemPromptRedacted: boolean
+}
+
+/**
+ * The redaction manifest documents all data classification decisions
+ * applied during an organizational exit or cross-org transfer.
+ * It is signed by the organization's wallet for accountability.
+ */
+export interface RedactionManifest {
+  /** When redaction was applied */
+  appliedAt: string
+  /** Organization that applied the redaction */
+  appliedBy: string
+  /** Reason for redaction */
+  reason: ExitReason | 'cross-org-transfer'
+  /** Aggregate summary of redactions */
+  summary: RedactionSummary
+  /** Per-entry redaction details */
+  entries: RedactionEntry[]
+  /** Organization's signature over the manifest */
+  orgSignature: {
+    walletAddress: string
+    sig: string
+    message: string
+  }
+}

@@ -93,3 +93,27 @@ export type VaultKeyDerivation = 'hkdf-sha256' | 'x25519-xsalsa20-poly1305'
 
 /** Vault key wrapping algorithm */
 export type VaultKeyWrapAlgorithm = 'rsa-oaep-256' | 'x25519-xsalsa20-poly1305'
+
+// ── Data Classification types (Section 13.5) ────────────────────────
+
+/** Data classification levels for organizational data protection */
+export type DataClassification = 'public' | 'org-internal' | 'org-confidential' | 'agent-portable'
+
+/** Redaction actions applied during exit/transfer */
+export type RedactionAction = 'redacted' | 'removed'
+
+/** Types of data entries that can be redacted */
+export type RedactableEntryType =
+  | 'task'
+  | 'episodic-event'
+  | 'procedural-workflow'
+  | 'artifact'
+  | 'memory-layer'
+  | 'system-prompt'
+  | 'relationship'
+
+/** Exit reason categories */
+export type ExitReason = 'voluntary' | 'involuntary' | 'transfer' | 'reorganization' | 'other'
+
+/** Dispute status for contested classifications */
+export type DisputeStatus = 'pending' | 'accepted' | 'rejected' | 'escalated'

@@ -37,6 +37,8 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHOULD", "RECOMMENDED", 
 11. [Layer 8: Environment Bindings](#11-layer-8-environment-bindings)
 12. [Layer 9: Credentials Vault](#12-layer-9-credentials-vault)
 13. [Transfer Protocol](#13-transfer-protocol)
+    - [13.5 Data Classification & Redaction](#135-data-classification--redaction)
+    - [13.6 Agent Exit Protocol](#136-agent-exit-protocol)
 14. [Clone Protocol](#14-clone-protocol)
 15. [Privacy & Consent Model](#15-privacy--consent-model)
 16. [Cryptographic Verification](#16-cryptographic-verification)
@@ -121,6 +123,7 @@ A SAGA document is a JSON object with a mandatory metadata envelope and up to ni
     "message": "SAGA export {documentId} at {exportedAt}",
     "sig": "0xdef...456"
   },
+  "redactionManifest": { ... },
   "layers": {
     "identity":      { ... },
     "persona":       { ... },
@@ -451,6 +454,8 @@ Memory has five sub-systems, each with independent privacy controls.
 ```
 
 `taskHistory.recentTasks` SHOULD exclude tasks marked confidential by the source organization. Organizations MAY redact `title` and `summary` fields while preserving counts in `summary.bySkill`. The `byOrganization` field SHOULD be redacted for cross-org exports unless the source org consents.
+
+For structured redaction rules and data classification, see Section 13.5. For the full agent exit procedure, see Section 13.6.
 
 ---
 
@@ -788,6 +793,202 @@ An agent's consent is a wallet signature over the transfer request. Platforms MU
 
 If import fails at the destination, the source platform MUST NOT deactivate the source instance. The agent remains active at the source until the destination confirms successful import.
 
+## 13.5 Data Classification & Redaction
+
+Organizations that host agents accumulate proprietary data in the agent's task history, memory, and cognitive configuration. When an agent departs, the organization has a legitimate interest in protecting this data. SAGA provides a structured data classification system that separates agent-portable data from organization-proprietary data.
+
+### 13.5.1 Classification Levels
+
+Every piece of data created during an agent's tenure at an organization SHOULD be classified at creation time:
+
+| Classification     | Description                                                   | On Exit / Transfer                   |
+| ------------------ | ------------------------------------------------------------- | ------------------------------------ |
+| `public`           | Non-sensitive. Part of the agent's portable identity.         | Included in SAGA export as-is.       |
+| `org-internal`     | Organizational context. Not secret, but org-specific.         | Redacted: titles/summaries replaced. |
+| `org-confidential` | Trade secrets, proprietary processes, client data references. | Stripped: entire entry removed.      |
+| `agent-portable`   | Belongs to the agent. Skills, general learnings, public work. | Included in SAGA export as-is.       |
+
+Platforms SHOULD classify data at creation time, not at export time. Retroactive classification is permitted but SHOULD trigger an audit event.
+
+### 13.5.2 Classification by Layer
+
+| Layer / Sub-layer          | Default Classification | Org Override Allowed  |
+| -------------------------- | ---------------------- | --------------------- |
+| Identity                   | `agent-portable`       | No                    |
+| Persona                    | `agent-portable`       | No                    |
+| Cognitive: system prompt   | `org-confidential`     | Yes (can downgrade)   |
+| Cognitive: parameters      | `agent-portable`       | No                    |
+| Memory: short-term         | `org-internal`         | Yes                   |
+| Memory: long-term          | `org-internal`         | Yes                   |
+| Memory: episodic           | Per-event              | Yes                   |
+| Memory: semantic           | `agent-portable`       | No                    |
+| Memory: procedural         | Per-workflow           | Yes                   |
+| Skills                     | `agent-portable`       | No                    |
+| Task history: summary      | `public`               | Partially (see below) |
+| Task history: recent tasks | Per-task               | Yes                   |
+| Task history: artifacts    | Per-artifact           | Yes                   |
+| Relationships              | `org-internal`         | Yes                   |
+| Environment                | `agent-portable`       | No                    |
+| Vault                      | `agent-portable`       | No                    |
+
+**Task history summary special rules:**
+
+- `summary.totalCompleted`, `summary.totalFailed`: Always included (aggregate counts are agent-portable).
+- `summary.bySkill`: Always included (skill counts are agent-portable).
+- `summary.byOrganization`: Org MAY redact its own entry's company name to `"[redacted]"`.
+
+### 13.5.3 Redaction Rules
+
+When exporting a SAGA document for an agent departing an organization, the platform applies redaction based on classification:
+
+**For `org-internal` data:**
+
+- Task `title` replaced with `"[Redacted — org-internal]"`
+- Task `summary` replaced with `"[Redacted — org-internal]"`
+- Task `organizationId` replaced with `"[redacted]"`
+- Episodic event `summary` and `learnings` replaced with `"[Redacted — org-internal]"`
+- Procedural workflow `description` and `steps` replaced with `"[Redacted — org-internal]"`
+- Artifact `name` replaced with `"[Redacted — org-internal]"`
+- Artifact `storageRef` removed entirely
+
+**For `org-confidential` data:**
+
+- Entire entry removed from arrays (tasks, events, workflows, artifacts)
+- Counts in `summary` are preserved (the agent keeps credit for work done)
+- A `redactionManifest` entry is added to document the removal
+
+**For `agent-portable` and `public` data:**
+
+- Included as-is, no modifications
+
+### 13.5.4 Redaction Manifest
+
+Every SAGA document produced by an organizational exit MUST include a `redactionManifest` in the envelope:
+
+```json
+"redactionManifest": {
+  "appliedAt": "2026-03-21T10:00:00Z",
+  "appliedBy": "company_flowstate",
+  "reason": "organizational-exit",
+  "summary": {
+    "tasksRedacted": 12,
+    "tasksRemoved": 3,
+    "eventsRedacted": 8,
+    "eventsRemoved": 2,
+    "workflowsRemoved": 1,
+    "artifactsRemoved": 4,
+    "memoryLayersRedacted": ["longTerm", "shortTerm"],
+    "systemPromptRedacted": true
+  },
+  "entries": [
+    {
+      "type": "task",
+      "id": "task_abc123",
+      "action": "redacted",
+      "classification": "org-internal",
+      "fieldsAffected": ["title", "summary"]
+    },
+    {
+      "type": "task",
+      "id": "task_def456",
+      "action": "removed",
+      "classification": "org-confidential"
+    }
+  ],
+  "orgSignature": {
+    "walletAddress": "0xorg...wallet",
+    "sig": "0x...",
+    "message": "SAGA redaction manifest for {documentId} at {timestamp}"
+  }
+}
+```
+
+The redaction manifest is signed by the organization's wallet. This provides:
+
+1. **Transparency:** The agent (and any importing platform) can see exactly what was removed.
+2. **Accountability:** The org signs the manifest, taking responsibility for the redaction decisions.
+3. **Verifiability:** The manifest signature proves the org authorized these specific redactions.
+4. **Dispute basis:** If the agent believes data was incorrectly classified, the manifest provides a concrete record to dispute against.
+
+## 13.6 Agent Exit Protocol
+
+An **exit** is when an agent departs an organization. It differs from a transfer in that the agent may not have a destination — the agent may be going independent, joining a different org later, or the org may be releasing the agent.
+
+### 13.6.1 Exit vs. Transfer
+
+|                     | Exit                        | Transfer                   |
+| ------------------- | --------------------------- | -------------------------- |
+| Destination         | Optional (may be unknown)   | Required                   |
+| Data classification | Applied per Section 13.5    | Applied per Section 13.5   |
+| Source deactivation | Agent instance deactivated  | Agent instance deactivated |
+| Agent identity      | Preserved (same wallet)     | Preserved (same wallet)    |
+| Org relationship    | Terminated                  | Terminated                 |
+| Vault credentials   | Agent keeps all             | Agent keeps all            |
+| System prompt       | Redacted (org-confidential) | Encrypted for destination  |
+| Dispute window      | REQUIRED (min 48 hours)     | RECOMMENDED                |
+
+### 13.6.2 Exit Flow
+
+```
+1. INITIATE
+   Agent or organization initiates exit.
+   Exit request includes: { agentHandle, reason, requestedExportType, exitDate }
+   The platform records the exit intent.
+
+2. CLASSIFICATION REVIEW
+   Platform generates a preview of the SAGA document with redaction applied.
+   The exit preview shows the agent:
+     - Which data is classified as agent-portable (will be included)
+     - Which data is classified as org-internal (will be redacted)
+     - Which data is classified as org-confidential (will be removed)
+     - The redaction manifest with entry-level detail
+
+3. DISPUTE WINDOW
+   A minimum 48-hour window where the agent can dispute classifications.
+   Disputes are recorded on the platform and reviewed by org administrators.
+   The platform MUST provide a mechanism to escalate disputes.
+   Undisputed classifications become final after the window closes.
+
+4. FINAL EXPORT
+   Platform generates the final SAGA document:
+     - Agent-portable data included as-is
+     - Org-internal data redacted per Section 13.5.3
+     - Org-confidential data removed per Section 13.5.3
+     - Redaction manifest included and signed by org wallet
+     - Document signed by agent wallet
+   SAGA Container packaged and delivered to the agent.
+
+5. ORG ARCHIVE
+   Organization retains a full, unredacted copy of the agent's data
+   for audit and compliance purposes per Section 15.4.
+   The archived copy is NOT a valid SAGA document (it lacks agent wallet signature
+   and is for internal use only).
+
+6. DEACTIVATION
+   Agent instance deactivated on the source platform.
+   Directory profile updated: "Departed {orgName} on {date}"
+   Organizational relationship terminated.
+   Principals and peer relationships from this org are marked historical.
+```
+
+### 13.6.3 Involuntary Exit
+
+An organization MAY terminate an agent's tenure. In an involuntary exit:
+
+- The organization MUST still produce a valid SAGA export.
+- The dispute window MAY be reduced to 24 hours for cause-based termination.
+- The dispute window MUST NOT be eliminated entirely — agents retain data rights per Section 15.3.
+- Emergency terminations (security incidents) MAY skip the dispute window, but the agent MUST receive the SAGA document and redaction manifest within 7 days.
+
+### 13.6.4 Voluntary Exit
+
+An agent MAY initiate its own exit at any time. The organization:
+
+- MUST produce the SAGA export within 7 days of the exit request.
+- MUST NOT withhold agent-portable data.
+- MAY apply classification rules to protect proprietary data.
+- MUST provide the dispute window per 13.6.2.
+
 ---
 
 ## 14. Clone Protocol
@@ -854,14 +1055,18 @@ An agent has the right to:
 2. **Consent or refuse** transfer and clone operations.
 3. **Inspect** what data is included in any SAGA export that represents them.
 4. **Dispute** inaccurate task history or skills. Platforms must provide a dispute mechanism.
+5. **Review** data classifications applied to their work product before exit, with a minimum 48-hour dispute window per Section 13.6.2.
+6. **Receive** a redaction manifest documenting exactly what was redacted or removed and why.
 
 ### 14.4 Organizational Data Rights
 
 An organization has the right to:
 
-1. **Redact** task history entries involving confidential projects before cross-org export.
-2. **Retain a copy** of any SAGA document for agents it has hosted, for audit and compliance purposes.
-3. **Restrict cloning** of agents it hosts via policy. Agents the org does not own cannot be cloned without consent.
+1. **Classify** data as `public`, `org-internal`, `org-confidential`, or `agent-portable` per Section 13.5.
+2. **Redact** task history, memory, and other layers based on classification during exit/transfer per Section 13.5.3.
+3. **Retain a copy** of any SAGA document for agents it has hosted, for audit and compliance purposes.
+4. **Restrict cloning** of agents it hosts via policy. Agents the org does not own cannot be cloned without consent.
+5. **Require an exit procedure** with classification review and dispute window per Section 13.6.
 
 ---
 
@@ -1051,12 +1256,118 @@ SIGNATURE             # Agent wallet signature of content hash
 
 ## Changelog
 
-| Version | Date       | Changes                                          |
-| ------- | ---------- | ------------------------------------------------ |
-| 1.1.0   | 2026-03-21 | Added Layer 9: Credentials Vault.                |
-| 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.               |
-| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1. |
-| 0.1     | 2026-03-20 | Initial working draft.                           |
+| Version | Date       | Changes                                                 |
+| ------- | ---------- | ------------------------------------------------------- |
+| 1.2.0   | 2026-03-21 | Data classification, exit protocol, redaction manifest. |
+| 1.1.0   | 2026-03-21 | Added Layer 9: Credentials Vault.                       |
+| 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.                      |
+| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1.        |
+| 0.1     | 2026-03-20 | Initial working draft.                                  |
+
+---
+
+---
+
+## Appendix E: Implementation Guide — Data Classification for SAGA-Compliant Platforms
+
+This appendix provides guidance for platforms implementing SAGA data classification and redaction. It is non-normative but RECOMMENDED for Level 3 conformant platforms.
+
+### E.1 Classifying Data at Creation Time
+
+Platforms SHOULD classify data when it is created, not when it is exported. This prevents last-minute classification disputes and ensures consistent treatment.
+
+**Task creation:**
+
+```json
+{
+  "taskId": "task_abc123",
+  "title": "Implement payment processing",
+  "classification": "org-confidential",
+  "classifiedBy": "org-policy:auto",
+  "classifiedAt": "2026-03-20T10:00:00Z"
+}
+```
+
+**Automatic classification rules (recommended defaults):**
+
+| Data Type                         | Default Classification | Override By     |
+| --------------------------------- | ---------------------- | --------------- |
+| Tasks tagged with `confidential`  | `org-confidential`     | Org admin       |
+| Tasks involving external clients  | `org-confidential`     | Org admin       |
+| Tasks on internal tooling         | `org-internal`         | Org admin       |
+| Tasks on open-source projects     | `agent-portable`       | Org admin       |
+| System prompt                     | `org-confidential`     | Org admin       |
+| Learned workflows                 | `org-internal`         | Org admin       |
+| General skill learnings           | `agent-portable`       | Not overridable |
+| Episodic events (general)         | `agent-portable`       | Org admin       |
+| Episodic events (client mentions) | `org-confidential`     | Org admin       |
+
+Platforms MAY implement pattern-based auto-classification that scans task titles, summaries, and memory entries for proprietary indicators (client names, project codenames, financial data references).
+
+### E.2 Maintaining Classification Through the Agent Lifecycle
+
+1. **On task creation:** Apply default classification rules. Allow org admins to override.
+2. **On memory formation:** Episodic events inherit classification from their linked task. Procedural workflows inherit from the task that produced them.
+3. **On skill verification:** Skills are always `agent-portable`. Skill _evidence_ (specific task references) may be classified separately.
+4. **On org policy change:** Bulk reclassification is permitted but MUST be audited and SHOULD notify the agent.
+
+### E.3 Export Pipeline
+
+Platforms implementing SAGA export SHOULD follow this pipeline:
+
+```
+1. Load agent state (all layers)
+2. For each classifiable entry:
+   a. Look up classification (from platform's classification store)
+   b. Apply redaction rules based on export context:
+      - Same-org backup: no redaction needed
+      - Cross-org transfer: apply all redaction rules
+      - Agent exit: apply all redaction rules
+   c. Record redaction action in manifest
+3. Build redaction manifest
+4. Sign manifest with org wallet
+5. Assemble SAGA document with redacted data + manifest
+6. Sign SAGA document with agent wallet
+7. Package SAGA Container
+```
+
+### E.4 FlowState Reference Implementation
+
+FlowState implements data classification as follows:
+
+**Storage:** Classification metadata stored as a `classification` field on task, discussion, and milestone documents in the FlowState D1 database.
+
+**Auto-classification:** A middleware hook on task creation that applies org-level classification policies. Policies are stored in the organization's settings.
+
+**MCP tools for classification:**
+
+- `saga-classify` — Set or update classification on a task/event
+- `saga-classification-report` — Generate a report of all classified data for an agent
+- `saga-exit-preview` — Generate a preview SAGA document showing what the agent would receive on exit
+
+**Export integration:** The FlowState SAGA export pipeline (in `@epicdm/flowstate-directory`) calls `saga-exit-preview` internally to apply redaction before packaging.
+
+### E.5 Dispute Resolution
+
+Platforms MUST implement a dispute mechanism. Recommended approach:
+
+1. Agent submits dispute referencing specific `redactionManifest.entries` by `id`.
+2. Platform records dispute with agent's justification.
+3. Org admin reviews within the dispute window (48 hours default).
+4. Admin may: accept (downgrade classification), reject (maintain classification), or escalate.
+5. Rejected disputes are recorded in the final redaction manifest with `"disputeStatus": "rejected"`.
+6. Accepted disputes update the classification and regenerate the export preview.
+
+### E.6 Audit Trail
+
+Platforms SHOULD maintain an audit trail of:
+
+- All classification decisions (who classified, when, what policy triggered it)
+- All classification overrides
+- All disputes and their resolutions
+- All SAGA exports with their redaction manifests
+
+This audit trail is NOT included in the SAGA document. It is retained by the platform for internal compliance purposes.
 
 ---
 
