@@ -27,6 +27,7 @@ export {
   decryptLayer,
   applyDefaultEncryption,
   generateBoxKeyPair,
+  boxKeyPairFromSecretKey,
   deriveVaultMasterKey,
   encryptVaultItem,
   decryptVaultItem,
