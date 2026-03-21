@@ -1,0 +1,25 @@
+title: SAGA Standard
+description: 'State Archive for General Agents — an open specification for portable AI agent identity, memory, and state'
+url: 'https://saga-standard.dev'
+baseurl: ''
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  auto_ids: true
+  toc_levels: '2..3'
+
+permalink: pretty
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - superpowers
+
+defaults:
+  - scope:
+      path: ''
+    values:
+      layout: 'default'

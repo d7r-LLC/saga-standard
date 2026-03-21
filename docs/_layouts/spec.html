@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} — {{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:description" content="{{ page.description | default: site.description }}">
+  <meta property="og:url" content="{{ page.url | absolute_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+</head>
+<body>
+  {% include header.html %}
+  <div class="page-wrapper">
+    <aside class="sidebar">
+      <div class="section-label">Specification v1.0</div>
+      <ul>
+        <li><a href="#abstract">Abstract</a></li>
+        <li><a href="#1-motivation">1. Motivation</a></li>
+        <li><a href="#2-terminology">2. Terminology</a></li>
+        <li><a href="#3-document-structure">3. Document Structure</a></li>
+      </ul>
+      <div class="section-label">Layers</div>
+      <ul>
+        <li><a href="#4-layer-1-identity">4. Identity</a></li>
+        <li><a href="#5-layer-2-persona">5. Persona</a></li>
+        <li><a href="#6-layer-3-cognitive-configuration">6. Cognitive Config</a></li>
+        <li><a href="#7-layer-4-memory">7. Memory</a></li>
+        <li><a href="#8-layer-5-skills--capabilities">8. Skills</a></li>
+        <li><a href="#9-layer-6-task-history">9. Task History</a></li>
+        <li><a href="#10-layer-7-relationships">10. Relationships</a></li>
+        <li><a href="#11-layer-8-environment-bindings">11. Environment</a></li>
+        <li><a href="#12-layer-9-credentials-vault">12. Credentials Vault</a></li>
+      </ul>
+      <div class="section-label">Protocols</div>
+      <ul>
+        <li><a href="#13-transfer-protocol">13. Transfer</a></li>
+        <li><a href="#135-data-classification--redaction">13.5 Classification</a></li>
+        <li><a href="#136-agent-exit-protocol">13.6 Agent Exit</a></li>
+        <li><a href="#14-clone-protocol">14. Clone</a></li>
+        <li><a href="#15-privacy--consent-model">15. Privacy & Consent</a></li>
+        <li><a href="#16-cryptographic-verification">16. Cryptography</a></li>
+        <li><a href="#16a-platform-security--compliance-requirements">16A. Security</a></li>
+      </ul>
+      <div class="section-label">Implementation</div>
+      <ul>
+        <li><a href="#17-conformance">17. Conformance</a></li>
+        <li><a href="#18-versioning--governance">18. Versioning</a></li>
+        <li><a href="#19-reference-implementation">19. Reference Impl</a></li>
+      </ul>
+      <div class="section-label">Appendices</div>
+      <ul>
+        <li><a href="#appendix-a-personality-trait-taxonomy-v10">A. Personality Traits</a></li>
+        <li><a href="#appendix-b-supported-chains-v10">B. Chains</a></li>
+        <li><a href="#appendix-c-saga-file-format">C. .saga Format</a></li>
+        <li><a href="#appendix-d-saga-server-api">D. Server API</a></li>
+        <li><a href="#appendix-e-implementation-guide--data-classification-for-saga-compliant-platforms">E. Data Classification</a></li>
+        <li><a href="#appendix-f-compliance-framework-mapping">F. Compliance</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+      {{ content }}
+    </main>
+  </div>
+  {% include footer.html %}
+</body>
+</html>
