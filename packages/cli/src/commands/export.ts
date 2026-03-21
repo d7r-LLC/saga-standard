@@ -7,7 +7,9 @@ import ora from 'ora'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  applyDefaultEncryption,
   assembleSagaDocument,
+  boxKeyPairFromSecretKey,
   createPrivateKeySigner,
   packSagaContainer,
   validateSagaDocument,
@@ -93,10 +95,40 @@ export const exportCommand = new Command('export')
       }
       validSpinner.succeed('Validation passed')
 
-      // Sign
-      const signSpinner = ora('Signing...').start()
+      // Encrypt sensitive layers
+      const encryptSpinner = ora('Encrypting sensitive layers...').start()
       const password = opts.password ?? 'saga-default-password'
       const privateKey = loadWalletPrivateKey(opts.wallet, password)
+
+      // Derive NaCl box keypair from wallet private key for layer encryption
+      const privKeyBytes = new Uint8Array(Buffer.from(privateKey.slice(2), 'hex').subarray(0, 32))
+      const senderKeyPair = boxKeyPairFromSecretKey(privKeyBytes)
+
+      // For self-encryption, the agent is both sender and recipient
+      const recipientPublicKeys = [senderKeyPair.publicKey]
+
+      // Determine if this is a cross-org export
+      const isCrossOrg = opts.type === 'transfer' || opts.type === 'clone'
+
+      const encryptedDoc = applyDefaultEncryption({
+        document: result.document,
+        senderSecretKey: senderKeyPair.secretKey,
+        recipientPublicKeys,
+        crossOrg: isCrossOrg,
+      })
+
+      // Replace the document with the encrypted version
+      Object.assign(result.document, encryptedDoc)
+
+      const encLayers = encryptedDoc.privacy?.encryptedLayers ?? []
+      if (encLayers.length > 0) {
+        encryptSpinner.succeed(`Encrypted layers: ${encLayers.join(', ')}`)
+      } else {
+        encryptSpinner.succeed('No sensitive layers to encrypt')
+      }
+
+      // Sign
+      const signSpinner = ora('Signing...').start()
       const signer = createPrivateKeySigner({
         privateKey: privateKey as `0x${string}`,
         chain: walletInfo.chain as 'eip155:8453',
@@ -158,7 +190,7 @@ async function pushToServer(container: Uint8Array, serverUrlOrName?: string): Pr
       : undefined
     const client = new SagaServerClient({ serverUrl, auth })
 
-    // For push, we need the handle — extract from the container or config
+    // For push, we need the handle
     const walletInfo = getWalletInfo(config.defaultWallet ?? 'default')
     const handle = walletInfo ? `${walletInfo.address.slice(0, 10)}.saga` : 'agent.saga'
 

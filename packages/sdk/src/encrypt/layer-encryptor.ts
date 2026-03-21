@@ -59,6 +59,10 @@ export function decryptLayer(options: {
 /**
  * Default encryption layers per SAGA Section 14.1.
  * Returns a copy of the document with sensitive layers encrypted.
+ *
+ * Vault items use AES-256-GCM (not NaCl box), so this function validates
+ * that vault items are already encrypted rather than encrypting them.
+ * Use encryptVaultItem() at write time for vault encryption.
  */
 export function applyDefaultEncryption(options: {
   document: SagaDocument
@@ -89,6 +93,26 @@ export function applyDefaultEncryption(options: {
     })
     ;(doc.layers.memory as Record<string, unknown>).longTerm = encrypted
     encryptedLayers.push('memory.longTerm')
+  }
+
+  // vault: MUST be encrypted (spec Section 12)
+  // Vault items use AES-256-GCM (different scheme), so we validate rather than encrypt.
+  // Vault encryption happens at item write time via vault-crypto.ts.
+  if (doc.layers.vault) {
+    const vault = doc.layers.vault
+    if (vault.items && vault.items.length > 0) {
+      for (const item of vault.items) {
+        if (!item.fields.__encrypted) {
+          throw new Error(
+            'Vault items must be encrypted before export. Use encryptVaultItem() first.'
+          )
+        }
+        if (!item.keyWraps || item.keyWraps.length === 0) {
+          throw new Error('Vault items must include at least one keyWrap entry before export.')
+        }
+      }
+    }
+    encryptedLayers.push('vault')
   }
 
   if (encryptedLayers.length > 0) {

@@ -51,3 +51,16 @@ export function boxDecrypt(encrypted: EncryptedPayload, recipientSecretKey: Uint
 export function generateBoxKeyPair(): { publicKey: Uint8Array; secretKey: Uint8Array } {
   return nacl.box.keyPair()
 }
+
+/** Derive a NaCl box keypair from a 32-byte secret key */
+export function boxKeyPairFromSecretKey(secretKey: Uint8Array): {
+  publicKey: Uint8Array
+  secretKey: Uint8Array
+} {
+  if (secretKey.length !== nacl.box.secretKeyLength) {
+    throw new Error(
+      `Invalid secret key length: expected ${nacl.box.secretKeyLength} bytes, got ${secretKey.length}`
+    )
+  }
+  return nacl.box.keyPair.fromSecretKey(secretKey)
+}

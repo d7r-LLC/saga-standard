@@ -7,12 +7,13 @@ import ora from 'ora'
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { decryptVaultItem, deriveVaultMasterKey, encryptVaultItem } from '@epicdm/saga-sdk'
 import { getSagaDir } from '../config'
-import { getWalletInfo } from '../wallet-store'
+import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
 import type { VaultDecryptedFields, VaultItem, VaultItemType, VaultLayer } from '@epicdm/saga-sdk'
 
 /**
- * Vault management commands — encrypted credential store for agents.
+ * Vault management commands: encrypted credential store for agents.
  *
  * The vault is unlocked using the agent's wallet private key.
  * Vault contents are AES-256-GCM encrypted with wallet-derived keys.
@@ -21,7 +22,7 @@ import type { VaultDecryptedFields, VaultItem, VaultItemType, VaultLayer } from 
 export const vaultCommand = new Command('vault').description('Manage the agent credential vault')
 
 /**
- * List all vault items (metadata only — no decryption required)
+ * List all vault items (metadata only, no decryption required)
  */
 vaultCommand
   .command('list')
@@ -69,7 +70,7 @@ vaultCommand
   })
 
 /**
- * Add a new vault item
+ * Add a new vault item with real AES-256-GCM encryption
  */
 vaultCommand
   .command('add')
@@ -125,8 +126,18 @@ vaultCommand
       // Load or create vault
       const vault = loadVault() ?? createEmptyVault()
 
-      // Create vault item with placeholder encryption
-      // Real encryption happens via the SDK's vault encrypt functions
+      // Derive vault master key from wallet private key
+      const vaultPassword = opts.password ?? 'saga-default-password'
+      const privKey = loadWalletPrivateKey(opts.wallet, vaultPassword)
+      const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex').subarray(0, 32))
+      const vaultMasterKey = deriveVaultMasterKey(
+        privKeyBytes,
+        Buffer.from(vault.encryption.salt, 'base64')
+      )
+
+      // Encrypt fields with real AES-256-GCM
+      const encrypted = encryptVaultItem(fields, vaultMasterKey)
+
       const itemId = `vi_${generateItemId()}`
       const now = new Date().toISOString()
 
@@ -138,22 +149,8 @@ vaultCommand
         tags: opts.tags ? opts.tags.split(',').map((t: string) => t.trim()) : undefined,
         createdAt: now,
         updatedAt: now,
-        fields: {
-          __encrypted: true,
-          v: 1,
-          alg: 'aes-256-gcm',
-          // In a real implementation, these would be actual ciphertext from the SDK
-          ct: Buffer.from(JSON.stringify(fields)).toString('base64'),
-          iv: Buffer.from(randomBytes(12)).toString('base64'),
-          at: Buffer.from(randomBytes(16)).toString('base64'),
-        },
-        keyWraps: [
-          {
-            recipient: 'self',
-            algorithm: 'x25519-xsalsa20-poly1305',
-            wrappedKey: Buffer.from(randomBytes(32)).toString('base64'),
-          },
-        ],
+        fields: encrypted.fields,
+        keyWraps: [encrypted.wrappedDek],
       }
 
       vault.items.push(item)
@@ -240,14 +237,23 @@ vaultCommand
       console.log(`  Key wraps: ${item.keyWraps.length} recipient(s)`)
       console.log()
 
-      // Attempt decryption
+      // Attempt real decryption
       const walletInfo = getWalletInfo(opts.wallet)
       if (walletInfo && item.fields.__encrypted) {
-        // In production, real decryption via SDK vault crypto
-        // For now, decode the base64 ct (which in our add command is just base64 JSON)
         try {
-          const plaintext = Buffer.from(item.fields.ct, 'base64').toString('utf-8')
-          const fields = JSON.parse(plaintext)
+          const vaultPassword = opts.password ?? 'saga-default-password'
+          const privKey = loadWalletPrivateKey(opts.wallet, vaultPassword)
+          const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex').subarray(0, 32))
+
+          const masterKey = deriveVaultMasterKey(
+            privKeyBytes,
+            Buffer.from(vault.encryption.salt, 'base64')
+          )
+
+          const selfWrap = item.keyWraps.find(kw => kw.recipient === 'self')
+          if (!selfWrap) throw new Error('No self key wrap found')
+
+          const fields = decryptVaultItem(item.fields, selfWrap, masterKey)
           console.log(chalk.bold('  Fields (decrypted):'))
           for (const [key, value] of Object.entries(fields)) {
             const display =
@@ -257,10 +263,10 @@ vaultCommand
             console.log(`    ${key}: ${display}`)
           }
         } catch {
-          console.log(chalk.yellow('  Fields: [encrypted — decryption not available]'))
+          console.log(chalk.yellow('  Fields: [encrypted - decryption failed]'))
         }
       } else {
-        console.log(chalk.yellow('  Fields: [encrypted — unlock vault to view]'))
+        console.log(chalk.yellow('  Fields: [encrypted - unlock vault to view]'))
       }
     } catch (err) {
       console.error(chalk.red(`Failed to get item: ${(err as Error).message}`))
@@ -313,7 +319,7 @@ vaultCommand
         expiresAt: opts.expires,
       })
 
-      // Add key wrap for recipient (placeholder)
+      // Add key wrap for recipient (placeholder until recipient pubkey is available)
       item.keyWraps.push({
         recipient: opts.to,
         algorithm: 'x25519-xsalsa20-poly1305',
@@ -331,7 +337,7 @@ vaultCommand
     }
   })
 
-// ── Helpers ─────────────────────────────────────────────────────────
+// -- Helpers --
 
 function loadVault(_sagaPath?: string): VaultLayer | null {
   const vaultPath = join(getSagaDir(), 'vault.json')

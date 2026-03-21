@@ -5,9 +5,12 @@ import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
 import type { Env } from '../bindings'
-import { agents, transfers } from '../db/schema'
+import { agents, documents, transfers } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
+import { validateDocumentEncryption } from '../middleware/validate-document'
+
+const HANDLE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,62}[a-zA-Z0-9]$/
 
 export const transferRoutes = new Hono<{
   Bindings: Env
@@ -15,7 +18,7 @@ export const transferRoutes = new Hono<{
 }>()
 
 /**
- * POST /v1/transfers/initiate — Start a transfer
+ * POST /v1/transfers/initiate
  */
 transferRoutes.post('/initiate', requireAuth, async c => {
   const session = c.get('session')
@@ -34,7 +37,6 @@ transferRoutes.post('/initiate', requireAuth, async c => {
 
   const db = drizzle(c.env.DB)
 
-  // Look up agent
   const agentRows = await db
     .select()
     .from(agents)
@@ -47,7 +49,6 @@ transferRoutes.post('/initiate', requireAuth, async c => {
 
   const agent = agentRows[0]
 
-  // Must own the agent
   if (agent.walletAddress !== session.walletAddress.toLowerCase()) {
     return c.json({ error: 'Not authorized to transfer this agent', code: 'FORBIDDEN' }, 403)
   }
@@ -82,7 +83,7 @@ transferRoutes.post('/initiate', requireAuth, async c => {
 })
 
 /**
- * POST /v1/transfers/:transferId/consent — Sign consent for a transfer
+ * POST /v1/transfers/:transferId/consent
  */
 transferRoutes.post('/:transferId/consent', requireAuth, async c => {
   const session = c.get('session')
@@ -95,7 +96,6 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
 
   const db = drizzle(c.env.DB)
 
-  // Look up transfer
   const xferRows = await db.select().from(transfers).where(eq(transfers.id, transferId)).limit(1)
 
   if (xferRows.length === 0) {
@@ -114,7 +114,6 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
     )
   }
 
-  // Verify agent ownership
   const agentRows = await db.select().from(agents).where(eq(agents.id, xfer.agentId)).limit(1)
 
   if (
@@ -124,7 +123,6 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
     return c.json({ error: 'Not authorized', code: 'FORBIDDEN' }, 403)
   }
 
-  // Update transfer status
   await db
     .update(transfers)
     .set({
@@ -145,7 +143,7 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
 })
 
 /**
- * GET /v1/transfers/:transferId — Get transfer status
+ * GET /v1/transfers/:transferId
  */
 transferRoutes.get('/:transferId', async c => {
   const transferId = c.req.param('transferId') as string
@@ -159,7 +157,6 @@ transferRoutes.get('/:transferId', async c => {
 
   const xfer = xferRows[0]
 
-  // Get agent handle
   const agentRows = await db
     .select({ handle: agents.handle })
     .from(agents)
@@ -180,42 +177,168 @@ transferRoutes.get('/:transferId', async c => {
 })
 
 /**
- * POST /v1/transfers/import — Import a .saga container from a transfer
+ * POST /v1/transfers/import — Import a SAGA document from a transfer
  */
 transferRoutes.post('/import', requireAuth, async c => {
+  const session = c.get('session')
   const contentType = c.req.header('Content-Type') ?? ''
 
-  if (!contentType.includes('application/octet-stream')) {
+  let sagaDoc: Record<string, unknown>
+
+  if (contentType.includes('application/json')) {
+    sagaDoc = await c.req.json<Record<string, unknown>>()
+  } else if (contentType.includes('application/octet-stream')) {
+    const body = await c.req.arrayBuffer()
+    if (body.byteLength === 0) {
+      return c.json({ error: 'Empty container', code: 'INVALID_REQUEST' }, 400)
+    }
+    try {
+      const text = new TextDecoder().decode(body)
+      sagaDoc = JSON.parse(text)
+    } catch {
+      return c.json(
+        {
+          error:
+            'Invalid format. Only JSON documents are currently supported for import. ZIP container (.saga) extraction is not yet implemented.',
+          code: 'INVALID_FORMAT',
+        },
+        400
+      )
+    }
+  } else {
     return c.json(
-      { error: 'Content-Type must be application/octet-stream', code: 'INVALID_REQUEST' },
+      {
+        error: 'Content-Type must be application/json or application/octet-stream',
+        code: 'INVALID_REQUEST',
+      },
       400
     )
   }
 
-  const body = await c.req.arrayBuffer()
-  if (body.byteLength === 0) {
-    return c.json({ error: 'Empty container', code: 'INVALID_REQUEST' }, 400)
+  // Validate identity layer is present
+  const layers = sagaDoc.layers as Record<string, unknown> | undefined
+  const identity = layers?.identity as Record<string, unknown> | undefined
+  if (!identity || !identity.handle || !identity.walletAddress || !identity.chain) {
+    return c.json(
+      {
+        error: 'Identity layer with handle, walletAddress, and chain is required for import',
+        code: 'MISSING_IDENTITY',
+      },
+      400
+    )
   }
 
-  // In a full implementation, this would:
-  // 1. Extract the .saga container
-  // 2. Validate the document
-  // 3. Verify signatures
-  // 4. Create or update the agent
-  // 5. Store the document
-  // For the reference server, we return a stub response
+  // Validate handle format
+  const handle = identity.handle as string
+  if (!HANDLE_REGEX.test(handle)) {
+    return c.json(
+      {
+        error: 'Handle must be 3-64 chars, alphanumeric with dots/hyphens/underscores',
+        code: 'INVALID_HANDLE',
+      },
+      400
+    )
+  }
 
-  const agentId = generateId('agent')
+  // Validate that identity wallet matches the authenticated session
+  const walletAddress = (identity.walletAddress as string).toLowerCase()
+  if (walletAddress !== session.walletAddress.toLowerCase()) {
+    return c.json(
+      {
+        error: 'Identity walletAddress does not match authenticated session',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
+  // Validate encryption on vault if present
+  const encError = validateDocumentEncryption(sagaDoc)
+  if (encError) {
+    return c.json({ error: encError, code: 'ENCRYPTION_REQUIRED' }, 400)
+  }
+
+  const db = drizzle(c.env.DB)
+  const chain = identity.chain as string
+  const now = new Date().toISOString()
+
+  // Check if agent already exists
+  const existing = await db
+    .select({ id: agents.id, walletAddress: agents.walletAddress })
+    .from(agents)
+    .where(eq(agents.handle, handle))
+    .limit(1)
+
+  let agentId: string
+  if (existing.length > 0) {
+    // Verify the existing agent is owned by the authenticated session
+    if (existing[0].walletAddress !== session.walletAddress.toLowerCase()) {
+      return c.json(
+        {
+          error: 'Agent handle already registered to a different wallet',
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+    agentId = existing[0].id
+    await db
+      .update(agents)
+      .set({ walletAddress, chain, updatedAt: now })
+      .where(eq(agents.id, agentId))
+  } else {
+    agentId = generateId('agent')
+    await db.insert(agents).values({
+      id: agentId,
+      handle,
+      walletAddress,
+      chain,
+      publicKey: (identity.publicKey as string) ?? null,
+      registeredAt: now,
+      updatedAt: now,
+    })
+  }
+
+  // Store the document
   const documentId = generateId('saga')
+  const jsonStr = JSON.stringify(sagaDoc)
+  const storageKey = `documents/${agentId}/${documentId}.json`
+  const sizeBytes = new TextEncoder().encode(jsonStr).length
+
+  await c.env.STORAGE.put(storageKey, jsonStr, {
+    httpMetadata: { contentType: 'application/json' },
+  })
+
+  const checksum = await computeImportChecksum(new TextEncoder().encode(jsonStr))
+  await db.insert(documents).values({
+    id: documentId,
+    agentId,
+    exportType: (sagaDoc.exportType as string) ?? 'transfer',
+    sagaVersion: (sagaDoc.sagaVersion as string) ?? '1.0',
+    storageKey,
+    sizeBytes,
+    checksum,
+    createdAt: now,
+  })
+
+  const importedLayers = layers ? Object.keys(layers) : []
 
   return c.json(
     {
       agentId,
-      handle: 'imported-agent',
-      importedLayers: ['identity', 'persona', 'memory'],
+      handle,
+      importedLayers,
       documentId,
       status: 'imported',
     },
     201
   )
 })
+
+async function computeImportChecksum(data: Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  const hex = Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+  return `sha256:${hex}`
+}
