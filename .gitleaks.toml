@@ -17,3 +17,8 @@ useDefault = true
     '''\.plans/''',
     '''docs/'''
   ]
+
+  # Vault encryption algorithm identifiers in test fixtures are not secrets
+  regexes = [
+    '''x25519-xsalsa20-poly1305'''
+  ]

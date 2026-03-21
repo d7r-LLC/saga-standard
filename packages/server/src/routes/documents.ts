@@ -8,6 +8,7 @@ import type { Env } from '../bindings'
 import { agents, documents } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
+import { validateDocumentEncryption } from '../middleware/validate-document'
 
 export const documentRoutes = new Hono<{
   Bindings: Env
@@ -72,6 +73,13 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
       exportType?: string
       [key: string]: unknown
     }>()
+
+    // Validate encryption requirements
+    const encryptionError = validateDocumentEncryption(body as Record<string, unknown>)
+    if (encryptionError) {
+      return c.json({ error: encryptionError, code: 'ENCRYPTION_REQUIRED' }, 400)
+    }
+
     const jsonStr = JSON.stringify(body)
     sizeBytes = new TextEncoder().encode(jsonStr).length
     checksum = await computeChecksum(new TextEncoder().encode(jsonStr))
@@ -112,9 +120,9 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
 })
 
 /**
- * GET /v1/agents/:handle/documents — List documents
+ * GET /v1/agents/:handle/documents — List documents (auth required)
  */
-documentRoutes.get('/:handle/documents', async c => {
+documentRoutes.get('/:handle/documents', requireAuth, async c => {
   const handle = c.req.param('handle') as string
   const exportType = c.req.query('exportType')
   const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50)))
@@ -154,9 +162,9 @@ documentRoutes.get('/:handle/documents', async c => {
 })
 
 /**
- * GET /v1/agents/:handle/documents/:documentId — Get a document
+ * GET /v1/agents/:handle/documents/:documentId — Get a document (auth required)
  */
-documentRoutes.get('/:handle/documents/:documentId', async c => {
+documentRoutes.get('/:handle/documents/:documentId', requireAuth, async c => {
   const handle = c.req.param('handle') as string
   const documentId = c.req.param('documentId') as string
   const accept = c.req.header('Accept') ?? 'application/json'

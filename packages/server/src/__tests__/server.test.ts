@@ -6,7 +6,7 @@ import app from '../index'
 import { createMockEnv, runMigrations } from './test-helpers'
 import type { Env } from '../bindings'
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// -- Helpers --
 
 const WALLET = '0xaabbccddee1234567890aabbccddee1234567890'
 const CHAIN = 'eip155:8453'
@@ -34,13 +34,11 @@ async function req(
 }
 
 async function getSessionToken(): Promise<string> {
-  // 1. Get challenge
   const challengeRes = await req('POST', '/v1/auth/challenge', {
     body: { walletAddress: WALLET, chain: CHAIN },
   })
   const { challenge } = (await challengeRes.json()) as { challenge: string }
 
-  // 2. Verify (with a fake but valid-length signature)
   const fakeSignature = `0x${'ab'.repeat(65)}`
   const verifyRes = await req('POST', '/v1/auth/verify', {
     body: { walletAddress: WALLET, chain: CHAIN, signature: fakeSignature, challenge },
@@ -53,7 +51,7 @@ function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────
+// -- Tests --
 
 describe('SAGA Reference Server', () => {
   beforeEach(async () => {
@@ -61,7 +59,7 @@ describe('SAGA Reference Server', () => {
     await runMigrations(env.DB)
   })
 
-  // ── Health ────────────────────────────────────────────────────────
+  // -- Health --
 
   describe('GET /health', () => {
     it('returns ok', async () => {
@@ -71,7 +69,7 @@ describe('SAGA Reference Server', () => {
     })
   })
 
-  // ── Server Info ───────────────────────────────────────────────────
+  // -- Server Info --
 
   describe('GET /v1/server', () => {
     it('returns server metadata', async () => {
@@ -85,11 +83,10 @@ describe('SAGA Reference Server', () => {
     })
   })
 
-  // ── Auth ──────────────────────────────────────────────────────────
+  // -- Auth --
 
   describe('auth flow', () => {
     it('issues challenge and verifies signature', async () => {
-      // Get challenge
       const challengeRes = await req('POST', '/v1/auth/challenge', {
         body: { walletAddress: WALLET, chain: CHAIN },
       })
@@ -101,7 +98,6 @@ describe('SAGA Reference Server', () => {
       expect(challengeBody.challenge).toContain(WALLET)
       expect(challengeBody.expiresAt).toBeTruthy()
 
-      // Verify
       const fakeSignature = `0x${'ab'.repeat(65)}`
       const verifyRes = await req('POST', '/v1/auth/verify', {
         body: {
@@ -144,13 +140,11 @@ describe('SAGA Reference Server', () => {
       const token = await getSessionToken()
       expect(token).toBeTruthy()
 
-      // Try to use the same challenge again — need to get the challenge first
       const challengeRes = await req('POST', '/v1/auth/challenge', {
         body: { walletAddress: WALLET, chain: CHAIN },
       })
       const { challenge } = (await challengeRes.json()) as { challenge: string }
 
-      // First verify succeeds
       const firstVerify = await req('POST', '/v1/auth/verify', {
         body: {
           walletAddress: WALLET,
@@ -161,7 +155,6 @@ describe('SAGA Reference Server', () => {
       })
       expect(firstVerify.status).toBe(200)
 
-      // Second verify with same challenge fails
       const secondVerify = await req('POST', '/v1/auth/verify', {
         body: {
           walletAddress: WALLET,
@@ -174,27 +167,21 @@ describe('SAGA Reference Server', () => {
     })
   })
 
-  // ── Agents ────────────────────────────────────────────────────────
+  // -- Agents --
 
   describe('agents', () => {
     it('registers and retrieves an agent', async () => {
       const token = await getSessionToken()
 
-      // Register
       const regRes = await req('POST', '/v1/agents', {
         headers: authHeader(token),
-        body: {
-          handle: 'koda.saga',
-          walletAddress: WALLET,
-          chain: CHAIN,
-        },
+        body: { handle: 'koda.saga', walletAddress: WALLET, chain: CHAIN },
       })
       expect(regRes.status).toBe(201)
       const agent = (await regRes.json()) as Record<string, unknown>
       expect(agent.handle).toBe('koda.saga')
       expect(agent.agentId).toBeTruthy()
 
-      // Get by handle
       const getRes = await req('GET', '/v1/agents/koda.saga')
       expect(getRes.status).toBe(200)
       const detail = (await getRes.json()) as { agent: Record<string, unknown> }
@@ -221,7 +208,7 @@ describe('SAGA Reference Server', () => {
 
       const res = await req('POST', '/v1/agents', {
         headers: authHeader(token),
-        body: { handle: 'ab', walletAddress: WALLET, chain: CHAIN }, // too short
+        body: { handle: 'ab', walletAddress: WALLET, chain: CHAIN },
       })
       expect(res.status).toBe(400)
     })
@@ -272,7 +259,7 @@ describe('SAGA Reference Server', () => {
     })
   })
 
-  // ── Documents ─────────────────────────────────────────────────────
+  // -- Documents --
 
   describe('documents', () => {
     let token: string
@@ -297,8 +284,10 @@ describe('SAGA Reference Server', () => {
       expect(uploadBody.documentId).toBeTruthy()
       expect(uploadBody.checksum).toMatch(/^sha256:/)
 
-      // Retrieve
-      const getRes = await req('GET', `/v1/agents/koda.saga/documents/${uploadBody.documentId}`)
+      // Retrieve (auth required)
+      const getRes = await req('GET', `/v1/agents/koda.saga/documents/${uploadBody.documentId}`, {
+        headers: authHeader(token),
+      })
       expect(getRes.status).toBe(200)
       const retrieved = (await getRes.json()) as Record<string, unknown>
       expect(retrieved.sagaVersion).toBe('1.0')
@@ -314,7 +303,9 @@ describe('SAGA Reference Server', () => {
         body: { sagaVersion: '1.0', exportType: 'full' },
       })
 
-      const res = await req('GET', '/v1/agents/koda.saga/documents')
+      const res = await req('GET', '/v1/agents/koda.saga/documents', {
+        headers: authHeader(token),
+      })
       expect(res.status).toBe(200)
       const body = (await res.json()) as { documents: unknown[] }
       expect(body.documents.length).toBe(2)
@@ -332,8 +323,10 @@ describe('SAGA Reference Server', () => {
       })
       expect(deleteRes.status).toBe(204)
 
-      // Verify it's gone
-      const getRes = await req('GET', `/v1/agents/koda.saga/documents/${documentId}`)
+      // Verify it's gone (auth required)
+      const getRes = await req('GET', `/v1/agents/koda.saga/documents/${documentId}`, {
+        headers: authHeader(token),
+      })
       expect(getRes.status).toBe(404)
     })
 
@@ -344,13 +337,140 @@ describe('SAGA Reference Server', () => {
       expect(res.status).toBe(401)
     })
 
+    it('requires auth for document list', async () => {
+      const res = await req('GET', '/v1/agents/koda.saga/documents')
+      expect(res.status).toBe(401)
+    })
+
+    it('requires auth for document retrieval', async () => {
+      const uploadRes = await req('POST', '/v1/agents/koda.saga/documents', {
+        headers: authHeader(token),
+        body: { sagaVersion: '1.0' },
+      })
+      const { documentId } = (await uploadRes.json()) as { documentId: string }
+
+      const getRes = await req('GET', `/v1/agents/koda.saga/documents/${documentId}`)
+      expect(getRes.status).toBe(401)
+    })
+
     it('returns 404 for nonexistent agent', async () => {
-      const res = await req('GET', '/v1/agents/nonexistent/documents')
+      const res = await req('GET', '/v1/agents/nonexistent/documents', {
+        headers: authHeader(token),
+      })
       expect(res.status).toBe(404)
+    })
+
+    it('rejects upload with unencrypted vault layer', async () => {
+      const doc = {
+        sagaVersion: '1.0',
+        exportType: 'full',
+        layers: {
+          identity: {
+            handle: 'koda.saga',
+            walletAddress: WALLET,
+            chain: CHAIN,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          vault: {
+            encryption: {
+              algorithm: 'aes-256-gcm',
+              keyDerivation: 'hkdf-sha256',
+              keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+              salt: 'dGVzdA==',
+              info: 'saga-vault-v1',
+            },
+            items: [
+              {
+                itemId: 'vi_test',
+                type: 'login',
+                name: 'Test Login',
+                createdAt: '2026-01-01T00:00:00Z',
+                updatedAt: '2026-01-01T00:00:00Z',
+                fields: {
+                  __encrypted: false,
+                  username: 'plaintext-visible',
+                  password: 'plaintext-visible',
+                },
+                keyWraps: [],
+              },
+            ],
+            version: 1,
+            updatedAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      }
+
+      const res = await req('POST', '/v1/agents/koda.saga/documents', {
+        headers: authHeader(token),
+        body: doc,
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; code: string }
+      expect(body.code).toBe('ENCRYPTION_REQUIRED')
+    })
+
+    it('accepts upload with properly encrypted vault layer', async () => {
+      const doc = {
+        sagaVersion: '1.0',
+        exportType: 'full',
+        privacy: {
+          encryptedLayers: ['vault'],
+          encryptionScheme: 'x25519-xsalsa20-poly1305',
+        },
+        layers: {
+          identity: {
+            handle: 'koda.saga',
+            walletAddress: WALLET,
+            chain: CHAIN,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          vault: {
+            encryption: {
+              algorithm: 'aes-256-gcm',
+              keyDerivation: 'hkdf-sha256',
+              keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+              salt: 'dGVzdA==',
+              info: 'saga-vault-v1',
+            },
+            items: [
+              {
+                itemId: 'vi_test',
+                type: 'login',
+                name: 'Test Login',
+                createdAt: '2026-01-01T00:00:00Z',
+                updatedAt: '2026-01-01T00:00:00Z',
+                fields: {
+                  __encrypted: true,
+                  v: 1,
+                  alg: 'aes-256-gcm',
+                  ct: 'Y2lwaGVydGV4dA==',
+                  iv: 'aXY=',
+                  at: 'YXQ=',
+                },
+                keyWraps: [
+                  {
+                    recipient: 'self',
+                    algorithm: 'x25519-xsalsa20-poly1305',
+                    wrappedKey: 'a2V5',
+                  },
+                ],
+              },
+            ],
+            version: 1,
+            updatedAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      }
+
+      const res = await req('POST', '/v1/agents/koda.saga/documents', {
+        headers: authHeader(token),
+        body: doc,
+      })
+      expect(res.status).toBe(201)
     })
   })
 
-  // ── Transfers ─────────────────────────────────────────────────────
+  // -- Transfers --
 
   describe('transfers', () => {
     let token: string
@@ -364,7 +484,6 @@ describe('SAGA Reference Server', () => {
     })
 
     it('initiates and consents to a transfer', async () => {
-      // Initiate
       const initRes = await req('POST', '/v1/transfers/initiate', {
         headers: authHeader(token),
         body: {
@@ -382,7 +501,6 @@ describe('SAGA Reference Server', () => {
       expect(initBody.status).toBe('pending_consent')
       expect(initBody.consentMessage).toBeTruthy()
 
-      // Consent
       const consentRes = await req('POST', `/v1/transfers/${initBody.transferId}/consent`, {
         headers: authHeader(token),
         body: { signature: `0x${'ff'.repeat(65)}` },
@@ -391,7 +509,6 @@ describe('SAGA Reference Server', () => {
       const consentBody = (await consentRes.json()) as { status: string }
       expect(consentBody.status).toBe('packaging')
 
-      // Get status
       const statusRes = await req('GET', `/v1/transfers/${initBody.transferId}`)
       expect(statusRes.status).toBe(200)
       const statusBody = (await statusRes.json()) as { status: string }
@@ -410,7 +527,6 @@ describe('SAGA Reference Server', () => {
     })
 
     it('rejects consent for wrong state', async () => {
-      // Initiate
       const initRes = await req('POST', '/v1/transfers/initiate', {
         headers: authHeader(token),
         body: {
@@ -420,13 +536,11 @@ describe('SAGA Reference Server', () => {
       })
       const { transferId } = (await initRes.json()) as { transferId: string }
 
-      // Consent once (succeeds)
       await req('POST', `/v1/transfers/${transferId}/consent`, {
         headers: authHeader(token),
         body: { signature: `0x${'ff'.repeat(65)}` },
       })
 
-      // Consent again (wrong state)
       const res = await req('POST', `/v1/transfers/${transferId}/consent`, {
         headers: authHeader(token),
         body: { signature: `0x${'ee'.repeat(65)}` },
@@ -434,16 +548,45 @@ describe('SAGA Reference Server', () => {
       expect(res.status).toBe(400)
     })
 
-    it('imports a container', async () => {
-      const container = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0])
+    it('imports a valid SAGA document and creates agent + document', async () => {
+      const sagaDoc = {
+        sagaVersion: '1.0',
+        exportType: 'transfer',
+        layers: {
+          identity: {
+            handle: 'imported-agent',
+            walletAddress: WALLET,
+            chain: CHAIN,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      }
+
       const res = await req('POST', '/v1/transfers/import', {
         headers: authHeader(token),
-        raw: container.buffer as ArrayBuffer,
+        body: sagaDoc,
       })
       expect(res.status).toBe(201)
-      const body = (await res.json()) as { status: string; importedLayers: string[] }
+      const body = (await res.json()) as {
+        agentId: string
+        handle: string
+        documentId: string
+        status: string
+        importedLayers: string[]
+      }
+      expect(body.handle).toBe('imported-agent')
       expect(body.status).toBe('imported')
       expect(body.importedLayers).toContain('identity')
+      expect(body.agentId).toMatch(/^agent_/)
+      expect(body.documentId).toMatch(/^saga_/)
+    })
+
+    it('rejects import with missing identity layer', async () => {
+      const res = await req('POST', '/v1/transfers/import', {
+        headers: authHeader(token),
+        body: { sagaVersion: '1.0', exportType: 'transfer', layers: {} },
+      })
+      expect(res.status).toBe(400)
     })
   })
 })
