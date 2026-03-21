@@ -188,11 +188,82 @@ describe('applyDefaultEncryption', () => {
       recipientPublicKeys: [recipient.publicKey],
     })
 
-    // Identity should be unchanged
     expect(result.layers.identity?.handle).toBe('test')
-    // Episodic memory should be unchanged
     expect(result.layers.memory?.episodic?.events).toEqual([])
-    // Cognitive parameters should be unchanged
     expect(result.layers.cognitive?.parameters?.temperature).toBe(0.7)
+  })
+
+  it('marks vault layer as encrypted in privacy.encryptedLayers', () => {
+    const sender = generateBoxKeyPair()
+    const recipient = generateBoxKeyPair()
+
+    const doc = makeDoc()
+    ;(doc.layers as Record<string, unknown>).vault = {
+      encryption: {
+        algorithm: 'aes-256-gcm',
+        keyDerivation: 'hkdf-sha256',
+        keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+        salt: 'dGVzdA==',
+        info: 'saga-vault-v1',
+      },
+      items: [
+        {
+          itemId: 'vi_1',
+          type: 'login',
+          name: 'Test',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          fields: { __encrypted: true, v: 1, alg: 'aes-256-gcm', ct: 'x', iv: 'y', at: 'z' },
+          keyWraps: [{ recipient: 'self', algorithm: 'x25519-xsalsa20-poly1305', wrappedKey: 'k' }],
+        },
+      ],
+      version: 1,
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    const result = applyDefaultEncryption({
+      document: doc,
+      senderSecretKey: sender.secretKey,
+      recipientPublicKeys: [recipient.publicKey],
+    })
+
+    expect(result.privacy?.encryptedLayers).toContain('vault')
+  })
+
+  it('throws if vault layer has unencrypted items', () => {
+    const sender = generateBoxKeyPair()
+    const recipient = generateBoxKeyPair()
+
+    const doc = makeDoc()
+    ;(doc.layers as Record<string, unknown>).vault = {
+      encryption: {
+        algorithm: 'aes-256-gcm',
+        keyDerivation: 'hkdf-sha256',
+        keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+        salt: 'dGVzdA==',
+        info: 'saga-vault-v1',
+      },
+      items: [
+        {
+          itemId: 'vi_1',
+          type: 'login',
+          name: 'Test',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          fields: { username: 'plaintext' },
+          keyWraps: [],
+        },
+      ],
+      version: 1,
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    expect(() =>
+      applyDefaultEncryption({
+        document: doc,
+        senderSecretKey: sender.secretKey,
+        recipientPublicKeys: [recipient.publicKey],
+      })
+    ).toThrow('Vault items must be encrypted before export')
   })
 })
