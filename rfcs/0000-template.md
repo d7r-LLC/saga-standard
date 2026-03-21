@@ -32,6 +32,7 @@ Describe the change precisely. Include:
 If the change affects the JSON structure, show before/after examples.
 
 **Before:**
+
 ```json
 {
   "example": "before"
@@ -39,6 +40,7 @@ If the change affects the JSON structure, show before/after examples.
 ```
 
 **After:**
+
 ```json
 {
   "example": "after",

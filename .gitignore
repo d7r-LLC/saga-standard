@@ -1,5 +1,47 @@
-.DS_Store
+# Dependencies
 node_modules/
-*.log
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Environment
 .env
 .env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Turborepo / caching
+.turbo/
+.cache/
+
+# Wrangler / Cloudflare
+.wrangler/
+.open-next/
+.dev.vars
+
+# SAGA working directories
+.saga-partials/
+
+# Plans / scratch
+.plans/
+
+# Lock files are committed (pnpm-lock.yaml)

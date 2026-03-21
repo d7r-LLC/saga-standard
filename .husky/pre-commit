@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+
+# Run gitleaks if available, but don't fail if not installed
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --verbose --redact --staged
+else
+  echo "⚠️  gitleaks not installed — skipping secrets scan"
+  echo "   To install: https://github.com/gitleaks/gitleaks#installing"
+fi
+
+# Run lint-staged for formatting, linting, and license headers
+npx lint-staged
+
+# Run typecheck on affected packages (based on staged files)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d)
+if echo "$STAGED_FILES" | grep -q '\.tsx\?\b'; then
+  AFFECTED_PKGS=""
+  for f in $STAGED_FILES; do
+    case "$f" in
+      packages/*/*)
+        pkg=$(echo "$f" | sed 's|packages/\([^/]*\)/.*|\1|')
+        dir="packages/$pkg"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+    if [ -f "$dir/package.json" ] && grep -q '"typecheck"' "$dir/package.json" 2>/dev/null; then
+      AFFECTED_PKGS="$AFFECTED_PKGS $dir"
+    fi
+  done
+
+  # Deduplicate and run typecheck on each affected package
+  UNIQUE_PKGS=$(echo "$AFFECTED_PKGS" | tr ' ' '\n' | sort -u | grep -v '^$')
+  if [ -n "$UNIQUE_PKGS" ]; then
+    echo "Running typecheck on affected packages..."
+    for dir in $UNIQUE_PKGS; do
+      pkg_name=$(node -p "require('./$dir/package.json').name")
+      echo "  Typechecking $pkg_name..."
+      pnpm --filter "$pkg_name" typecheck || exit 1
+    done
+  fi
+fi

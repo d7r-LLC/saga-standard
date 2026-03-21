@@ -1,0 +1,19 @@
+# Gitleaks configuration for saga-standard
+# https://github.com/gitleaks/gitleaks
+
+[extend]
+# Use the default gitleaks rules
+useDefault = true
+
+[[rules]]
+  id = "bearer-jwt-token"
+  description = "Bearer token with JWT-like format (three dot-separated base64 segments)"
+  regex = '''Bearer\s+eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'''
+  tags = ["token", "jwt"]
+
+[allowlist]
+  # Plans and docs may contain example patterns
+  paths = [
+    '''\.plans/''',
+    '''docs/'''
+  ]

@@ -1,0 +1,16 @@
+name = "saga-server"
+main = "src/index.ts"
+compatibility_date = "2025-03-15"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "saga-registry"
+database_id = "local"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "saga-documents"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "saga-sessions"

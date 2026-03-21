@@ -1,0 +1,52 @@
+{
+  "name": "saga-standard",
+  "private": true,
+  "description": "SAGA: State Archive for General Agents — SDK and collectors",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "pnpm -r clean",
+    "prepare": "husky",
+    "lint:license": "node scripts/add-license-headers.js --check",
+    "lint:fix": "eslint --fix \"packages/*/src/**/*.{ts,tsx,js}\""
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.8.0"
+  },
+  "author": "d7r LLC",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/d7r-LLC/saga-standard.git"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "node scripts/add-license-headers.js --files",
+      "eslint --fix --max-warnings=-1",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs,cjs}": [
+      "node scripts/add-license-headers.js --files",
+      "eslint --fix --max-warnings=-1",
+      "prettier --write"
+    ],
+    "*.{css,scss}": [
+      "node scripts/add-license-headers.js --files",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

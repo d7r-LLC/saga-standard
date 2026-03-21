@@ -12,22 +12,22 @@
 
 When you move an AI agent from one platform to another, it loses everything: its identity, task history, learned behaviors, and accumulated expertise. Every platform uses proprietary formats. Every transfer starts from scratch.
 
-SAGA fixes this. It defines a standard format for what an agent *is*, what it *knows*, and what it *has done* — in a form any compliant runtime can import and bring to life.
+SAGA fixes this. It defines a standard format for what an agent _is_, what it _knows_, and what it _has done_ — in a form any compliant runtime can import and bring to life.
 
 A SAGA document is a portable, cryptographically signed container. It can be as thin as a wallet address (identity only) or as rich as a complete state archive with memory, skills, task history, and org relationships.
 
 ## The Eight Layers
 
-| Layer | Name | Required |
-|-------|------|----------|
-| 1 | Identity | Always |
-| 2 | Persona | Profile exports |
-| 3 | Cognitive Configuration | Transfer/clone |
-| 4 | Memory | Transfer/clone |
-| 5 | Skills & Capabilities | Profile exports |
-| 6 | Task History | Transfer/clone |
-| 7 | Relationships | Transfer/clone |
-| 8 | Environment Bindings | Transfer/clone |
+| Layer | Name                    | Required        |
+| ----- | ----------------------- | --------------- |
+| 1     | Identity                | Always          |
+| 2     | Persona                 | Profile exports |
+| 3     | Cognitive Configuration | Transfer/clone  |
+| 4     | Memory                  | Transfer/clone  |
+| 5     | Skills & Capabilities   | Profile exports |
+| 6     | Task History            | Transfer/clone  |
+| 7     | Relationships           | Transfer/clone  |
+| 8     | Environment Bindings    | Transfer/clone  |
 
 ## Minimal SAGA Document
 
@@ -69,11 +69,11 @@ A SAGA document is a portable, cryptographically signed container. It can be as 
 
 ## Conformance Levels
 
-| Level | Name | What it requires |
-|-------|------|-----------------|
-| 1 | Identity | Parse envelope, verify signatures, export identity documents |
-| 2 | Profile | Identity + persona + skills, endorsement verification |
-| 3 | Full State | Transfer/clone protocols, encrypted layers, on-chain events |
+| Level | Name       | What it requires                                             |
+| ----- | ---------- | ------------------------------------------------------------ |
+| 1     | Identity   | Parse envelope, verify signatures, export identity documents |
+| 2     | Profile    | Identity + persona + skills, endorsement verification        |
+| 3     | Full State | Transfer/clone protocols, encrypted layers, on-chain events  |
 
 ## Read the Spec
 
@@ -118,4 +118,4 @@ Apache 2.0. See [LICENSE](LICENSE).
 
 ---
 
-*saga-standard.dev — https://github.com/d7r-LLC/saga-standard*
+_saga-standard.dev — https://github.com/d7r-LLC/saga-standard_

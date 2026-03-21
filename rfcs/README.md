@@ -23,6 +23,6 @@ Numbers are assigned at PR submission time by a maintainer.
 
 ## Index
 
-| Number | Title | Status |
-|--------|-------|--------|
-| — | No RFCs yet | — |
+| Number | Title       | Status |
+| ------ | ----------- | ------ |
+| —      | No RFCs yet | —      |

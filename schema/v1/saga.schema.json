@@ -4,7 +4,15 @@
   "title": "SAGA Document",
   "description": "State Archive for General Agents — v1.0 document schema",
   "type": "object",
-  "required": ["$schema", "sagaVersion", "documentId", "exportedAt", "exportType", "signature", "layers"],
+  "required": [
+    "$schema",
+    "sagaVersion",
+    "documentId",
+    "exportedAt",
+    "exportType",
+    "signature",
+    "layers"
+  ],
   "additionalProperties": false,
   "properties": {
     "$schema": {

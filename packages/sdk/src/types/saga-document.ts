@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 d7r LLC
+
+import type { ExportType, PrivacyConfig, SignatureEnvelope } from './common'
+import type { SagaLayers } from './layers'
+
+/** A complete SAGA document per the v1.0 specification */
+export interface SagaDocument {
+  $schema: string
+  sagaVersion: string
+  documentId: string
+  createdAt?: string
+  exportedAt: string
+  exportType: ExportType
+  privacy?: PrivacyConfig
+  signature: SignatureEnvelope
+  layers: SagaLayers
+}
+
+/** A signed SAGA document (signature field is populated and verified) */
+export type SignedSagaDocument = SagaDocument & {
+  signature: SignatureEnvelope
+}
+
+/** Consent message for transfer/clone operations per Section 15.2 */
+export interface ConsentMessage {
+  operationType: 'transfer' | 'clone'
+  documentId: string
+  destinationUrl: string
+  timestamp: string
+}

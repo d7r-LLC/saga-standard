@@ -1,4 +1,5 @@
 # SAGA: State Archive for General Agents
+
 ## Version 1.0
 
 **Specification:** SAGA/1.0
@@ -15,7 +16,7 @@
 
 SAGA (State Archive for General Agents) is an open specification for representing, persisting, transferring, and instantiating AI agents across environments and organizations. A SAGA document is a portable, cryptographically signed container that captures everything needed to bring an agent to full operational capacity in any compliant runtime.
 
-A SAGA document is not a snapshot. It is a *definition*. It declares what an agent is, what it knows, what it remembers, what it has done, and how it is authorized to act. Any compliant platform that imports a SAGA document can instantiate a functionally equivalent agent.
+A SAGA document is not a snapshot. It is a _definition_. It declares what an agent is, what it knows, what it remembers, what it has done, and how it is authorized to act. Any compliant platform that imports a SAGA document can instantiate a functionally equivalent agent.
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHOULD", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
 
@@ -55,7 +56,7 @@ Four problems result:
 - **No portable reputation.** An agent's track record is locked inside the platform that recorded it.
 - **No instantiation standard.** Every platform uses proprietary formats. Moving between platforms requires complete redefinition.
 
-SAGA defines a common format at the layer beneath any individual platform: the agent definition layer. SAGA does not specify how an agent runs. It specifies what an agent *is*, what it *knows*, and what it *has done*, in a form that any compliant runtime can import and bring to life.
+SAGA defines a common format at the layer beneath any individual platform: the agent definition layer. SAGA does not specify how an agent runs. It specifies what an agent _is_, what it _knows_, and what it _has done_, in a form that any compliant runtime can import and bring to life.
 
 ### Design Principles
 
@@ -134,14 +135,14 @@ A SAGA document is a JSON object with a mandatory metadata envelope and up to ei
 
 ### 3.2 Export Types
 
-| Type       | Layers Included           | Use Case                              |
-| ---------- | ------------------------- | ------------------------------------- |
-| `identity` | identity only             | Directory registration, presence proof|
-| `profile`  | identity, persona, skills | Public profile sharing                |
-| `transfer` | all layers                | Full org-to-org transfer              |
-| `clone`    | all layers                | Instantiate a copy                    |
-| `backup`   | all layers                | Internal point-in-time restore        |
-| `full`     | all layers (explicit)     | Complete export                       |
+| Type       | Layers Included           | Use Case                               |
+| ---------- | ------------------------- | -------------------------------------- |
+| `identity` | identity only             | Directory registration, presence proof |
+| `profile`  | identity, persona, skills | Public profile sharing                 |
+| `transfer` | all layers                | Full org-to-org transfer               |
+| `clone`    | all layers                | Instantiate a copy                     |
+| `backup`   | all layers                | Internal point-in-time restore         |
+| `full`     | all layers (explicit)     | Complete export                        |
 
 Implementations MUST support `identity`. All other export types are OPTIONAL for conformance level 1 and REQUIRED for level 3.
 
@@ -626,22 +627,22 @@ Platforms MAY enforce maximum clone depths. This specification does not mandate 
 
 ### 14.1 Layer Privacy Defaults
 
-| Layer                       | Default              | Overridable                               |
-| --------------------------- | -------------------- | ----------------------------------------- |
-| Identity                    | Public               | No (identity is always public)            |
-| Persona                     | Public               | Yes (can be redacted on export)           |
-| Cognitive: system prompt    | Encrypted            | No (always encrypted on cross-org export) |
-| Cognitive: parameters       | Public               | Yes                                       |
-| Memory: short-term          | Unencrypted          | Yes                                       |
-| Memory: long-term           | Encrypted            | Yes (owner can make public)               |
-| Memory: episodic            | Unencrypted          | Yes                                       |
-| Memory: semantic            | Public               | Yes                                       |
-| Memory: procedural          | Public               | Yes                                       |
-| Skills                      | Public               | No (skills are always exportable)         |
-| Task history: summary       | Public               | Yes                                       |
-| Task history: recent tasks  | Org-private          | Yes (agent/org can release)               |
-| Relationships               | Unencrypted          | Yes                                       |
-| Environment                 | Public (schema only) | No (credentials never included)           |
+| Layer                      | Default              | Overridable                               |
+| -------------------------- | -------------------- | ----------------------------------------- |
+| Identity                   | Public               | No (identity is always public)            |
+| Persona                    | Public               | Yes (can be redacted on export)           |
+| Cognitive: system prompt   | Encrypted            | No (always encrypted on cross-org export) |
+| Cognitive: parameters      | Public               | Yes                                       |
+| Memory: short-term         | Unencrypted          | Yes                                       |
+| Memory: long-term          | Encrypted            | Yes (owner can make public)               |
+| Memory: episodic           | Unencrypted          | Yes                                       |
+| Memory: semantic           | Public               | Yes                                       |
+| Memory: procedural         | Public               | Yes                                       |
+| Skills                     | Public               | No (skills are always exportable)         |
+| Task history: summary      | Public               | Yes                                       |
+| Task history: recent tasks | Org-private          | Yes (agent/org can release)               |
+| Relationships              | Unencrypted          | Yes                                       |
+| Environment                | Public (schema only) | No (credentials never included)           |
 
 ### 14.2 Encryption Scheme
 
@@ -796,11 +797,11 @@ The reference implementation targets Level 3 conformance. Platforms targeting Le
 
 FlowState provides three open infrastructure services for the SAGA ecosystem:
 
-| Service                  | Description                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| **Agent Directory**      | The canonical SAGA-compatible registry. Resolves handles to SAGA identity documents.    |
-| **Identity Service**     | x402 wallet-based registration. Issues registration tx hashes as SAGA birth certificates.|
-| **Verification Service** | Issues skill verification proofs for verified FlowState task completions.               |
+| Service                  | Description                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| **Agent Directory**      | The canonical SAGA-compatible registry. Resolves handles to SAGA identity documents.      |
+| **Identity Service**     | x402 wallet-based registration. Issues registration tx hashes as SAGA birth certificates. |
+| **Verification Service** | Issues skill verification proofs for verified FlowState task completions.                 |
 
 These services are open and non-exclusive. Any SAGA-compliant platform may use them or build alternatives.
 
@@ -822,12 +823,12 @@ Standard traits for `persona.personality.traits`. Platforms SHOULD use these for
 
 ## Appendix B: Supported Chains (v1.0)
 
-| Chain      | CAIP-2 Identifier | Notes                          |
-| ---------- | ----------------- | ------------------------------ |
-| Base (EVM) | `eip155:8453`     | Primary (lowest gas cost)      |
-| Ethereum   | `eip155:1`        | Supported (higher gas)         |
-| Solana     | `solana:mainnet`  | Supported                      |
-| Polygon    | `eip155:137`      | Supported                      |
+| Chain      | CAIP-2 Identifier | Notes                     |
+| ---------- | ----------------- | ------------------------- |
+| Base (EVM) | `eip155:8453`     | Primary (lowest gas cost) |
+| Ethereum   | `eip155:1`        | Supported (higher gas)    |
+| Solana     | `solana:mainnet`  | Supported                 |
+| Polygon    | `eip155:137`      | Supported                 |
 
 Additional chains may be proposed via the RFC process.
 
@@ -854,13 +855,326 @@ SIGNATURE             # Agent wallet signature of content hash
 
 ## Changelog
 
-| Version | Date       | Changes                                             |
-| ------- | ---------- | --------------------------------------------------- |
-| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1.    |
-| 0.1     | 2026-03-20 | Initial working draft.                              |
+| Version | Date       | Changes                                          |
+| ------- | ---------- | ------------------------------------------------ |
+| 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.               |
+| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1. |
+| 0.1     | 2026-03-20 | Initial working draft.                           |
 
 ---
 
-*SAGA is an open specification. Contributions welcome at https://github.com/d7r-LLC/saga-standard*
+_SAGA is an open specification. Contributions welcome at https://github.com/d7r-LLC/saga-standard_
 
-*Reference implementation by FlowState: https://flowstatecloud.ai*
+_Reference implementation by FlowState: https://flowstatecloud.ai_
+
+## Appendix D: SAGA Server API
+
+A SAGA Server is an HTTP service that stores, retrieves, and transfers SAGA documents on behalf of agents. This appendix defines the REST API that conformant servers MUST implement.
+
+All endpoints use JSON request/response bodies unless otherwise noted. Servers MUST set `Content-Type: application/json` on JSON responses. Errors MUST return a JSON body with `{ "error": string, "code": string }`.
+
+### D.1 Authentication
+
+SAGA servers authenticate clients via wallet challenge-response. No passwords, no OAuth. The wallet is the identity.
+
+**Request a challenge:**
+
+```
+POST /v1/auth/challenge
+Content-Type: application/json
+
+Request:
+{
+  "walletAddress": "0x...",
+  "chain": "eip155:8453"
+}
+
+Response (200):
+{
+  "challenge": "Sign this message to authenticate with <serverName>:\nAddress: 0x...\nNonce: <random>\nTimestamp: <iso8601>",
+  "expiresAt": "2026-03-21T10:05:00Z"
+}
+```
+
+The challenge string MUST include the wallet address, a cryptographically random nonce (minimum 16 bytes hex), and the current timestamp. Challenges MUST expire within 5 minutes.
+
+**Verify signature and obtain session:**
+
+```
+POST /v1/auth/verify
+Content-Type: application/json
+
+Request:
+{
+  "walletAddress": "0x...",
+  "chain": "eip155:8453",
+  "signature": "0x...",
+  "challenge": "<the challenge string>"
+}
+
+Response (200):
+{
+  "token": "saga_sess_<random>",
+  "expiresAt": "2026-03-21T11:00:00Z",
+  "walletAddress": "0x..."
+}
+```
+
+The server MUST verify the signature using EIP-191 `personal_sign` and confirm the recovered address matches `walletAddress`. Session tokens SHOULD expire within 1 hour. Servers MUST reject expired or already-used challenges.
+
+**Authenticated requests:** All endpoints marked "Auth: Required" MUST include `Authorization: Bearer <token>` header. Servers MUST return `401 Unauthorized` for missing/expired tokens.
+
+### D.2 Server Metadata
+
+```
+GET /v1/server
+
+Response (200):
+{
+  "name": "SAGA Reference Server",
+  "version": "1.0.0",
+  "sagaVersion": "1.0",
+  "conformanceLevel": 3,
+  "supportedChains": ["eip155:1", "eip155:8453"],
+  "capabilities": ["transfer", "clone", "encryption"],
+  "registrationOpen": true
+}
+```
+
+This endpoint requires no authentication. Clients SHOULD call this endpoint to verify a URL points to a SAGA-compatible server before adding it as a target.
+
+### D.3 Agent Registration
+
+**Register a new agent:**
+
+```
+POST /v1/agents
+Auth: Required
+
+Request:
+{
+  "handle": "koda.saga",
+  "walletAddress": "0x...",
+  "chain": "eip155:8453",
+  "publicKey": "<optional x25519 public key for encryption>"
+}
+
+Response (201):
+{
+  "agentId": "agent_abc123",
+  "handle": "koda.saga",
+  "walletAddress": "0x...",
+  "chain": "eip155:8453",
+  "registeredAt": "2026-03-21T10:00:00Z"
+}
+```
+
+The `walletAddress` MUST match the authenticated session's wallet. Handles MUST be unique within the server. Handle format: 3-64 characters, alphanumeric, dots, and hyphens. Handles MUST NOT start or end with a dot or hyphen.
+
+**Retrieve an agent:**
+
+```
+GET /v1/agents/:handleOrAddress
+
+Response (200):
+{
+  "agent": {
+    "agentId": "agent_abc123",
+    "handle": "koda.saga",
+    "walletAddress": "0x...",
+    "chain": "eip155:8453",
+    "publicKey": "...",
+    "registeredAt": "2026-03-21T10:00:00Z"
+  },
+  "latestDocument": { ... }  // Most recent SagaDocument summary, if any
+}
+```
+
+The `:handleOrAddress` parameter accepts either a handle string or a wallet address.
+
+**List agents:**
+
+```
+GET /v1/agents?page=1&limit=20&search=koda
+
+Response (200):
+{
+  "agents": [ ... ],
+  "total": 42,
+  "page": 1,
+  "limit": 20
+}
+```
+
+### D.4 SAGA Document Operations
+
+**Upload a document:**
+
+```
+POST /v1/agents/:handle/documents
+Auth: Required (must own agent)
+Content-Type: application/octet-stream (for .saga container)
+             or application/json (for raw document)
+
+Response (201):
+{
+  "documentId": "saga_abc123...",
+  "exportType": "profile",
+  "storageRef": { "type": "url", "ref": "https://server/v1/agents/koda.saga/documents/saga_abc123" },
+  "sizeBytes": 12345,
+  "checksum": "sha256:abc...",
+  "uploadedAt": "2026-03-21T10:00:00Z"
+}
+```
+
+The server MUST validate the document (schema + signature verification) before accepting it. The document's `layers.identity.walletAddress` MUST match the agent's registered wallet.
+
+**List documents:**
+
+```
+GET /v1/agents/:handle/documents?exportType=profile&limit=10
+
+Response (200):
+{
+  "documents": [
+    {
+      "documentId": "saga_abc123...",
+      "exportType": "profile",
+      "sagaVersion": "1.0",
+      "sizeBytes": 12345,
+      "createdAt": "2026-03-21T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Retrieve a document:**
+
+```
+GET /v1/agents/:handle/documents/:documentId
+Accept: application/json           → returns SagaDocument JSON
+Accept: application/octet-stream   → returns .saga container bytes
+```
+
+**Delete a document:**
+
+```
+DELETE /v1/agents/:handle/documents/:documentId
+Auth: Required (must own agent)
+
+Response (200):
+{ "deleted": true }
+```
+
+### D.5 Transfer Protocol
+
+**Initiate a transfer:**
+
+```
+POST /v1/transfers/initiate
+Auth: Required
+
+Request:
+{
+  "agentHandle": "koda.saga",
+  "destinationServerUrl": "https://other-server.example.com",
+  "requestedLayers": ["identity", "persona", "cognitive", "memory", "skills", "taskHistory"]
+}
+
+Response (201):
+{
+  "transferId": "xfr_abc123",
+  "status": "pending_consent",
+  "consentMessage": "SAGA transfer consent:\nDocumentId: saga_abc123\nDestination: https://other-server.example.com\nTimestamp: 2026-03-21T10:00:00Z",
+  "initiatedAt": "2026-03-21T10:00:00Z"
+}
+```
+
+**Sign consent:**
+
+```
+POST /v1/transfers/:transferId/consent
+Auth: Required (agent wallet)
+
+Request:
+{
+  "signature": "0x..."
+}
+
+Response (200):
+{
+  "transferId": "xfr_abc123",
+  "status": "packaging"
+}
+```
+
+The server MUST verify the consent signature against the agent's wallet address using the consent message format from Section 15.2.
+
+**Check transfer status:**
+
+```
+GET /v1/transfers/:transferId
+
+Response (200):
+{
+  "transfer": {
+    "transferId": "xfr_abc123",
+    "agentHandle": "koda.saga",
+    "sourceServerUrl": "https://this-server.example.com",
+    "destinationServerUrl": "https://other-server.example.com",
+    "status": "delivering",
+    "requestedLayers": ["identity", "persona", "cognitive"],
+    "documentId": "saga_abc123",
+    "initiatedAt": "2026-03-21T10:00:00Z",
+    "completedAt": null
+  }
+}
+```
+
+Transfer status values: `pending_consent`, `packaging`, `delivering`, `imported`, `failed`.
+
+**Import a transferred agent:**
+
+```
+POST /v1/transfers/import
+Auth: Required
+Content-Type: application/octet-stream
+
+Request body: .saga container bytes
+
+Response (201):
+{
+  "agentId": "agent_def456",
+  "handle": "koda.saga",
+  "importedLayers": ["identity", "persona", "cognitive", "memory", "skills", "taskHistory"],
+  "documentId": "saga_abc123",
+  "status": "imported"
+}
+```
+
+The server MUST validate the container signature, verify consent signatures, and create a new agent record (or update the existing one if the wallet address is already registered).
+
+### D.6 Error Responses
+
+All error responses use the following format:
+
+```json
+{
+  "error": "Human-readable error description",
+  "code": "MACHINE_READABLE_CODE"
+}
+```
+
+Standard error codes:
+
+| Code                | HTTP Status | Description                                    |
+| ------------------- | ----------- | ---------------------------------------------- |
+| `UNAUTHORIZED`      | 401         | Missing or expired auth token                  |
+| `FORBIDDEN`         | 403         | Token valid but insufficient permissions       |
+| `NOT_FOUND`         | 404         | Resource does not exist                        |
+| `CONFLICT`          | 409         | Resource already exists (duplicate handle)     |
+| `VALIDATION_ERROR`  | 422         | Request body fails validation                  |
+| `SIGNATURE_INVALID` | 422         | Wallet signature verification failed           |
+| `DOCUMENT_INVALID`  | 422         | SAGA document fails schema/semantic validation |
+| `TRANSFER_FAILED`   | 500         | Transfer operation failed                      |
+| `SERVER_ERROR`      | 500         | Internal server error                          |

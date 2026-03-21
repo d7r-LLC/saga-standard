@@ -1,0 +1,6 @@
+# Gitleaks ignore file for saga-standard
+# Format: file:rule:line or full fingerprint hash
+#
+# To find fingerprints for false positives, run:
+#   gitleaks detect --verbose
+# Then copy the fingerprint from the output.
