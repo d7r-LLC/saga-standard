@@ -22,8 +22,16 @@ export { createPrivateKeySigner, createRemoteSigner } from './sign'
 export type { SagaSigner } from './sign'
 
 // Encryption
-export { encryptLayer, decryptLayer, applyDefaultEncryption, generateBoxKeyPair } from './encrypt'
-export type { EncryptedLayerData, EncryptedPayload } from './encrypt'
+export {
+  encryptLayer,
+  decryptLayer,
+  applyDefaultEncryption,
+  generateBoxKeyPair,
+  deriveVaultMasterKey,
+  encryptVaultItem,
+  decryptVaultItem,
+} from './encrypt'
+export type { EncryptedLayerData, EncryptedPayload, EncryptedVaultItemResult } from './encrypt'
 
 // Container
 export { packSagaContainer, extractSagaContainer } from './container'
