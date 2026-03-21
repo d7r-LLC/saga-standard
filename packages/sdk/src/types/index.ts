@@ -92,3 +92,21 @@ export type {
 
 export type { SagaDocument, SignedSagaDocument, ConsentMessage } from './saga-document'
 export type { PartialSagaDocument } from './partial'
+
+// ── Compliance types (Section 15.5–15.9, 16A) ───────────────────────
+export type {
+  ConsentOperation,
+  ConsentRecord,
+  AuditEventType,
+  AuditEvent,
+  RetentionPolicyEntry,
+  DeletionStatus,
+  DeletionScope,
+  DeletionRequest,
+  RetentionException,
+  BreachSeverity,
+  BreachNotification,
+  ProcessingRole,
+  SubProcessorRecord,
+  ServerComplianceMetadata,
+} from './compliance'

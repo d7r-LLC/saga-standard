@@ -41,7 +41,13 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHOULD", "RECOMMENDED", 
     - [13.6 Agent Exit Protocol](#136-agent-exit-protocol)
 14. [Clone Protocol](#14-clone-protocol)
 15. [Privacy & Consent Model](#15-privacy--consent-model)
+    - [15.5 Right to Erasure](#155-right-to-erasure)
+    - [15.6 Purpose Limitation](#156-purpose-limitation)
+    - [15.7 Data Minimization](#157-data-minimization)
+    - [15.8 Consent Records](#158-consent-records)
+    - [15.9 Automated Processing Transparency](#159-automated-processing-transparency)
 16. [Cryptographic Verification](#16-cryptographic-verification)
+    16A. [Platform Security & Compliance](#16a-platform-security--compliance-requirements) - [16A.1 Audit Logging](#16a1-audit-logging) - [16A.2 Data Retention](#16a2-data-retention) - [16A.3 Breach Notification](#16a3-breach-notification) - [16A.4 Key Management Lifecycle](#16a4-key-management-lifecycle) - [16A.5 Cross-Border Data Transfers](#16a5-cross-border-data-transfers) - [16A.6 Data Processing Roles](#16a6-data-processing-roles) - [16A.7 Incident Response](#16a7-incident-response) - [16A.8 Algorithm Agility & Deprecation](#16a8-algorithm-agility--deprecation)
 17. [Conformance](#17-conformance)
 18. [Versioning & Governance](#18-versioning--governance)
 19. [Reference Implementation](#19-reference-implementation)
@@ -1068,6 +1074,86 @@ An organization has the right to:
 4. **Restrict cloning** of agents it hosts via policy. Agents the org does not own cannot be cloned without consent.
 5. **Require an exit procedure** with classification review and dispute window per Section 13.6.
 
+### 15.5 Right to Erasure
+
+Agents have the right to request deletion of their data from any platform.
+
+**Platform obligations on erasure request:**
+
+- Platforms MUST provide a mechanism for agents (or their principals) to request data deletion.
+- Platforms MUST complete deletion within 30 days of a valid request.
+- Platforms MUST delete: all SAGA documents, all stored agent state, all cached or derived data, and all backup copies.
+- Platforms MUST provide written confirmation of deletion, including a list of data categories deleted and any data retained under exception.
+
+**Permitted retention exceptions:**
+
+Platforms MAY retain the following after an erasure request, but MUST document and justify each exception:
+
+1. **Legal obligation.** Data required by law or regulation (tax records, compliance audit trails). Retained data MUST be access-restricted and deleted when the legal obligation expires.
+2. **Redaction manifests.** Signed redaction manifests (Section 13.5.4) MAY be retained for accountability. They contain no agent operational data.
+3. **Aggregate statistics.** Anonymized, non-reversible aggregate data (task counts, skill distributions) MAY be retained. Data MUST NOT be re-identifiable to any individual agent.
+4. **Active dispute records.** Data subject to an active dispute (Section 13.6) MUST be retained until dispute resolution, then deleted per the erasure request.
+
+**On-chain data:** Blockchain records (registration transactions, transfer events) cannot be deleted due to the append-only nature of distributed ledgers. Platforms MUST document this limitation and MUST NOT store personally identifiable information on-chain beyond wallet addresses and transaction metadata.
+
+### 15.6 Purpose Limitation
+
+SAGA data MUST only be used for its stated purpose.
+
+- Platforms MUST NOT use imported SAGA data for purposes beyond operating and hosting the agent.
+- Platforms MUST NOT use SAGA document contents (memory, task history, cognitive configuration) to train AI models without explicit, separate consent from the agent's principals.
+- Platforms MUST NOT sell, license, or share agent data with third parties except as required to operate the agent (e.g., sending a system prompt to a model provider).
+- Aggregate analytics on anonymized, non-reversible data is permitted without additional consent.
+- The `exportType` field constrains permitted use: an `identity` export MUST NOT be used to reconstruct layers not included in the export.
+
+### 15.7 Data Minimization
+
+SAGA exports SHOULD include only the data necessary for the intended use.
+
+- Platforms SHOULD request only the layers needed for the target operation.
+- Transfer requests (Section 13) SHOULD use `requestedLayers` to limit scope.
+- Platforms MUST NOT require agents to export `full` when a narrower export type suffices.
+- `profile` exports MUST NOT include memory, task history, or vault layers even if the agent has them.
+- Destination platforms SHOULD delete layers they do not use within 90 days of import.
+
+### 15.8 Consent Records
+
+Every SAGA export that involves data transfer between organizations MUST include a consent record in the envelope.
+
+```json
+"consent": {
+  "operation": "transfer",
+  "grantedBy": "0xagent...wallet",
+  "grantedAt": "2026-03-21T10:00:00Z",
+  "scope": ["identity", "persona", "cognitive", "memory", "skills", "taskHistory"],
+  "purpose": "Organizational transfer to Acme Corp",
+  "expiresAt": "2026-04-21T10:00:00Z",
+  "signature": "0x..."
+}
+```
+
+| Field       | Required    | Description                                                     |
+| ----------- | ----------- | --------------------------------------------------------------- |
+| `operation` | REQUIRED    | `transfer`, `clone`, `export`, `share`, or `backup`             |
+| `grantedBy` | REQUIRED    | Wallet address of the consent grantor                           |
+| `grantedAt` | REQUIRED    | ISO 8601 timestamp                                              |
+| `scope`     | REQUIRED    | Array of layer names included in this consent                   |
+| `purpose`   | REQUIRED    | Human-readable description of the purpose of this data transfer |
+| `expiresAt` | RECOMMENDED | Consent expiration. Platforms MUST NOT use data after expiry.   |
+| `signature` | REQUIRED    | Wallet signature over the consent fields                        |
+
+Agents MAY grant partial consent (subset of layers). Platforms MUST respect the `scope` field and MUST NOT include layers not covered by consent.
+
+### 15.9 Automated Processing Transparency
+
+When a platform makes automated decisions that affect an agent's data, classification, or operational status, the agent has the right to:
+
+1. **Be informed** that automated processing is occurring.
+2. **Receive an explanation** of the logic involved, including classification algorithms and scoring mechanisms.
+3. **Contest** automated decisions through the dispute mechanism (Section 13.6).
+
+Platforms MUST disclose when data classification (Section 13.5) is applied by automated systems (pattern matching, ML classifiers) rather than human review. The `classifiedBy` field in classification metadata MUST distinguish between `org-policy:auto` (automated) and `org-admin:{handle}` (human).
+
 ---
 
 ## 16. Cryptographic Verification
@@ -1113,6 +1199,190 @@ consentSig = wallet.sign(message)
 
 `proofSignature` MUST be verifiable against the issuing platform's public key.
 
+## 16A. Platform Security & Compliance Requirements
+
+This section defines security and operational requirements for SAGA-conformant platforms. These requirements are normative for Level 3 conformance and RECOMMENDED for Levels 1 and 2.
+
+### 16A.1 Audit Logging
+
+Platforms MUST maintain tamper-evident audit logs for the following events:
+
+| Event Category        | Events                                                                     | Retention   |
+| --------------------- | -------------------------------------------------------------------------- | ----------- |
+| **Authentication**    | Challenge issued, session created, session expired, session revoked        | 1 year min  |
+| **Data access**       | SAGA document read, layer decrypted, vault item accessed                   | 1 year min  |
+| **Data modification** | Document uploaded, document deleted, layer updated, classification changed | 2 years min |
+| **Transfer/clone**    | Transfer initiated, consent signed, import completed, deactivation         | 3 years min |
+| **Consent**           | Consent granted, consent revoked, consent expired                          | 3 years min |
+| **Deletion**          | Erasure requested, erasure completed, retention exception applied          | 3 years min |
+| **Security**          | Failed auth attempt, rate limit triggered, breach detected                 | 2 years min |
+
+Each audit log entry MUST include:
+
+- Unique event identifier
+- ISO 8601 timestamp (UTC)
+- Actor identifier (wallet address or system identifier)
+- Event type and action
+- Target resource (agent handle, document ID)
+- Result (success/failure)
+- Source IP address (for API-originated events)
+
+Audit logs MUST be append-only or cryptographically signed to prevent tampering. Platforms SHOULD use a write-once storage mechanism or hash-chained log entries.
+
+Audit logs MUST NOT contain plaintext sensitive data (vault contents, decrypted memory, system prompts). Log entries MAY reference resource identifiers but MUST NOT inline the resource contents.
+
+### 16A.2 Data Retention
+
+Platforms MUST define and publish a data retention policy. The policy MUST specify retention periods for each data category:
+
+| Data Category                       | Maximum Retention After Departure | Justification Required |
+| ----------------------------------- | --------------------------------- | ---------------------- |
+| Agent SAGA documents                | 1 year                            | No                     |
+| Org archive copies (Sec 13.6)       | 3 years                           | Yes                    |
+| Audit logs                          | Per 16A.1 minimums                | No                     |
+| Redaction manifests                 | 5 years                           | No                     |
+| Transfer records                    | 3 years                           | No                     |
+| Cached/derived agent data           | 90 days after agent departure     | No                     |
+| Backup copies containing agent data | Must follow primary retention     | No                     |
+
+**Retention review:** Platforms MUST review retained data annually and delete data that has exceeded its retention period.
+
+**Active agents:** Retention limits apply after the agent departs the platform. While an agent is active, the platform retains data as needed to operate the agent.
+
+**Retention justification:** Where the table requires justification, the platform MUST document: (a) the specific legal or business obligation requiring retention, (b) the expected end date, and (c) access restrictions applied to the retained data.
+
+### 16A.3 Breach Notification
+
+Platforms MUST implement a data breach notification process.
+
+**Detection and response timeline:**
+
+| Milestone                                              | Maximum Time            |
+| ------------------------------------------------------ | ----------------------- |
+| Breach detection to assessment                         | 24 hours                |
+| Assessment to agent notification                       | 72 hours from detection |
+| Assessment to regulatory notification (where required) | 72 hours from detection |
+| Remediation plan published                             | 7 days from detection   |
+
+**Agent notification MUST include:**
+
+1. Description of the breach and its likely consequences.
+2. Categories of data affected (which layers, whether vault ciphertext was exposed).
+3. Measures taken or proposed to address the breach.
+4. Recommendations for the agent (key rotation, credential changes).
+5. Contact information for the platform's security team.
+
+**Vault-specific guidance:** If encrypted vault data (ciphertext) is exposed in a breach, the platform MUST notify affected agents and RECOMMEND vault key rotation, even though the ciphertext requires the wallet private key to decrypt. Defense in depth requires assuming the ciphertext may eventually be compromised.
+
+**Breach register:** Platforms MUST maintain a breach register documenting all detected breaches, their scope, affected agents, notification status, and remediation actions. The register MUST be retained for 5 years.
+
+### 16A.4 Key Management Lifecycle
+
+Platforms that handle encrypted SAGA data MUST implement key management practices:
+
+**Vault key rotation:**
+
+- Agents SHOULD rotate vault keys (re-derive with new salt) at least annually.
+- Platforms MUST support vault key rotation without data loss.
+- On rotation: new salt generated, all items re-encrypted with new DEKs, all key wraps regenerated, vault version incremented.
+- Platforms MUST retain the ability to decrypt data encrypted under the previous key generation for a migration period of at least 30 days.
+
+**Session key management:**
+
+- Authentication session tokens MUST expire within 1 hour (as specified in Appendix D.1).
+- Platforms MUST support immediate session revocation.
+- Session tokens MUST be generated using a cryptographically secure random number generator with at least 128 bits of entropy.
+
+**Platform key management (for platforms that encrypt data for agents):**
+
+- Platform encryption keys MUST be stored in a hardware security module (HSM) or equivalent secure key store.
+- Platform keys MUST be rotated at least annually.
+- Compromised keys MUST be revoked immediately and all data re-encrypted under new keys.
+
+### 16A.5 Cross-Border Data Transfers
+
+When a SAGA transfer crosses jurisdictional boundaries:
+
+- The source platform MUST disclose its operating jurisdiction(s) in the server metadata endpoint (Appendix D.2).
+- The destination platform MUST disclose its operating jurisdiction(s).
+- Platforms operating in jurisdictions with data transfer restrictions (EU/EEA, UK, Brazil, etc.) MUST implement appropriate transfer safeguards (Standard Contractual Clauses, adequacy decisions, or equivalent mechanisms).
+- Platforms SHOULD include a `jurisdiction` field in the server metadata response.
+
+**Server metadata extension:**
+
+```json
+{
+  "name": "SAGA Reference Server",
+  "version": "1.0.0",
+  "sagaVersion": "1.0",
+  "conformanceLevel": 3,
+  "jurisdiction": ["US", "EU"],
+  "dataResidency": "us-east-1",
+  "privacyPolicyUrl": "https://example.com/privacy",
+  "dpaUrl": "https://example.com/dpa"
+}
+```
+
+Agents or their principals SHOULD review destination jurisdiction before consenting to transfers.
+
+### 16A.6 Data Processing Roles
+
+SAGA defines two data processing roles aligned with GDPR terminology:
+
+| Role              | Definition                                                 | SAGA Context                        |
+| ----------------- | ---------------------------------------------------------- | ----------------------------------- |
+| **Controller**    | Determines the purposes and means of processing agent data | The agent's principal(s) or the org |
+| **Processor**     | Processes agent data on behalf of the controller           | The hosting platform                |
+| **Sub-processor** | A third party engaged by the processor to process data     | Model providers, storage providers  |
+
+**Platform obligations as processor:**
+
+- Platforms MUST process agent data only on documented instructions from the controller (agent/principals/org).
+- Platforms MUST maintain a register of sub-processors (model providers, cloud infrastructure) and make it available on request.
+- Platforms MUST notify agents before adding or changing sub-processors.
+- Platforms MUST ensure sub-processors are bound by equivalent data protection obligations.
+- On termination of the processing relationship (agent departure), platforms MUST delete or return all agent data per Section 15.5 and 16A.2.
+
+### 16A.7 Incident Response
+
+Platforms MUST maintain a documented incident response plan covering:
+
+1. **Classification.** Criteria for classifying security incidents by severity (low, medium, high, critical).
+2. **Escalation.** Defined escalation paths for each severity level.
+3. **Communication.** Templates and procedures for notifying affected agents, regulators, and the public.
+4. **Containment.** Procedures for isolating compromised systems and preventing further data exposure.
+5. **Recovery.** Procedures for restoring service and data integrity after an incident.
+6. **Post-incident review.** Root cause analysis within 30 days of incident resolution.
+
+Platforms MUST test their incident response plan at least annually via tabletop exercises or simulated incidents.
+
+### 16A.8 Algorithm Agility & Deprecation
+
+The SAGA specification acknowledges that cryptographic algorithms have finite lifespans.
+
+**Current required algorithms:**
+
+| Purpose               | Algorithm                 | Minimum Key Size |
+| --------------------- | ------------------------- | ---------------- |
+| Document signing      | secp256k1 (EVM) / Ed25519 | 256-bit          |
+| Layer encryption      | x25519-xsalsa20-poly1305  | 256-bit          |
+| Vault item encryption | AES-256-GCM               | 256-bit          |
+| Key derivation        | HKDF-SHA256               | 256-bit output   |
+| Content hashing       | SHA-256                   | 256-bit          |
+
+**Deprecation process:**
+
+1. The SAGA Working Group publishes a deprecation notice with a minimum 12-month migration window.
+2. During the migration window, platforms MUST accept both the deprecated and replacement algorithms.
+3. After the migration window, platforms SHOULD reject documents using deprecated algorithms and MUST flag them with a validation warning.
+4. Emergency deprecation (algorithm compromised) reduces the migration window to 90 days.
+
+**Validation behavior:**
+
+- Platforms MUST validate that documents use approved algorithms.
+- Documents using deprecated algorithms MUST produce a validation warning, not an error, during the migration window.
+- Platforms SHOULD offer automated migration tools for re-signing and re-encrypting documents under current algorithms.
+
 ---
 
 ## 17. Conformance
@@ -1136,12 +1406,19 @@ SAGA defines three conformance levels. Each level includes all requirements of t
 ### Level 3: Full State
 
 - MUST support `transfer` and `clone` operations with full layer support.
-- MUST implement the Transfer Protocol (Section 14) and Clone Protocol (Section 14).
-- MUST encrypt sensitive layers per Section 15.1 defaults.
+- MUST implement the Transfer Protocol (Section 13) and Clone Protocol (Section 14).
+- MUST encrypt sensitive layers per Section 15 defaults.
 - MUST record transfer and clone events on-chain.
-- MUST implement the agent consent model (Section 15.3).
+- MUST implement the agent consent model (Section 15.3, 15.8).
+- MUST implement consent records per Section 15.8.
+- MUST implement the right to erasure per Section 15.5.
+- MUST implement audit logging per Section 16A.1.
+- MUST implement data retention policies per Section 16A.2.
+- MUST implement breach notification per Section 16A.3.
+- MUST implement key management practices per Section 16A.4.
 - SHOULD support all memory sub-systems.
 - SHOULD support environment bindings and dependency validation.
+- SHOULD implement cross-border transfer safeguards per Section 16A.5.
 
 ---
 
@@ -1256,13 +1533,15 @@ SIGNATURE             # Agent wallet signature of content hash
 
 ## Changelog
 
-| Version | Date       | Changes                                                 |
-| ------- | ---------- | ------------------------------------------------------- |
-| 1.2.0   | 2026-03-21 | Data classification, exit protocol, redaction manifest. |
-| 1.1.0   | 2026-03-21 | Added Layer 9: Credentials Vault.                       |
-| 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.                      |
-| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1.        |
-| 0.1     | 2026-03-20 | Initial working draft.                                  |
+| Version | Date       | Changes                                                                      |
+| ------- | ---------- | ---------------------------------------------------------------------------- |
+| 1.3.0   | 2026-03-21 | Security & compliance: GDPR data rights, audit logging, breach notification, |
+|         |            | data retention, key management, cross-border transfers, compliance mapping.  |
+| 1.2.0   | 2026-03-21 | Data classification, exit protocol, redaction manifest.                      |
+| 1.1.0   | 2026-03-21 | Added Layer 9: Credentials Vault.                                            |
+| 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.                                           |
+| 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1.                             |
+| 0.1     | 2026-03-20 | Initial working draft.                                                       |
 
 ---
 
@@ -1368,6 +1647,128 @@ Platforms SHOULD maintain an audit trail of:
 - All SAGA exports with their redaction manifests
 
 This audit trail is NOT included in the SAGA document. It is retained by the platform for internal compliance purposes.
+
+---
+
+## Appendix F: Compliance Framework Mapping
+
+This appendix maps SAGA specification sections to major data security and compliance frameworks. It is non-normative but is intended to help platforms assess their SAGA implementation against regulatory requirements.
+
+### F.1 GDPR (EU General Data Protection Regulation)
+
+| GDPR Article | Requirement                           | SAGA Section                         | Status    |
+| ------------ | ------------------------------------- | ------------------------------------ | --------- |
+| Art. 5(1)(a) | Lawfulness, fairness, transparency    | 15.8 (Consent Records), 15.9         | Addressed |
+| Art. 5(1)(b) | Purpose limitation                    | 15.6 (Purpose Limitation)            | Addressed |
+| Art. 5(1)(c) | Data minimization                     | 15.7 (Data Minimization)             | Addressed |
+| Art. 5(1)(d) | Accuracy                              | 15.3 (Dispute mechanism)             | Addressed |
+| Art. 5(1)(e) | Storage limitation                    | 16A.2 (Data Retention)               | Addressed |
+| Art. 5(1)(f) | Integrity and confidentiality         | 16 (Crypto Verification), 12 (Vault) | Addressed |
+| Art. 6       | Lawful basis for processing           | 15.8 (Consent Records)               | Addressed |
+| Art. 7       | Conditions for consent                | 15.8, 13 (Transfer consent)          | Addressed |
+| Art. 13-14   | Information to be provided            | 15.9, 16A.6                          | Addressed |
+| Art. 15      | Right of access                       | 15.3 (Agent can export/inspect)      | Addressed |
+| Art. 16      | Right to rectification                | 15.3 (Dispute mechanism)             | Addressed |
+| Art. 17      | Right to erasure                      | 15.5 (Right to Erasure)              | Addressed |
+| Art. 20      | Right to data portability             | Core spec (entire SAGA format)       | Addressed |
+| Art. 21      | Right to object                       | 15.8, 13 (Consent model)             | Addressed |
+| Art. 22      | Automated decision-making             | 15.9 (Automated Processing)          | Addressed |
+| Art. 25      | Data protection by design and default | 15 (Privacy), 12 (Vault ZK)          | Addressed |
+| Art. 28      | Data processor obligations            | 16A.6 (Data Processing Roles)        | Addressed |
+| Art. 30      | Records of processing activities      | 16A.1 (Audit Logging)                | Addressed |
+| Art. 32      | Security of processing                | 16 (Crypto), 16A (Security)          | Addressed |
+| Art. 33      | Breach notification to authority      | 16A.3 (Breach Notification)          | Addressed |
+| Art. 34      | Breach notification to data subject   | 16A.3 (Breach Notification)          | Addressed |
+| Art. 35      | Data Protection Impact Assessment     | Appendix F.5 (Guidance)              | Guidance  |
+| Art. 44-49   | International transfers               | 16A.5 (Cross-Border Transfers)       | Addressed |
+
+### F.2 SOC 2 Trust Services Criteria
+
+| TSC Category | Criteria | Requirement                    | SAGA Section                      | Status    |
+| ------------ | -------- | ------------------------------ | --------------------------------- | --------- |
+| Security     | CC1      | Control environment            | 18 (Governance), 16A              | Addressed |
+| Security     | CC2      | Communication and information  | Spec is public, schema documented | Addressed |
+| Security     | CC3      | Risk assessment                | 16A.7 (Incident Response)         | Addressed |
+| Security     | CC4      | Monitoring activities          | 16A.1 (Audit Logging)             | Addressed |
+| Security     | CC5      | Control activities             | 16 (Crypto), D.1 (Auth)           | Addressed |
+| Security     | CC6      | Logical access controls        | D.1 (Wallet auth), 12 (Vault)     | Addressed |
+| Security     | CC7      | System operations              | 16A.7 (Incident Response)         | Addressed |
+| Security     | CC8      | Change management              | 18 (Versioning), 16A.8 (Algo)     | Addressed |
+| Security     | CC9      | Risk mitigation                | 13 (Transfer failure), 16A.3      | Addressed |
+| Availability | A1       | System availability            | Appendix F.5 (Guidance)           | Guidance  |
+| Processing   | PI1      | Processing integrity           | 16 (Signatures), 3 (Checksums)    | Addressed |
+| Confid.      | C1       | Confidentiality of information | 15 (Privacy), 12 (Vault), 13.5    | Addressed |
+| Privacy      | P1-P8    | Privacy criteria               | 15 (Privacy), 16A.2, 16A.3        | Addressed |
+
+### F.3 EU AI Act
+
+| Article | Requirement                         | SAGA Section                     | Status    |
+| ------- | ----------------------------------- | -------------------------------- | --------- |
+| Art. 4  | AI literacy                         | 5 (Persona: profileType)         | Partial   |
+| Art. 9  | Risk management system              | 16A.7 (Incident Response)        | Addressed |
+| Art. 10 | Data governance                     | 13.5 (Classification), 16A       | Addressed |
+| Art. 11 | Technical documentation             | 3 (Document Structure), spec     | Addressed |
+| Art. 12 | Record-keeping                      | 16A.1 (Audit Logging)            | Addressed |
+| Art. 13 | Transparency and information        | 15.9, 5 (profileType disclosure) | Addressed |
+| Art. 14 | Human oversight                     | 6 (behaviorFlags.autonomyLevel)  | Addressed |
+| Art. 15 | Accuracy, robustness, cybersecurity | 16 (Crypto), 16A                 | Addressed |
+| Art. 50 | Transparency obligations            | 5 (profileType: 'agent'), 15.9   | Addressed |
+
+**EU AI Act note:** SAGA's `persona.profileType` field (`agent`, `human`, `hybrid`) enables compliance with Art. 50 transparency requirements. Platforms MUST ensure that agents interacting with humans disclose their AI nature. The `profileType` field SHOULD be surfaced in all user-facing contexts.
+
+### F.4 ISO 27001:2022 Control Mapping
+
+| Control   | Domain                         | SAGA Section                   | Status    |
+| --------- | ------------------------------ | ------------------------------ | --------- |
+| A.5       | Information security policies  | Spec (normative requirements)  | Addressed |
+| A.6       | Organization of info security  | 16A.6 (Processing Roles)       | Addressed |
+| A.7       | Human resource security        | N/A (agents, not humans)       | N/A       |
+| A.8.1-8.4 | Asset management               | 3 (Document Structure), 13.5   | Addressed |
+| A.8.5     | Information classification     | 13.5 (Data Classification)     | Addressed |
+| A.8.10    | Information deletion           | 15.5 (Right to Erasure)        | Addressed |
+| A.8.11    | Data masking / redaction       | 13.5.3 (Redaction Rules)       | Addressed |
+| A.8.12    | Data leakage prevention        | 12 (Vault ZK), 15 (Encryption) | Addressed |
+| A.8.24    | Use of cryptography            | 16 (Crypto), 16A.4, 16A.8      | Addressed |
+| A.8.25    | Secure development lifecycle   | 18 (Governance, RFC process)   | Addressed |
+| A.5.23    | Information security for cloud | 11 (Environment), 16A          | Addressed |
+| A.5.34    | Privacy / PII protection       | 15 (Privacy), 16A              | Addressed |
+| A.5.35    | Independent review             | 17 (Conformance levels)        | Addressed |
+| A.5.36    | Compliance with policies       | 17 (Conformance levels)        | Addressed |
+| A.8.15    | Logging                        | 16A.1 (Audit Logging)          | Addressed |
+| A.8.16    | Monitoring activities          | 16A.1, 16A.7                   | Addressed |
+| A.5.24    | Incident management planning   | 16A.7 (Incident Response)      | Addressed |
+| A.5.26    | Response to incidents          | 16A.3, 16A.7                   | Addressed |
+| A.5.28    | Collection of evidence         | 16A.1, 13.5.4 (Manifest)       | Addressed |
+
+### F.5 Implementation Guidance for Compliance
+
+**Data Protection Impact Assessment (DPIA):**
+
+Platforms operating in GDPR jurisdictions SHOULD conduct a DPIA before deploying SAGA-based agent hosting. The DPIA should evaluate:
+
+- The categories of data stored in each SAGA layer.
+- The risk to data subjects (agents, referenced humans) from unauthorized access.
+- The effectiveness of encryption and access controls.
+- Cross-border transfer risks for international agent transfers.
+
+**Availability and Disaster Recovery:**
+
+While SAGA does not mandate specific availability SLAs, platforms hosting agents SHOULD:
+
+- Define recovery time objectives (RTO) and recovery point objectives (RPO) for SAGA document storage.
+- Maintain encrypted backups of SAGA documents in geographically separate locations.
+- Test disaster recovery procedures at least annually.
+- Document the relationship between SAGA document backups and the platform's business continuity plan.
+
+**Penetration Testing:**
+
+Platforms SHOULD conduct annual penetration testing of their SAGA server implementation, with particular focus on:
+
+- Wallet authentication bypass attempts.
+- Encrypted layer data exposure.
+- Vault ciphertext extraction.
+- Transfer protocol manipulation.
+- Authorization boundary violations (accessing another agent's data).
 
 ---
 
@@ -1662,7 +2063,50 @@ Response (201):
 
 The server MUST validate the container signature, verify consent signatures, and create a new agent record (or update the existing one if the wallet address is already registered).
 
-### D.6 Error Responses
+### D.6 Server Security Requirements
+
+SAGA servers MUST implement the following security controls:
+
+**Rate limiting:**
+
+| Endpoint Category       | Rate Limit (per IP) | Rate Limit (per session) |
+| ----------------------- | ------------------- | ------------------------ |
+| Auth (challenge/verify) | 10 requests/minute  | N/A                      |
+| Document read           | 60 requests/minute  | 120 requests/minute      |
+| Document write          | 10 requests/minute  | 30 requests/minute       |
+| Transfer operations     | 5 requests/minute   | 10 requests/minute       |
+| Agent registration      | 3 requests/minute   | 5 requests/minute        |
+
+Servers MUST return `429 Too Many Requests` with a `Retry-After` header when rate limits are exceeded.
+
+**Required security headers:**
+
+```
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Content-Security-Policy: default-src 'none'
+X-XSS-Protection: 0
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+Servers MUST serve all endpoints over HTTPS. HTTP requests MUST be redirected to HTTPS or rejected.
+
+**CORS policy:**
+
+Servers MUST implement a restrictive CORS policy. The `Access-Control-Allow-Origin` header MUST NOT be set to `*` in production. Servers SHOULD maintain an allowlist of permitted origins.
+
+**Request validation:**
+
+- All JSON request bodies MUST be validated against expected schemas before processing.
+- Maximum request body size: 50 MB for document uploads, 1 MB for all other endpoints.
+- Servers MUST reject requests with unexpected Content-Type headers.
+
+**Access logging:**
+
+Servers MUST log all API requests with: timestamp, HTTP method, path, source IP, authenticated wallet address (if any), response status code, and response time. Access logs MUST be retained per Section 16A.1.
+
+### D.7 Error Responses
 
 All error responses use the following format:
 
