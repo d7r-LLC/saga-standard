@@ -129,14 +129,14 @@ vaultCommand
       // Derive vault master key from wallet private key
       const vaultPassword = opts.password ?? 'saga-default-password'
       const privKey = loadWalletPrivateKey(opts.wallet, vaultPassword)
-      const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex'))
-      const vaultMasterKey = await deriveVaultMasterKey(
+      const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex').subarray(0, 32))
+      const vaultMasterKey = deriveVaultMasterKey(
         privKeyBytes,
         Buffer.from(vault.encryption.salt, 'base64')
       )
 
       // Encrypt fields with real AES-256-GCM
-      const encrypted = await encryptVaultItem(fields, vaultMasterKey)
+      const encrypted = encryptVaultItem(fields, vaultMasterKey)
 
       const itemId = `vi_${generateItemId()}`
       const now = new Date().toISOString()
@@ -243,9 +243,9 @@ vaultCommand
         try {
           const vaultPassword = opts.password ?? 'saga-default-password'
           const privKey = loadWalletPrivateKey(opts.wallet, vaultPassword)
-          const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex'))
+          const privKeyBytes = new Uint8Array(Buffer.from(privKey.slice(2), 'hex').subarray(0, 32))
 
-          const masterKey = await deriveVaultMasterKey(
+          const masterKey = deriveVaultMasterKey(
             privKeyBytes,
             Buffer.from(vault.encryption.salt, 'base64')
           )
@@ -253,7 +253,7 @@ vaultCommand
           const selfWrap = item.keyWraps.find(kw => kw.recipient === 'self')
           if (!selfWrap) throw new Error('No self key wrap found')
 
-          const fields = await decryptVaultItem(item.fields, selfWrap, masterKey)
+          const fields = decryptVaultItem(item.fields, selfWrap, masterKey)
           console.log(chalk.bold('  Fields (decrypted):'))
           for (const [key, value] of Object.entries(fields)) {
             const display =

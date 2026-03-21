@@ -202,7 +202,7 @@ describe('applyDefaultEncryption', () => {
       encryption: {
         algorithm: 'aes-256-gcm',
         keyDerivation: 'hkdf-sha256',
-        keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+        keyWrapAlgorithm: 'aes-256-gcm',
         salt: 'dGVzdA==',
         info: 'saga-vault-v1',
       },
@@ -214,7 +214,9 @@ describe('applyDefaultEncryption', () => {
           createdAt: '2026-01-01T00:00:00Z',
           updatedAt: '2026-01-01T00:00:00Z',
           fields: { __encrypted: true, v: 1, alg: 'aes-256-gcm', ct: 'x', iv: 'y', at: 'z' },
-          keyWraps: [{ recipient: 'self', algorithm: 'x25519-xsalsa20-poly1305', wrappedKey: 'k' }],
+          keyWraps: [
+            { recipient: 'self', algorithm: 'aes-256-gcm', wrappedKey: 'k', authTag: 't' },
+          ],
         },
       ],
       version: 1,
@@ -239,7 +241,7 @@ describe('applyDefaultEncryption', () => {
       encryption: {
         algorithm: 'aes-256-gcm',
         keyDerivation: 'hkdf-sha256',
-        keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+        keyWrapAlgorithm: 'aes-256-gcm',
         salt: 'dGVzdA==',
         info: 'saga-vault-v1',
       },
@@ -265,5 +267,42 @@ describe('applyDefaultEncryption', () => {
         recipientPublicKeys: [recipient.publicKey],
       })
     ).toThrow('Vault items must be encrypted before export')
+  })
+
+  it('throws if vault item has empty keyWraps', () => {
+    const sender = generateBoxKeyPair()
+    const recipient = generateBoxKeyPair()
+
+    const doc = makeDoc()
+    ;(doc.layers as Record<string, unknown>).vault = {
+      encryption: {
+        algorithm: 'aes-256-gcm',
+        keyDerivation: 'hkdf-sha256',
+        keyWrapAlgorithm: 'aes-256-gcm',
+        salt: 'dGVzdA==',
+        info: 'saga-vault-v1',
+      },
+      items: [
+        {
+          itemId: 'vi_1',
+          type: 'login',
+          name: 'Test',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          fields: { __encrypted: true, v: 1, alg: 'aes-256-gcm', ct: 'x', iv: 'y', at: 'z' },
+          keyWraps: [],
+        },
+      ],
+      version: 1,
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    expect(() =>
+      applyDefaultEncryption({
+        document: doc,
+        senderSecretKey: sender.secretKey,
+        recipientPublicKeys: [recipient.publicKey],
+      })
+    ).toThrow('Vault items must include at least one keyWrap')
   })
 })

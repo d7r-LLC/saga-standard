@@ -107,6 +107,9 @@ export function applyDefaultEncryption(options: {
             'Vault items must be encrypted before export. Use encryptVaultItem() first.'
           )
         }
+        if (!item.keyWraps || item.keyWraps.length === 0) {
+          throw new Error('Vault items must include at least one keyWrap entry before export.')
+        }
       }
     }
     encryptedLayers.push('vault')

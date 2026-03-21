@@ -33,15 +33,15 @@ async function req(
   return app.request(url, init, env)
 }
 
-async function getSessionToken(): Promise<string> {
+async function getSessionToken(wallet = WALLET): Promise<string> {
   const challengeRes = await req('POST', '/v1/auth/challenge', {
-    body: { walletAddress: WALLET, chain: CHAIN },
+    body: { walletAddress: wallet, chain: CHAIN },
   })
   const { challenge } = (await challengeRes.json()) as { challenge: string }
 
   const fakeSignature = `0x${'ab'.repeat(65)}`
   const verifyRes = await req('POST', '/v1/auth/verify', {
-    body: { walletAddress: WALLET, chain: CHAIN, signature: fakeSignature, challenge },
+    body: { walletAddress: wallet, chain: CHAIN, signature: fakeSignature, challenge },
   })
   const { token } = (await verifyRes.json()) as { token: string }
   return token
@@ -284,7 +284,6 @@ describe('SAGA Reference Server', () => {
       expect(uploadBody.documentId).toBeTruthy()
       expect(uploadBody.checksum).toMatch(/^sha256:/)
 
-      // Retrieve (auth required)
       const getRes = await req('GET', `/v1/agents/koda.saga/documents/${uploadBody.documentId}`, {
         headers: authHeader(token),
       })
@@ -323,7 +322,6 @@ describe('SAGA Reference Server', () => {
       })
       expect(deleteRes.status).toBe(204)
 
-      // Verify it's gone (auth required)
       const getRes = await req('GET', `/v1/agents/koda.saga/documents/${documentId}`, {
         headers: authHeader(token),
       })
@@ -375,7 +373,7 @@ describe('SAGA Reference Server', () => {
             encryption: {
               algorithm: 'aes-256-gcm',
               keyDerivation: 'hkdf-sha256',
-              keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+              keyWrapAlgorithm: 'aes-256-gcm',
               salt: 'dGVzdA==',
               info: 'saga-vault-v1',
             },
@@ -389,7 +387,6 @@ describe('SAGA Reference Server', () => {
                 fields: {
                   __encrypted: false,
                   username: 'plaintext-visible',
-                  password: 'plaintext-visible',
                 },
                 keyWraps: [],
               },
@@ -428,7 +425,7 @@ describe('SAGA Reference Server', () => {
             encryption: {
               algorithm: 'aes-256-gcm',
               keyDerivation: 'hkdf-sha256',
-              keyWrapAlgorithm: 'x25519-xsalsa20-poly1305',
+              keyWrapAlgorithm: 'aes-256-gcm',
               salt: 'dGVzdA==',
               info: 'saga-vault-v1',
             },
@@ -450,8 +447,9 @@ describe('SAGA Reference Server', () => {
                 keyWraps: [
                   {
                     recipient: 'self',
-                    algorithm: 'x25519-xsalsa20-poly1305',
+                    algorithm: 'aes-256-gcm',
                     wrappedKey: 'a2V5',
+                    authTag: 'dGFn',
                   },
                 ],
               },
@@ -587,6 +585,50 @@ describe('SAGA Reference Server', () => {
         body: { sagaVersion: '1.0', exportType: 'transfer', layers: {} },
       })
       expect(res.status).toBe(400)
+    })
+
+    it('rejects import with mismatched wallet address', async () => {
+      const sagaDoc = {
+        sagaVersion: '1.0',
+        exportType: 'transfer',
+        layers: {
+          identity: {
+            handle: 'hijacked-agent',
+            walletAddress: '0x1111111111111111111111111111111111111111',
+            chain: CHAIN,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      }
+
+      const res = await req('POST', '/v1/transfers/import', {
+        headers: authHeader(token),
+        body: sagaDoc,
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('rejects import with invalid handle format', async () => {
+      const sagaDoc = {
+        sagaVersion: '1.0',
+        exportType: 'transfer',
+        layers: {
+          identity: {
+            handle: 'ab',
+            walletAddress: WALLET,
+            chain: CHAIN,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        },
+      }
+
+      const res = await req('POST', '/v1/transfers/import', {
+        headers: authHeader(token),
+        body: sagaDoc,
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { code: string }
+      expect(body.code).toBe('INVALID_HANDLE')
     })
   })
 })

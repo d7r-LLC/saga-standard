@@ -57,5 +57,10 @@ export function boxKeyPairFromSecretKey(secretKey: Uint8Array): {
   publicKey: Uint8Array
   secretKey: Uint8Array
 } {
+  if (secretKey.length !== nacl.box.secretKeyLength) {
+    throw new Error(
+      `Invalid secret key length: expected ${nacl.box.secretKeyLength} bytes, got ${secretKey.length}`
+    )
+  }
   return nacl.box.keyPair.fromSecretKey(secretKey)
 }

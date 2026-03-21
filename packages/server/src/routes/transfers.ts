@@ -10,6 +10,8 @@ import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 import { validateDocumentEncryption } from '../middleware/validate-document'
 
+const HANDLE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,62}[a-zA-Z0-9]$/
+
 export const transferRoutes = new Hono<{
   Bindings: Env
   Variables: { session: SessionData }
@@ -178,6 +180,7 @@ transferRoutes.get('/:transferId', async c => {
  * POST /v1/transfers/import — Import a SAGA document from a transfer
  */
 transferRoutes.post('/import', requireAuth, async c => {
+  const session = c.get('session')
   const contentType = c.req.header('Content-Type') ?? ''
 
   let sagaDoc: Record<string, unknown>
@@ -194,7 +197,11 @@ transferRoutes.post('/import', requireAuth, async c => {
       sagaDoc = JSON.parse(text)
     } catch {
       return c.json(
-        { error: 'Invalid container format. JSON or .saga ZIP expected.', code: 'INVALID_FORMAT' },
+        {
+          error:
+            'Invalid format. Only JSON documents are currently supported for import. ZIP container (.saga) extraction is not yet implemented.',
+          code: 'INVALID_FORMAT',
+        },
         400
       )
     }
@@ -221,6 +228,30 @@ transferRoutes.post('/import', requireAuth, async c => {
     )
   }
 
+  // Validate handle format
+  const handle = identity.handle as string
+  if (!HANDLE_REGEX.test(handle)) {
+    return c.json(
+      {
+        error: 'Handle must be 3-64 chars, alphanumeric with dots/hyphens/underscores',
+        code: 'INVALID_HANDLE',
+      },
+      400
+    )
+  }
+
+  // Validate that identity wallet matches the authenticated session
+  const walletAddress = (identity.walletAddress as string).toLowerCase()
+  if (walletAddress !== session.walletAddress.toLowerCase()) {
+    return c.json(
+      {
+        error: 'Identity walletAddress does not match authenticated session',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
   // Validate encryption on vault if present
   const encError = validateDocumentEncryption(sagaDoc)
   if (encError) {
@@ -228,20 +259,28 @@ transferRoutes.post('/import', requireAuth, async c => {
   }
 
   const db = drizzle(c.env.DB)
-  const handle = identity.handle as string
-  const walletAddress = (identity.walletAddress as string).toLowerCase()
   const chain = identity.chain as string
   const now = new Date().toISOString()
 
   // Check if agent already exists
   const existing = await db
-    .select({ id: agents.id })
+    .select({ id: agents.id, walletAddress: agents.walletAddress })
     .from(agents)
     .where(eq(agents.handle, handle))
     .limit(1)
 
   let agentId: string
   if (existing.length > 0) {
+    // Verify the existing agent is owned by the authenticated session
+    if (existing[0].walletAddress !== session.walletAddress.toLowerCase()) {
+      return c.json(
+        {
+          error: 'Agent handle already registered to a different wallet',
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
     agentId = existing[0].id
     await db
       .update(agents)

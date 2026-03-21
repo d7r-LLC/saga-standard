@@ -92,7 +92,7 @@ export type VaultEncryptionAlgorithm = 'aes-256-gcm'
 export type VaultKeyDerivation = 'hkdf-sha256' | 'x25519-xsalsa20-poly1305'
 
 /** Vault key wrapping algorithm */
-export type VaultKeyWrapAlgorithm = 'rsa-oaep-256' | 'x25519-xsalsa20-poly1305'
+export type VaultKeyWrapAlgorithm = 'aes-256-gcm' | 'rsa-oaep-256' | 'x25519-xsalsa20-poly1305'
 
 // ── Data Classification types (Section 13.5) ────────────────────────
 

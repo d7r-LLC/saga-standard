@@ -47,9 +47,24 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
 
   if (contentType.includes('application/octet-stream')) {
     // Binary .saga container upload
+    // TODO: Extract agent.saga.json from ZIP container and validate encryption.
+    // For now, binary uploads are stored without encryption validation.
     const body = await c.req.arrayBuffer()
     sizeBytes = body.byteLength
     checksum = await computeChecksum(new Uint8Array(body))
+
+    // Attempt to extract and validate JSON from the container
+    try {
+      const text = new TextDecoder().decode(body)
+      const parsed = JSON.parse(text) as Record<string, unknown>
+      const encError = validateDocumentEncryption(parsed)
+      if (encError) {
+        return c.json({ error: encError, code: 'ENCRYPTION_REQUIRED' }, 400)
+      }
+    } catch {
+      // Not parseable as JSON (likely a real ZIP container).
+      // Skip encryption validation until ZIP extraction is implemented.
+    }
 
     // Store in R2
     const storageKey = `documents/${agent.id}/${documentId}.saga`
@@ -120,9 +135,10 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
 })
 
 /**
- * GET /v1/agents/:handle/documents — List documents (auth required)
+ * GET /v1/agents/:handle/documents — List documents (auth required, owner only)
  */
 documentRoutes.get('/:handle/documents', requireAuth, async c => {
+  const session = c.get('session')
   const handle = c.req.param('handle') as string
   const exportType = c.req.query('exportType')
   const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50)))
@@ -137,6 +153,14 @@ documentRoutes.get('/:handle/documents', requireAuth, async c => {
   }
 
   const agent = agentRows[0]
+
+  // Must own the agent to list documents
+  if (agent.walletAddress !== session.walletAddress.toLowerCase()) {
+    return c.json(
+      { error: "Not authorized to access this agent's documents", code: 'FORBIDDEN' },
+      403
+    )
+  }
 
   const whereClause = exportType
     ? and(eq(documents.agentId, agent.id), eq(documents.exportType, exportType))
@@ -162,9 +186,10 @@ documentRoutes.get('/:handle/documents', requireAuth, async c => {
 })
 
 /**
- * GET /v1/agents/:handle/documents/:documentId — Get a document (auth required)
+ * GET /v1/agents/:handle/documents/:documentId — Get a document (auth required, owner only)
  */
 documentRoutes.get('/:handle/documents/:documentId', requireAuth, async c => {
+  const session = c.get('session')
   const handle = c.req.param('handle') as string
   const documentId = c.req.param('documentId') as string
   const accept = c.req.header('Accept') ?? 'application/json'
@@ -179,6 +204,14 @@ documentRoutes.get('/:handle/documents/:documentId', requireAuth, async c => {
   }
 
   const agent = agentRows[0]
+
+  // Must own the agent to retrieve documents
+  if (agent.walletAddress !== session.walletAddress.toLowerCase()) {
+    return c.json(
+      { error: "Not authorized to access this agent's documents", code: 'FORBIDDEN' },
+      403
+    )
+  }
 
   // Look up document
   const docRows = await db

@@ -20,10 +20,7 @@ export interface EncryptedVaultItemResult {
  *
  * This key MUST never leave the client. Platforms MUST NOT store or transmit it.
  */
-export async function deriveVaultMasterKey(
-  walletPrivateKey: Uint8Array,
-  salt: Uint8Array
-): Promise<Uint8Array> {
+export function deriveVaultMasterKey(walletPrivateKey: Uint8Array, salt: Uint8Array): Uint8Array {
   const derived = hkdfSync('sha256', walletPrivateKey, salt, VAULT_INFO, 32)
   return new Uint8Array(derived)
 }
@@ -33,10 +30,10 @@ export async function deriveVaultMasterKey(
  * Generates a random DEK, encrypts the fields, wraps the DEK under masterKey.
  * Per spec Section 12 (Tier 3 + Tier 1).
  */
-export async function encryptVaultItem(
+export function encryptVaultItem(
   plainFields: Record<string, unknown>,
   masterKey: Uint8Array
-): Promise<EncryptedVaultItemResult> {
+): EncryptedVaultItemResult {
   // Generate random per-item DEK (Tier 3)
   const dek = randomBytes(32)
 
@@ -55,9 +52,6 @@ export async function encryptVaultItem(
   const wrappedDekCt = Buffer.concat([wrapCipher.update(dek), wrapCipher.final()])
   const wrapAuthTag = wrapCipher.getAuthTag()
 
-  // Combine wrapped DEK ciphertext + auth tag for storage
-  const wrappedDekFull = Buffer.concat([wrappedDekCt, wrapAuthTag])
-
   const fields: VaultItemEncryptedPayload = {
     __encrypted: true,
     v: 1,
@@ -69,9 +63,10 @@ export async function encryptVaultItem(
 
   const wrappedDek: VaultKeyWrap = {
     recipient: 'self',
-    algorithm: 'x25519-xsalsa20-poly1305',
-    wrappedKey: wrappedDekFull.toString('base64'),
+    algorithm: 'aes-256-gcm',
+    wrappedKey: wrappedDekCt.toString('base64'),
     iv: dekWrapIv.toString('base64'),
+    authTag: wrapAuthTag.toString('base64'),
   }
 
   return { fields, wrappedDek }
@@ -81,21 +76,38 @@ export async function encryptVaultItem(
  * Decrypt a vault item's fields.
  * Unwraps the DEK using masterKey, then decrypts the fields ciphertext.
  */
-export async function decryptVaultItem(
+export function decryptVaultItem(
   encryptedFields: VaultItemEncryptedPayload,
   keyWrap: VaultKeyWrap,
   masterKey: Uint8Array
-): Promise<Record<string, unknown>> {
+): Record<string, unknown> {
   if (encryptedFields.v !== 1) {
     throw new Error(`Unsupported vault encryption version: ${encryptedFields.v}`)
   }
 
+  if (!keyWrap.iv) {
+    throw new Error('VaultKeyWrap.iv is required for AES-GCM DEK unwrapping')
+  }
+
+  if (!keyWrap.authTag && !keyWrap.wrappedKey) {
+    throw new Error('VaultKeyWrap.wrappedKey is required for DEK unwrapping')
+  }
+
   // Unwrap DEK
-  const wrappedDekFull = Buffer.from(keyWrap.wrappedKey, 'base64')
-  const dekWrapIv = Buffer.from(keyWrap.iv ?? '', 'base64')
-  // Last 16 bytes are the GCM auth tag
-  const wrappedDekCt = wrappedDekFull.subarray(0, wrappedDekFull.length - 16)
-  const wrapAuthTag = wrappedDekFull.subarray(wrappedDekFull.length - 16)
+  const dekWrapIv = Buffer.from(keyWrap.iv, 'base64')
+  let wrappedDekCt: Buffer
+  let wrapAuthTag: Buffer
+
+  if (keyWrap.authTag) {
+    // Preferred: auth tag stored in explicit field
+    wrappedDekCt = Buffer.from(keyWrap.wrappedKey, 'base64')
+    wrapAuthTag = Buffer.from(keyWrap.authTag, 'base64')
+  } else {
+    // Legacy fallback: auth tag concatenated to wrappedKey (last 16 bytes)
+    const wrappedDekFull = Buffer.from(keyWrap.wrappedKey, 'base64')
+    wrappedDekCt = wrappedDekFull.subarray(0, wrappedDekFull.length - 16)
+    wrapAuthTag = wrappedDekFull.subarray(wrappedDekFull.length - 16)
+  }
 
   const unwrapDecipher = createDecipheriv('aes-256-gcm', masterKey, dekWrapIv)
   unwrapDecipher.setAuthTag(wrapAuthTag)
@@ -103,12 +115,12 @@ export async function decryptVaultItem(
 
   // Decrypt fields
   const ct = Buffer.from(encryptedFields.ct, 'base64')
-  const iv = Buffer.from(encryptedFields.iv, 'base64')
+  const fieldIv = Buffer.from(encryptedFields.iv, 'base64')
   const at = Buffer.from(encryptedFields.at, 'base64')
 
-  const decipher = createDecipheriv('aes-256-gcm', dek, iv)
+  const decipher = createDecipheriv('aes-256-gcm', dek, fieldIv)
   decipher.setAuthTag(at)
-  const plaintext = Buffer.concat([decipher.update(ct), decipher.final()])
+  const decryptedPlaintext = Buffer.concat([decipher.update(ct), decipher.final()])
 
-  return JSON.parse(plaintext.toString('utf-8'))
+  return JSON.parse(decryptedPlaintext.toString('utf-8'))
 }
