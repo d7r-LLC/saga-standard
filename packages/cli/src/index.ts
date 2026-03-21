@@ -7,6 +7,7 @@ import { serverCommand } from './commands/server'
 import { collectCommand } from './commands/collect'
 import { exportCommand } from './commands/export'
 import { inspectCommand, verifyCommand } from './commands/inspect'
+import { vaultCommand } from './commands/vault'
 
 const program = new Command()
 
@@ -21,5 +22,6 @@ program.addCommand(collectCommand)
 program.addCommand(exportCommand)
 program.addCommand(inspectCommand)
 program.addCommand(verifyCommand)
+program.addCommand(vaultCommand)
 
 program.parse()

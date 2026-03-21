@@ -69,3 +69,27 @@ export type RuntimeType = 'cloudflare-worker' | 'docker' | 'local' | 'kubernetes
 
 /** System prompt format */
 export type SystemPromptFormat = 'plaintext' | 'markdown' | 'jinja2'
+
+// ── Vault types (Layer 9: Credentials Vault) ────────────────────────
+
+/** Vault item types — matching 1Password/FlowState item categories */
+export type VaultItemType =
+  | 'login'
+  | 'api-key'
+  | 'oauth-token'
+  | 'ssh-key'
+  | 'certificate'
+  | 'note'
+  | 'custom'
+
+/** Vault permission levels for shared access */
+export type VaultPermission = 'read' | 'write' | 'admin'
+
+/** Vault encryption algorithm identifiers */
+export type VaultEncryptionAlgorithm = 'aes-256-gcm'
+
+/** Vault key derivation methods */
+export type VaultKeyDerivation = 'hkdf-sha256' | 'x25519-xsalsa20-poly1305'
+
+/** Vault key wrapping algorithm */
+export type VaultKeyWrapAlgorithm = 'rsa-oaep-256' | 'x25519-xsalsa20-poly1305'

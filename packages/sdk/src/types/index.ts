@@ -19,6 +19,11 @@ export type {
   PeerRelationship,
   RuntimeType,
   SystemPromptFormat,
+  VaultItemType,
+  VaultPermission,
+  VaultEncryptionAlgorithm,
+  VaultKeyDerivation,
+  VaultKeyWrapAlgorithm,
 } from './common'
 
 export type {
@@ -61,6 +66,19 @@ export type {
   EnvironmentLayer,
   SagaLayers,
   SagaLayerName,
+  VaultItemEncryptedPayload,
+  VaultKeyWrap,
+  VaultItem,
+  VaultEncryptionConfig,
+  VaultShareGrant,
+  VaultLayer,
+  VaultLoginFields,
+  VaultApiKeyFields,
+  VaultOAuthTokenFields,
+  VaultSshKeyFields,
+  VaultCertificateFields,
+  VaultNoteFields,
+  VaultDecryptedFields,
 } from './layers'
 
 export type { SagaDocument, SignedSagaDocument, ConsentMessage } from './saga-document'

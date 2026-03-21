@@ -14,9 +14,9 @@ When you move an AI agent from one platform to another, it loses everything: its
 
 SAGA fixes this. It defines a standard format for what an agent _is_, what it _knows_, and what it _has done_ — in a form any compliant runtime can import and bring to life.
 
-A SAGA document is a portable, cryptographically signed container. It can be as thin as a wallet address (identity only) or as rich as a complete state archive with memory, skills, task history, and org relationships.
+A SAGA document is a portable, cryptographically signed container. It can be as thin as a wallet address (identity only) or as rich as a complete state archive with memory, skills, task history, org relationships, and an encrypted credential vault.
 
-## The Eight Layers
+## The Nine Layers
 
 | Layer | Name                    | Required        |
 | ----- | ----------------------- | --------------- |
@@ -28,6 +28,7 @@ A SAGA document is a portable, cryptographically signed container. It can be as 
 | 6     | Task History            | Transfer/clone  |
 | 7     | Relationships           | Transfer/clone  |
 | 8     | Environment Bindings    | Transfer/clone  |
+| 9     | Credentials Vault       | Transfer/clone  |
 
 ## Minimal SAGA Document
 
@@ -64,6 +65,8 @@ A SAGA document is a portable, cryptographically signed container. It can be as 
 **Layered adoption.** Platforms implement what they can. Level 1 (identity only) is two fields and a signature. Level 3 (full state) supports transfer, clone, encrypted memory, and on-chain provenance.
 
 **Privacy by default.** System prompts and long-term memory are encrypted before export. Only wallet addresses listed in `encryptedFor` can decrypt. Sharing is opt-in.
+
+**Encrypted credential vault.** Agents own their credentials (X.com, Gmail, API keys). The vault uses three-tier envelope encryption derived from the agent's wallet key. Platforms never see plaintext.
 
 **Platform neutral.** Model preferences are declared, not required. A SAGA document specifies `anthropic/claude-3-5-sonnet` as `baseModel` but allows any compatible model as a fallback. The format does not lock an agent to any provider.
 

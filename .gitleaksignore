@@ -4,3 +4,6 @@
 # To find fingerprints for false positives, run:
 #   gitleaks detect --verbose
 # Then copy the fingerprint from the output.
+# False positives — encryption algorithm identifiers in spec and vault implementation
+packages/cli/src/commands/vault.ts:generic-api-key:356
+spec/SAGA-v1.0.md:generic-api-key:575

@@ -35,13 +35,14 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHOULD", "RECOMMENDED", 
 9. [Layer 6: Task History](#9-layer-6-task-history)
 10. [Layer 7: Relationships](#10-layer-7-relationships)
 11. [Layer 8: Environment Bindings](#11-layer-8-environment-bindings)
-12. [Transfer Protocol](#12-transfer-protocol)
-13. [Clone Protocol](#13-clone-protocol)
-14. [Privacy & Consent Model](#14-privacy--consent-model)
-15. [Cryptographic Verification](#15-cryptographic-verification)
-16. [Conformance](#16-conformance)
-17. [Versioning & Governance](#17-versioning--governance)
-18. [Reference Implementation](#18-reference-implementation)
+12. [Layer 9: Credentials Vault](#12-layer-9-credentials-vault)
+13. [Transfer Protocol](#13-transfer-protocol)
+14. [Clone Protocol](#14-clone-protocol)
+15. [Privacy & Consent Model](#15-privacy--consent-model)
+16. [Cryptographic Verification](#16-cryptographic-verification)
+17. [Conformance](#17-conformance)
+18. [Versioning & Governance](#18-versioning--governance)
+19. [Reference Implementation](#19-reference-implementation)
 
 ---
 
@@ -97,7 +98,7 @@ SAGA defines a common format at the layer beneath any individual platform: the a
 
 ## 3. Document Structure
 
-A SAGA document is a JSON object with a mandatory metadata envelope and up to eight optional layers.
+A SAGA document is a JSON object with a mandatory metadata envelope and up to nine optional layers.
 
 ### 3.1 Envelope
 
@@ -128,7 +129,8 @@ A SAGA document is a JSON object with a mandatory metadata envelope and up to ei
     "skills":        { ... },
     "taskHistory":   { ... },
     "relationships": { ... },
-    "environment":   { ... }
+    "environment":   { ... },
+    "vault":         { ... }
   }
 }
 ```
@@ -497,7 +499,7 @@ Memory has five sub-systems, each with independent privacy controls.
 
 ## 11. Layer 8: Environment Bindings
 
-**Included in `transfer`, `clone`, and `full` exports. Credentials MUST NOT be included.**
+**Included in `transfer`, `clone`, and `full` exports. Platform infrastructure credentials (API keys, database URLs) MUST NOT be included in this layer.** Agent-owned credentials (social accounts, personal API keys) belong in Layer 9: Credentials Vault.
 
 ```json
 "environment": {
@@ -534,11 +536,204 @@ Memory has five sub-systems, each with independent privacy controls.
 }
 ```
 
-Environment bindings describe what an agent needs, not how to provide it. Actual credentials, API keys, and tokens MUST NOT appear in a SAGA document. Destination platforms are responsible for provisioning the required environment. A platform MAY refuse to import an agent whose requirements it cannot satisfy.
+Environment bindings describe what an agent needs, not how to provide it. Platform infrastructure credentials (API keys, database connection strings, deployment tokens) MUST NOT appear in this layer. Destination platforms are responsible for provisioning the required environment. A platform MAY refuse to import an agent whose requirements it cannot satisfy.
+
+Agent-owned credentials (personal social media accounts, personal API keys, OAuth tokens for services the agent controls) are stored separately in the Credentials Vault (Layer 9), which provides zero-knowledge encryption.
 
 ---
 
-## 12. Transfer Protocol
+## 12. Layer 9: Credentials Vault
+
+**Included in `transfer`, `clone`, `backup`, and `full` exports. MUST be encrypted. Encryption is REQUIRED — this layer MUST NOT appear in plaintext.**
+
+Agents maintain their own credentials for social media profiles, personal API keys, OAuth tokens, and other services they control. These credentials belong to the agent, not to any platform. They travel with the agent across transfers and are encrypted using zero-knowledge client-side encryption — no server or platform ever sees plaintext vault contents.
+
+The vault uses a three-tier envelope encryption model, adapted from the FlowState ZK Vault design:
+
+```
+Tier 1 — Vault Master Key
+  Derived from the agent's wallet private key via HKDF-SHA256.
+  HKDF(walletPrivateKey, salt, 'saga-vault-v1') → 256-bit AES key.
+  This key never leaves the client. Platforms MUST NOT store or transmit it.
+
+Tier 2 — Vault Group Key (for sharing)
+  A random AES-256 key per shared vault, wrapped (RSA-OAEP or x25519 box)
+  to each authorized recipient's public key.
+
+Tier 3 — Per-Item Data Encryption Key (DEK)
+  A random AES-256 key per vault item. Encrypts the item's sensitive fields.
+  The DEK is wrapped under the vault master key (self) and/or recipient keys (shares).
+```
+
+### 12.1 Vault Structure
+
+```json
+"vault": {
+  "encryption": {
+    "algorithm": "aes-256-gcm",
+    "keyDerivation": "hkdf-sha256",
+    "keyWrapAlgorithm": "x25519-xsalsa20-poly1305",
+    "salt": "<base64-random-32-bytes>",
+    "info": "saga-vault-v1"
+  },
+  "items": [
+    {
+      "itemId": "vi_abc123",
+      "type": "login",
+      "name": "X.com (@agent_aria)",
+      "category": "social",
+      "tags": ["social", "primary"],
+      "createdAt": "2026-02-01T10:00:00Z",
+      "updatedAt": "2026-03-15T14:00:00Z",
+      "fields": {
+        "__encrypted": true,
+        "v": 1,
+        "alg": "aes-256-gcm",
+        "ct": "<base64-ciphertext>",
+        "iv": "<base64-iv>",
+        "at": "<base64-auth-tag>"
+      },
+      "keyWraps": [
+        {
+          "recipient": "self",
+          "algorithm": "x25519-xsalsa20-poly1305",
+          "wrappedKey": "<base64-wrapped-dek>"
+        }
+      ]
+    }
+  ],
+  "shares": [],
+  "version": 1,
+  "updatedAt": "2026-03-15T14:00:00Z"
+}
+```
+
+### 12.2 Item Types
+
+| Type          | Required Fields (decrypted) | Use Case                                   |
+| ------------- | --------------------------- | ------------------------------------------ |
+| `login`       | `password`                  | Web accounts (X, Gmail, Facebook, GitHub)  |
+| `api-key`     | `keyName`, `keyValue`       | API credentials the agent owns             |
+| `oauth-token` | `accessToken`               | OAuth2 tokens for agent-owned integrations |
+| `ssh-key`     | `privateKey`                | SSH access to agent-owned infrastructure   |
+| `certificate` | `certificate`               | TLS/mTLS certificates the agent uses       |
+| `note`        | `content`                   | Encrypted text (recovery codes, secrets)   |
+| `custom`      | _(none required)_           | Arbitrary key-value credential data        |
+
+When decrypted, `fields` resolve to a JSON object matching the item type schema. For example, a `login` item decrypts to:
+
+```json
+{
+  "username": "agent_aria",
+  "email": "aria@agentmail.ai",
+  "password": "...",
+  "url": "https://x.com",
+  "totpSecret": "JBSWY3DPEHPK3PXP",
+  "notes": "Primary social account"
+}
+```
+
+### 12.3 Encryption Envelope
+
+Each item's `fields` property stores an encrypted payload envelope:
+
+| Field         | Type    | Description                                             |
+| ------------- | ------- | ------------------------------------------------------- |
+| `__encrypted` | boolean | Sentinel marker. Always `true`.                         |
+| `v`           | number  | Envelope format version. Currently `1`.                 |
+| `alg`         | string  | Encryption algorithm. `aes-256-gcm`.                    |
+| `ct`          | string  | Base64-encoded ciphertext of the JSON-serialized fields |
+| `iv`          | string  | Base64-encoded 96-bit initialization vector             |
+| `at`          | string  | Base64-encoded 128-bit authentication tag               |
+
+Clients MUST reject envelopes with unrecognized `v` values. Unknown versions MUST be treated as undecryptable, never silently passed through.
+
+### 12.4 Key Wrapping
+
+Each item carries a `keyWraps` array. Each entry wraps the item's DEK for one recipient:
+
+| Field        | Required | Description                                                      |
+| ------------ | -------- | ---------------------------------------------------------------- |
+| `recipient`  | REQUIRED | Wallet address of the recipient, or `"self"` for the vault owner |
+| `algorithm`  | REQUIRED | `x25519-xsalsa20-poly1305` (NaCl box) or `rsa-oaep-256`          |
+| `wrappedKey` | REQUIRED | Base64-encoded wrapped DEK                                       |
+| `iv`         | OPTIONAL | Base64 IV (for AES-GCM key wrapping)                             |
+| `authTag`    | OPTIONAL | Base64 auth tag (for AES-GCM key wrapping)                       |
+
+The `"self"` recipient's DEK is wrapped under the vault master key (Tier 1). Additional recipients' DEKs are wrapped under their x25519 public keys. This enables vault sharing without exposing the master key.
+
+### 12.5 Vault Sharing
+
+A vault share grant authorizes another wallet to decrypt specific items or the entire vault.
+
+```json
+"shares": [
+  {
+    "recipientAddress": "0xpartner...wallet",
+    "recipientPublicKey": "<base64-x25519-public-key>",
+    "permission": "read",
+    "itemIds": ["vi_abc123"],
+    "grantedBy": "0xagent...wallet",
+    "grantedAt": "2026-03-10T10:00:00Z",
+    "expiresAt": "2026-04-10T10:00:00Z"
+  }
+]
+```
+
+When sharing an item, the owner:
+
+1. Decrypts the item's DEK using their vault master key.
+2. Fetches the recipient's x25519 public key.
+3. Wraps the DEK under the recipient's public key.
+4. Adds a `keyWraps` entry with the recipient's wallet address.
+5. Records the grant in `shares`.
+
+When revoking a share, the owner:
+
+1. Removes the recipient's `keyWraps` entry from affected items.
+2. Removes the grant from `shares`.
+3. Generates a new DEK for each affected item and re-encrypts.
+4. Re-wraps the new DEK for all remaining authorized recipients.
+5. Increments `vault.version`.
+
+### 12.6 Transfer Behavior
+
+On transfer (Section 14):
+
+- The vault is included in the SAGA Container as an encrypted layer.
+- The destination platform MUST NOT decrypt vault contents during import.
+- The agent unlocks its own vault after instantiation using its wallet.
+- Vault items with third-party share grants retain those grants on transfer.
+
+On clone (Section 14):
+
+- The clone receives a copy of the vault encrypted under the clone's new wallet key.
+- Share grants from the original are NOT copied. The clone establishes its own sharing relationships.
+- The source agent's DEK wraps are not accessible to the clone (different wallet).
+
+### 12.7 Privacy Classification
+
+The vault layer is classified as **always encrypted**. It MUST appear in the `privacy.encryptedLayers` array:
+
+```json
+"privacy": {
+  "encryptedLayers": ["vault", "cognitive", "memory.longTerm"],
+  "encryptionScheme": "x25519-xsalsa20-poly1305"
+}
+```
+
+The vault layer MUST NOT be included in `identity` or `profile` export types. It is only included in `transfer`, `clone`, `backup`, and `full` exports.
+
+### 12.8 Security Properties
+
+- **Zero-knowledge:** Platforms store only ciphertext. The wallet private key never leaves the client.
+- **Forward secrecy on revocation:** New DEK per item after share revocation ensures revoked recipients cannot decrypt future versions.
+- **No password required:** The wallet IS the key. HKDF derivation from the wallet private key replaces password-based KDF.
+- **Portable encryption:** The vault travels inside the SAGA Container. Any client with the wallet private key can unlock it, regardless of platform.
+
+---
+
+## 13. Transfer Protocol
 
 A Transfer moves an agent from a source platform to a destination platform. The source instance is deactivated on successful import.
 
@@ -595,7 +790,7 @@ If import fails at the destination, the source platform MUST NOT deactivate the 
 
 ---
 
-## 13. Clone Protocol
+## 14. Clone Protocol
 
 A Clone creates a new agent instance from a SAGA document. The source continues operating.
 
@@ -623,7 +818,7 @@ Platforms MAY enforce maximum clone depths. This specification does not mandate 
 
 ---
 
-## 14. Privacy & Consent Model
+## 15. Privacy & Consent Model
 
 ### 14.1 Layer Privacy Defaults
 
@@ -643,6 +838,7 @@ Platforms MAY enforce maximum clone depths. This specification does not mandate 
 | Task history: recent tasks | Org-private          | Yes (agent/org can release)               |
 | Relationships              | Unencrypted          | Yes                                       |
 | Environment                | Public (schema only) | No (credentials never included)           |
+| Vault                      | Encrypted (always)   | No (always encrypted, never plaintext)    |
 
 ### 14.2 Encryption Scheme
 
@@ -669,7 +865,7 @@ An organization has the right to:
 
 ---
 
-## 15. Cryptographic Verification
+## 16. Cryptographic Verification
 
 ### 15.1 Document Signature
 
@@ -714,7 +910,7 @@ consentSig = wallet.sign(message)
 
 ---
 
-## 16. Conformance
+## 17. Conformance
 
 SAGA defines three conformance levels. Each level includes all requirements of the levels below it.
 
@@ -735,16 +931,16 @@ SAGA defines three conformance levels. Each level includes all requirements of t
 ### Level 3: Full State
 
 - MUST support `transfer` and `clone` operations with full layer support.
-- MUST implement the Transfer Protocol (Section 12) and Clone Protocol (Section 13).
-- MUST encrypt sensitive layers per Section 14.1 defaults.
+- MUST implement the Transfer Protocol (Section 14) and Clone Protocol (Section 14).
+- MUST encrypt sensitive layers per Section 15.1 defaults.
 - MUST record transfer and clone events on-chain.
-- MUST implement the agent consent model (Section 14.3).
+- MUST implement the agent consent model (Section 15.3).
 - SHOULD support all memory sub-systems.
 - SHOULD support environment bindings and dependency validation.
 
 ---
 
-## 17. Versioning & Governance
+## 18. Versioning & Governance
 
 ### 17.1 Specification Versioning
 
@@ -781,7 +977,7 @@ Any individual, company, or organization may participate. FlowState serves as fo
 
 ---
 
-## 18. Reference Implementation
+## 19. Reference Implementation
 
 The reference implementation is maintained by FlowState:
 
@@ -857,6 +1053,7 @@ SIGNATURE             # Agent wallet signature of content hash
 
 | Version | Date       | Changes                                          |
 | ------- | ---------- | ------------------------------------------------ |
+| 1.1.0   | 2026-03-21 | Added Layer 9: Credentials Vault.                |
 | 1.0.1   | 2026-03-21 | Added Appendix D: SAGA Server API.               |
 | 1.0     | 2026-03-20 | Initial release. Renamed from working draft 0.1. |
 | 0.1     | 2026-03-20 | Initial working draft.                           |
@@ -1108,7 +1305,7 @@ Response (200):
 }
 ```
 
-The server MUST verify the consent signature against the agent's wallet address using the consent message format from Section 15.2.
+The server MUST verify the consent signature against the agent's wallet address using the consent message format from Section 16.2.
 
 **Check transfer status:**
 
