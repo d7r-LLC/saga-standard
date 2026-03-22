@@ -1,12 +1,9 @@
 ---
-layout: default
+layout: page
 title: Contributing
 description: 'How to contribute to the SAGA specification'
 permalink: /contributing/
 ---
-
-<div class="page-wrapper">
-<div class="content-full">
 
 # Contributing to SAGA
 
@@ -95,6 +92,3 @@ Maintainers may remove comments or contributions that violate this standard with
 ## Questions
 
 Open an issue or email saga@d7r.io.
-
-</div>
-</div>
