@@ -69,17 +69,17 @@ vi.mock('@saga-standard/contracts', () => ({
 const { mintAgentIdentity, mintOrgIdentity, resolveHandleOnChain, isHandleAvailable } =
   await import('../chain')
 
-function createMockWalletClient(): WalletClient {
+function createMockWalletClient(chainId = 84532): WalletClient {
   return {
     account: MOCK_ACCOUNT,
-    chain: { id: 84532, name: 'Base Sepolia' },
+    chain: { id: chainId, name: 'Base Sepolia' },
     writeContract: vi.fn().mockResolvedValue(MOCK_TX),
   } as unknown as WalletClient
 }
 
 function createMockPublicClient(overrides?: Record<string, unknown>): PublicClient {
   return {
-    waitForTransactionReceipt: vi.fn().mockResolvedValue({ logs: [] }),
+    waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'success', logs: [] }),
     readContract: vi.fn().mockResolvedValue([1, 42n, MOCK_AGENT_CONTRACT]),
     ...overrides,
   } as unknown as PublicClient
@@ -113,7 +113,7 @@ describe('mintAgentIdentity', () => {
 
   it('waits for transaction receipt after writeContract', async () => {
     const walletClient = createMockWalletClient()
-    const waitFn = vi.fn().mockResolvedValue({ logs: [] })
+    const waitFn = vi.fn().mockResolvedValue({ status: 'success', logs: [] })
     const publicClient = createMockPublicClient({
       waitForTransactionReceipt: waitFn,
     })
@@ -144,6 +144,38 @@ describe('mintAgentIdentity', () => {
         chain: 'base-sepolia',
       })
     ).rejects.toThrow('AgentRegistered event not found')
+  })
+
+  it('throws on reverted transaction', async () => {
+    const walletClient = createMockWalletClient()
+    const publicClient = createMockPublicClient({
+      waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'reverted', logs: [] }),
+    })
+
+    await expect(
+      mintAgentIdentity({
+        handle: 'test.agent',
+        homeHubUrl: 'https://hub.example.com',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia',
+      })
+    ).rejects.toThrow('Transaction reverted while minting agent identity')
+  })
+
+  it('throws on chain mismatch between client and options', async () => {
+    const walletClient = createMockWalletClient(8453) // mainnet
+    const publicClient = createMockPublicClient()
+
+    await expect(
+      mintAgentIdentity({
+        handle: 'test.agent',
+        homeHubUrl: 'https://hub.example.com',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia', // sepolia, mismatch!
+      })
+    ).rejects.toThrow('Chain mismatch')
   })
 })
 
@@ -185,6 +217,38 @@ describe('mintOrgIdentity', () => {
         chain: 'base-sepolia',
       })
     ).rejects.toThrow('OrgRegistered event not found')
+  })
+
+  it('throws on reverted transaction', async () => {
+    const walletClient = createMockWalletClient()
+    const publicClient = createMockPublicClient({
+      waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'reverted', logs: [] }),
+    })
+
+    await expect(
+      mintOrgIdentity({
+        handle: 'test.org',
+        name: 'Test Org',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia',
+      })
+    ).rejects.toThrow('Transaction reverted while minting org identity')
+  })
+
+  it('throws on chain mismatch between client and options', async () => {
+    const walletClient = createMockWalletClient(8453) // mainnet
+    const publicClient = createMockPublicClient()
+
+    await expect(
+      mintOrgIdentity({
+        handle: 'test.org',
+        name: 'Test Org',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia', // sepolia, mismatch!
+      })
+    ).rejects.toThrow('Chain mismatch')
   })
 })
 

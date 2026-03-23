@@ -22,6 +22,23 @@ const CHAIN_IDS: Record<SupportedChain, number> = {
 /** ERC-6551 TBA implementation address (same across all chains) */
 const TBA_IMPLEMENTATION = '0x55266d75D1a14E4572138116aF39863Ed6596E7F' as const
 
+/** Assert that the viem client's chain ID matches the declared chain parameter */
+function assertChainMatch(
+  walletClient: WalletClient,
+  publicClient: PublicClient,
+  chain: SupportedChain
+): void {
+  const clientChainId = walletClient.chain?.id ?? publicClient.chain?.id
+  if (clientChainId == null) return // no chain set on clients, trust the parameter
+
+  const expectedChainId = CHAIN_IDS[chain]
+  if (expectedChainId !== clientChainId) {
+    throw new Error(
+      `Chain mismatch: options.chain ("${chain}", id ${expectedChainId}) does not match client chain id (${clientChainId})`
+    )
+  }
+}
+
 /**
  * Mint a SAGA Agent Identity NFT on-chain.
  *
@@ -39,6 +56,8 @@ export async function mintAgentIdentity(options: {
   const { handle, homeHubUrl, walletClient, publicClient, chain } = options
   const config = getAgentIdentityConfig(chain)
 
+  assertChainMatch(walletClient, publicClient, chain)
+
   const account = walletClient.account
   if (!account) {
     throw new Error('WalletClient must have an account')
@@ -53,6 +72,10 @@ export async function mintAgentIdentity(options: {
   })
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+  if (receipt.status === 'reverted') {
+    throw new Error('Transaction reverted while minting agent identity')
+  }
 
   // Find AgentRegistered event in logs
   let tokenId: bigint | undefined
@@ -104,6 +127,8 @@ export async function mintOrgIdentity(options: {
   const { handle, name, walletClient, publicClient, chain } = options
   const config = getOrgIdentityConfig(chain)
 
+  assertChainMatch(walletClient, publicClient, chain)
+
   const account = walletClient.account
   if (!account) {
     throw new Error('WalletClient must have an account')
@@ -118,6 +143,10 @@ export async function mintOrgIdentity(options: {
   })
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+  if (receipt.status === 'reverted') {
+    throw new Error('Transaction reverted while minting org identity')
+  }
 
   // Find OrgRegistered event in logs
   let tokenId: bigint | undefined

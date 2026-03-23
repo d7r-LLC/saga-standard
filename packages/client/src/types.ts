@@ -98,7 +98,7 @@ export interface OrgRecord {
   contractAddress?: string | null
   mintTxHash?: string | null
   registeredAt: string
-  updatedAt?: string | null
+  updatedAt?: string
 }
 
 export interface OrgDetailResponse {
@@ -118,7 +118,7 @@ export interface ResolveResponse {
   entityType: 'agent' | 'org'
   handle: string
   walletAddress: string
-  chain: string
+  chain: ChainId
   tokenId?: number | null
   tbaAddress?: string | null
   homeHubUrl?: string | null
