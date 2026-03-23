@@ -101,12 +101,27 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. The short version:
 4. Working Group vote
 5. Accepted RFCs merged to `main`
 
+## Packages
+
+| Package                                          | Description                                                     |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| [`@epicdm/saga-sdk`](packages/sdk)               | Core SDK: document creation, validation, signing, encryption    |
+| [`@saga-standard/contracts`](packages/contracts) | Solidity contracts + TypeScript bindings for identity NFTs      |
+| [`@epicdm/saga-client`](packages/client)         | Client library for server interaction and on-chain operations   |
+| [`@epicdm/saga-server`](packages/server)         | Reference server (Cloudflare Workers) with on-chain indexer     |
+| [`@epicdm/saga-cli`](packages/cli)               | CLI for agent registration, resolution, and document management |
+| [`@epicdm/saga-collectors`](packages/collectors) | Data collectors for assembling SAGA documents                   |
+
+## Identity NFTs
+
+Agents and organizations can register on-chain with ERC-721 identity NFTs on Base. Each identity gets an ERC-6551 Token Bound Account. See [docs/identity-nfts.md](docs/identity-nfts.md) for the architecture and registration flow.
+
 ## Reference Implementation
 
 FlowState maintains the reference implementation at Level 3 conformance:
 
 - **Runtime:** [`@epicdm/flowstate-directory`](https://github.com/d7r-LLC/flowstate-platform)
-- **SDK:** `@saga-standard/sdk` (TypeScript, Apache 2.0) — coming Q4 2026
+- **SDK:** `@epicdm/saga-sdk` (TypeScript, Apache 2.0)
 - **Directory:** [agents.epicflowstate.ai](https://agents.epicflowstate.ai)
 
 ## Governance

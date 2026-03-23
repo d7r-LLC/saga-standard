@@ -211,3 +211,99 @@ describe('validateSagaDocument', () => {
     }
   })
 })
+
+// ── NFT identity layer fields ─────────────────────────────────────
+
+describe('validateSchema — NFT identity fields', () => {
+  it('accepts identity with nft block', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'nft-agent',
+          walletAddress: '0xabc123',
+          chain: 'eip155:84532',
+          createdAt: '2026-03-23T10:00:00Z',
+          nft: {
+            contractAddress: '0x1111111111111111111111111111111111111111',
+            tokenId: 42,
+            chain: 'eip155:84532',
+            standard: 'ERC-721',
+            tbaAddress: '0x4444444444444444444444444444444444444444',
+            mintTxHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+          },
+        },
+      },
+    })
+
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('accepts identity with organization block', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'org-member',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+          organization: {
+            handle: 'd7r-llc',
+            name: 'd7r LLC',
+            contractAddress: '0x2222222222222222222222222222222222222222',
+            tokenId: 7,
+            role: 'employee',
+          },
+        },
+      },
+    })
+
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('accepts identity with both nft and organization', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'full-agent',
+          walletAddress: '0xabc123',
+          chain: 'eip155:84532',
+          createdAt: '2026-03-23T10:00:00Z',
+          nft: {
+            contractAddress: '0x1111111111111111111111111111111111111111',
+            tokenId: 99,
+            standard: 'ERC-721',
+          },
+          organization: {
+            handle: 'flowstate-labs',
+            name: 'FlowState Labs',
+          },
+        },
+      },
+    })
+
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects negative nft.tokenId', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'bad-token',
+          walletAddress: '0xabc123',
+          chain: 'eip155:84532',
+          createdAt: '2026-03-23T10:00:00Z',
+          nft: {
+            contractAddress: '0x1111111111111111111111111111111111111111',
+            tokenId: -1,
+          },
+        },
+      },
+    })
+
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(false)
+  })
+})

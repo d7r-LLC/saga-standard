@@ -152,6 +152,68 @@
           "type": "integer",
           "minimum": 0,
           "description": "Clone generations from original. 0 = original."
+        },
+        "nft": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "On-chain NFT identity metadata. OPTIONAL.",
+          "properties": {
+            "contractAddress": {
+              "type": "string",
+              "description": "Address of the identity NFT contract"
+            },
+            "tokenId": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Token ID of the identity NFT"
+            },
+            "chain": {
+              "type": "string",
+              "pattern": "^(eip155:\\d+|solana:\\w+)$",
+              "description": "CAIP-2 chain identifier where the NFT lives"
+            },
+            "standard": {
+              "type": "string",
+              "description": "Token standard (e.g., ERC-721)"
+            },
+            "tbaAddress": {
+              "type": "string",
+              "description": "ERC-6551 Token Bound Account address"
+            },
+            "mintTxHash": {
+              "type": "string",
+              "description": "Transaction hash of the mint event"
+            }
+          }
+        },
+        "organization": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Organizational affiliation. OPTIONAL.",
+          "properties": {
+            "handle": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$",
+              "description": "Organization handle in the shared namespace"
+            },
+            "name": {
+              "type": "string",
+              "description": "Organization display name"
+            },
+            "contractAddress": {
+              "type": "string",
+              "description": "Org identity NFT contract address"
+            },
+            "tokenId": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Org NFT token ID"
+            },
+            "role": {
+              "type": "string",
+              "description": "Agent role within the organization"
+            }
+          }
         }
       }
     },
