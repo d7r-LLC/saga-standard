@@ -27,7 +27,9 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-sdk": "workspace:*"
+    "@epicdm/saga-sdk": "workspace:*",
+    "@saga-standard/contracts": "workspace:*",
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

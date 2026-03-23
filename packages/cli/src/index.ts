@@ -8,6 +8,9 @@ import { collectCommand } from './commands/collect'
 import { exportCommand } from './commands/export'
 import { inspectCommand, verifyCommand } from './commands/inspect'
 import { vaultCommand } from './commands/vault'
+import { registerCommand } from './commands/register'
+import { resolveCommand } from './commands/resolve'
+import { registerOrgCommand } from './commands/register-org'
 
 const program = new Command()
 
@@ -18,6 +21,9 @@ program
 
 program.addCommand(walletCommand)
 program.addCommand(serverCommand)
+program.addCommand(registerCommand)
+program.addCommand(resolveCommand)
+program.addCommand(registerOrgCommand)
 program.addCommand(collectCommand)
 program.addCommand(exportCommand)
 program.addCommand(inspectCommand)

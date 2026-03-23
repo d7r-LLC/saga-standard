@@ -4,11 +4,12 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import { privateKeyToAccount } from 'viem/accounts'
-import { SagaServerClient } from '@epicdm/saga-client'
+import { SagaServerClient, isHandleAvailable, mintAgentIdentity } from '@epicdm/saga-client'
 import type { WalletSigner } from '@epicdm/saga-client'
 import type { ChainId } from '@epicdm/saga-sdk'
 import { cacheSession, loadConfig } from '../config'
 import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
+import { chainFromCaip2, createViemClients, waitForIndexer } from '../cli-chain-helpers'
 
 export const registerCommand = new Command('register')
   .description('Register an agent on a SAGA server')
@@ -17,6 +18,8 @@ export const registerCommand = new Command('register')
   .option('--password <password>', 'Wallet password', 'saga-default-password')
   .option('--server <url>', 'Server URL (defaults to configured default)')
   .option('--chain <chain>', 'Chain ID', 'eip155:8453')
+  .option('--on-chain', 'Mint an on-chain SAGA Agent Identity NFT')
+  .option('--hub-url <url>', 'Home hub URL for the agent identity NFT')
   .action(async (handle, opts) => {
     // 1. Load wallet
     const walletInfo = getWalletInfo(opts.wallet)
@@ -42,51 +45,102 @@ export const registerCommand = new Command('register')
     console.log()
 
     try {
-      const client = new SagaServerClient({ serverUrl })
+      if (opts.onChain) {
+        // ── On-chain registration path ────────────────────────────
+        const chain = chainFromCaip2(opts.chain)
+        const hubUrl = opts.hubUrl ?? serverUrl
 
-      // 3. Build a WalletSigner from the local private key
-      const chain = (opts.chain ?? 'eip155:8453') as ChainId
-      const signer: WalletSigner = {
-        async signMessage(message: string): Promise<string> {
-          return account.signMessage({ message })
-        },
-        async getAddress(): Promise<string> {
-          return account.address
-        },
-        getChain(): ChainId {
-          return chain
-        },
+        console.log(chalk.dim('Creating on-chain identity...'))
+
+        const { publicClient, walletClient } = createViemClients({
+          privateKeyHex,
+          chain,
+        })
+
+        // Check handle availability
+        console.log(chalk.dim('Checking handle availability on-chain...'))
+        const available = await isHandleAvailable({
+          handle,
+          publicClient,
+          chain,
+        })
+
+        if (!available) {
+          console.error(chalk.red(`Handle "${handle}" is already taken on-chain.`))
+          process.exit(1)
+        }
+
+        console.log(chalk.green(`Handle "${handle}" is available.`))
+
+        // Mint NFT
+        console.log(chalk.dim('Minting SAGA Agent Identity NFT...'))
+        const result = await mintAgentIdentity({
+          handle,
+          homeHubUrl: hubUrl,
+          walletClient,
+          publicClient,
+          chain,
+        })
+
+        console.log(chalk.green('NFT minted.'))
+        console.log(chalk.dim(`  TX Hash: ${result.txHash}`))
+
+        // Wait for indexer
+        console.log(chalk.dim('Waiting for server indexer...'))
+        const client = new SagaServerClient({ serverUrl })
+        const resolved = await waitForIndexer({ client, handle })
+
+        console.log()
+        console.log(chalk.green.bold('Agent registered on-chain.'))
+        console.log(`  Handle:      ${handle}`)
+        console.log(`  Token ID:    ${result.tokenId}`)
+        console.log(`  TBA Address: ${result.tbaAddress}`)
+        console.log(`  Mint TX:     ${result.txHash}`)
+        console.log(`  Wallet:      ${resolved.walletAddress}`)
+        console.log(`  Chain:       ${resolved.chain}`)
+      } else {
+        // ── Off-chain registration path (unchanged) ────────────────
+        const client = new SagaServerClient({ serverUrl })
+        const chain = (opts.chain ?? 'eip155:8453') as ChainId
+        const signer: WalletSigner = {
+          async signMessage(message: string): Promise<string> {
+            return account.signMessage({ message })
+          },
+          async getAddress(): Promise<string> {
+            return account.address
+          },
+          getChain(): ChainId {
+            return chain
+          },
+        }
+
+        console.log(chalk.dim('Authenticating with wallet...'))
+        const session = await client.authenticate(signer)
+
+        cacheSession(serverUrl, {
+          token: session.token,
+          expiresAt: session.expiresAt.toISOString(),
+          walletAddress: session.walletAddress,
+        })
+
+        console.log(chalk.green('Authenticated.'))
+        console.log()
+
+        console.log(chalk.dim('Registering agent...'))
+        const agent = await client.registerAgent({
+          handle,
+          walletAddress: account.address,
+          chain,
+        })
+
+        console.log()
+        console.log(chalk.green.bold('Agent registered.'))
+        console.log(`  Agent ID: ${agent.agentId}`)
+        console.log(`  Handle:   ${agent.handle}`)
+        console.log(`  Wallet:   ${agent.walletAddress}`)
+        console.log(`  Chain:    ${agent.chain}`)
+        console.log(`  Created:  ${agent.registeredAt}`)
       }
-
-      // 4. Authenticate using challenge-response flow
-      console.log(chalk.dim('Authenticating with wallet...'))
-      const session = await client.authenticate(signer)
-
-      // Cache the session for future CLI commands
-      cacheSession(serverUrl, {
-        token: session.token,
-        expiresAt: session.expiresAt.toISOString(),
-        walletAddress: session.walletAddress,
-      })
-
-      console.log(chalk.green('Authenticated.'))
-      console.log()
-
-      // 5. Register agent
-      console.log(chalk.dim('Registering agent...'))
-      const agent = await client.registerAgent({
-        handle,
-        walletAddress: account.address,
-        chain,
-      })
-
-      console.log()
-      console.log(chalk.green.bold('Agent registered.'))
-      console.log(`  Agent ID: ${agent.agentId}`)
-      console.log(`  Handle:   ${agent.handle}`)
-      console.log(`  Wallet:   ${agent.walletAddress}`)
-      console.log(`  Chain:    ${agent.chain}`)
-      console.log(`  Created:  ${agent.registeredAt}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error(chalk.red(`Registration failed: ${message}`))

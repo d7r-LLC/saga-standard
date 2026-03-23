@@ -301,6 +301,84 @@ describe('SagaServerClient', () => {
     })
   })
 
+  // ── Resolve ───────────────────────────────────────────────────────
+
+  describe('resolve', () => {
+    it('fetches from /v1/resolve/:handle', async () => {
+      const resolveData = {
+        entityType: 'agent',
+        handle: 'koda.saga',
+        walletAddress: WALLET,
+        chain: 'eip155:8453',
+        tokenId: 42,
+        tbaAddress: '0xtba42',
+        homeHubUrl: 'https://hub.example.com',
+        contractAddress: '0xcontract',
+        registeredAt: '2026-03-21T10:00:00Z',
+      }
+      mockFetch.mockResolvedValueOnce(mockResponse(resolveData))
+
+      const result = await client.resolve('koda.saga')
+
+      expect(result).toEqual(resolveData)
+      expect(mockFetch.mock.calls[0][0]).toBe(`${SERVER_URL}/v1/resolve/koda.saga`)
+    })
+
+    it('throws SagaAuthError for nonexistent handle', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ error: 'Handle not found', code: 'NOT_FOUND' }, 404)
+      )
+
+      await expect(client.resolve('nonexistent')).rejects.toThrow(SagaAuthError)
+    })
+  })
+
+  // ── Organizations ─────────────────────────────────────────────────
+
+  describe('organizations', () => {
+    const orgRecord = {
+      orgId: 'org_001',
+      handle: 'd7r-llc',
+      name: 'd7r LLC',
+      walletAddress: WALLET,
+      chain: 'eip155:8453',
+      tokenId: 7,
+      registeredAt: '2026-03-21T10:00:00Z',
+    }
+
+    it('gets an org by handle', async () => {
+      mockFetch.mockResolvedValueOnce(mockResponse({ organization: orgRecord }))
+
+      const result = await client.getOrg('d7r-llc')
+
+      expect(result.organization).toEqual(orgRecord)
+      expect(mockFetch.mock.calls[0][0]).toBe(`${SERVER_URL}/v1/orgs/d7r-llc`)
+    })
+
+    it('lists orgs with pagination params', async () => {
+      const list = { organizations: [orgRecord], total: 1, page: 1, limit: 20 }
+      mockFetch.mockResolvedValueOnce(mockResponse(list))
+
+      const result = await client.listOrgs({ page: 1, limit: 20, search: 'epic' })
+
+      expect(result).toEqual(list)
+      const url = mockFetch.mock.calls[0][0] as string
+      expect(url).toContain('page=1')
+      expect(url).toContain('limit=20')
+      expect(url).toContain('search=epic')
+    })
+
+    it('lists orgs without params', async () => {
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ organizations: [], total: 0, page: 1, limit: 20 })
+      )
+
+      await client.listOrgs()
+
+      expect(mockFetch.mock.calls[0][0]).toBe(`${SERVER_URL}/v1/orgs`)
+    })
+  })
+
   // ── Error Handling ──────────────────────────────────────────────────
 
   describe('error handling', () => {

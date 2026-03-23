@@ -8,6 +8,14 @@ export type { WalletSigner } from './auth'
 // Client
 export { SagaServerClient } from './saga-server-client'
 
+// Chain operations
+export {
+  mintAgentIdentity,
+  mintOrgIdentity,
+  resolveHandleOnChain,
+  isHandleAvailable,
+} from './chain'
+
 // Types
 export type {
   AuthSession,
@@ -20,6 +28,13 @@ export type {
   AgentRecord,
   AgentDetailResponse,
   AgentListResponse,
+  OrgRecord,
+  OrgDetailResponse,
+  OrgListResponse,
+  ResolveResponse,
+  SupportedChain,
+  MintResult,
+  OnChainResolveResult,
   DocumentRecord,
   DocumentListResponse,
   InitiateTransferRequest,
