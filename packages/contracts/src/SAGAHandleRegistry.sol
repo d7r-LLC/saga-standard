@@ -52,11 +52,9 @@ contract SAGAHandleRegistry is Ownable {
     /// @param handle The handle string (3-64 chars, alphanumeric with dots/hyphens/underscores)
     /// @param entityType The type of entity (AGENT or ORG)
     /// @param tokenId The token ID in the calling contract
-    function registerHandle(
-        string calldata handle,
-        EntityType entityType,
-        uint256 tokenId
-    ) external {
+    function registerHandle(string calldata handle, EntityType entityType, uint256 tokenId)
+        external
+    {
         require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
 
@@ -78,9 +76,11 @@ contract SAGAHandleRegistry is Ownable {
     // --- Resolution (public view) ---
 
     /// @notice Resolve a handle to its entity type, token ID, and contract address
-    function resolveHandle(
-        string calldata handle
-    ) external view returns (EntityType entityType, uint256 tokenId, address contractAddress) {
+    function resolveHandle(string calldata handle)
+        external
+        view
+        returns (EntityType entityType, uint256 tokenId, address contractAddress)
+    {
         bytes32 key = _handleKey(handle);
         HandleRecord memory record = _handles[key];
         require(record.entityType != EntityType.NONE, "SAGAHandleRegistry: not found");
@@ -108,9 +108,7 @@ contract SAGAHandleRegistry is Ownable {
         // First char must be alphanumeric
         require(_isAlphanumeric(b[0]), "SAGAHandleRegistry: must start with alphanumeric");
         // Last char must be alphanumeric
-        require(
-            _isAlphanumeric(b[b.length - 1]), "SAGAHandleRegistry: must end with alphanumeric"
-        );
+        require(_isAlphanumeric(b[b.length - 1]), "SAGAHandleRegistry: must end with alphanumeric");
 
         for (uint256 i = 0; i < b.length; i++) {
             bytes1 c = b[i];

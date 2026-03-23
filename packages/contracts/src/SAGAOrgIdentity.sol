@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {
+    ERC721Enumerable
+} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 
@@ -30,9 +32,7 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
 
     event OrgNameUpdated(uint256 indexed tokenId, string oldName, string newName);
 
-    constructor(
-        address registry
-    ) ERC721("SAGA Org Identity", "SAGA-ORG") Ownable(msg.sender) {
+    constructor(address registry) ERC721("SAGA Org Identity", "SAGA-ORG") Ownable(msg.sender) {
         handleRegistry = SAGAHandleRegistry(registry);
         _baseTokenURI = "https://saga-standard.dev/api/metadata/org/";
     }
@@ -41,10 +41,10 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     /// @param handle Unique handle (3-64 chars, validated by registry)
     /// @param name Display name of the organization (1-128 chars)
     /// @return tokenId The minted token ID
-    function registerOrganization(
-        string calldata handle,
-        string calldata name
-    ) external returns (uint256) {
+    function registerOrganization(string calldata handle, string calldata name)
+        external
+        returns (uint256)
+    {
         require(
             bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
         );

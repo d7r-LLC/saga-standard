@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {
+    ERC721Enumerable
+} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 
@@ -34,9 +36,7 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
 
     event HomeHubUpdated(uint256 indexed tokenId, string oldHubUrl, string newHubUrl);
 
-    constructor(
-        address registry
-    ) ERC721("SAGA Agent Identity", "SAGA-AGENT") Ownable(msg.sender) {
+    constructor(address registry) ERC721("SAGA Agent Identity", "SAGA-AGENT") Ownable(msg.sender) {
         handleRegistry = SAGAHandleRegistry(registry);
         _baseTokenURI = "https://saga-standard.dev/api/metadata/agent/";
     }
@@ -45,10 +45,10 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
     /// @param handle Unique handle (3-64 chars, validated by registry)
     /// @param hubUrl URL of the agent's home SAGA hub
     /// @return tokenId The minted token ID
-    function registerAgent(
-        string calldata handle,
-        string calldata hubUrl
-    ) external returns (uint256) {
+    function registerAgent(string calldata handle, string calldata hubUrl)
+        external
+        returns (uint256)
+    {
         uint256 tokenId = _nextTokenId++;
         _mint(msg.sender, tokenId);
 

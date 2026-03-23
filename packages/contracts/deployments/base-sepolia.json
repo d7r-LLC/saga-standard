@@ -1,0 +1,15 @@
+{
+  "chainId": 84532,
+  "network": "base-sepolia",
+  "deployedAt": "",
+  "contracts": {
+    "SAGAHandleRegistry": "",
+    "SAGAAgentIdentity": "",
+    "SAGAOrgIdentity": "",
+    "SAGATBAHelper": ""
+  },
+  "external": {
+    "ERC6551Registry": "0x000000006551c19487814612e58FE06813775758",
+    "TBAImplementation": ""
+  }
+}

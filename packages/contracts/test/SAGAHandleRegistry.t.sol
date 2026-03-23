@@ -150,11 +150,7 @@ contract SAGAHandleRegistryTest is Test {
         vm.prank(authorizedContract);
         vm.expectEmit(false, false, false, true);
         emit HandleRegistered(
-            "event-test",
-            "event-test",
-            SAGAHandleRegistry.EntityType.AGENT,
-            42,
-            authorizedContract
+            "event-test", "event-test", SAGAHandleRegistry.EntityType.AGENT, 42, authorizedContract
         );
         registry.registerHandle("event-test", SAGAHandleRegistry.EntityType.AGENT, 42);
     }

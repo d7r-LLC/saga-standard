@@ -25,12 +25,14 @@ contract SAGATBAHelper {
     /// @param tokenContract Address of the identity NFT contract (agent or org)
     /// @param tokenId Token ID of the identity NFT
     /// @return The deterministic TBA address
-    function computeAccount(
-        address tokenContract,
-        uint256 tokenId
-    ) external view returns (address) {
-        return
-            registry.account(accountImplementation, DEFAULT_SALT, block.chainid, tokenContract, tokenId);
+    function computeAccount(address tokenContract, uint256 tokenId)
+        external
+        view
+        returns (address)
+    {
+        return registry.account(
+            accountImplementation, DEFAULT_SALT, block.chainid, tokenContract, tokenId
+        );
     }
 
     /// @notice Create a TBA for a SAGA identity NFT
@@ -44,11 +46,12 @@ contract SAGATBAHelper {
     }
 
     /// @notice Compute TBA address for a specific chain (for cross-chain resolution)
-    function computeAccountForChain(
-        address tokenContract,
-        uint256 tokenId,
-        uint256 chainId
-    ) external view returns (address) {
-        return registry.account(accountImplementation, DEFAULT_SALT, chainId, tokenContract, tokenId);
+    function computeAccountForChain(address tokenContract, uint256 tokenId, uint256 chainId)
+        external
+        view
+        returns (address)
+    {
+        return
+            registry.account(accountImplementation, DEFAULT_SALT, chainId, tokenContract, tokenId);
     }
 }

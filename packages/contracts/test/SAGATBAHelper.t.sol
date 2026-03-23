@@ -47,9 +47,7 @@ contract MockERC6551Registry is IERC6551Registry {
         // Mark as created (mock - real registry uses CREATE2)
         _created[computed] = true;
 
-        emit ERC6551AccountCreated(
-            computed, implementation, salt, chainId, tokenContract, tokenId
-        );
+        emit ERC6551AccountCreated(computed, implementation, salt, chainId, tokenContract, tokenId);
 
         return computed;
     }
