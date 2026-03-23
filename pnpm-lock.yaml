@@ -81,6 +81,12 @@ importers:
       '@epicdm/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
+      '@saga-standard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      viem:
+        specifier: ^2.47.6
+        version: 2.47.6(typescript@5.9.3)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

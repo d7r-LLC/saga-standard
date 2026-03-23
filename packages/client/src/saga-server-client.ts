@@ -10,7 +10,10 @@ import type {
   DocumentRecord,
   ImportResult,
   InitiateTransferRequest,
+  OrgDetailResponse,
+  OrgListResponse,
   RegisterAgentRequest,
+  ResolveResponse,
   SagaApiError,
   SagaClientOptions,
   ServerInfo,
@@ -86,6 +89,31 @@ export class SagaServerClient {
     if (options?.search) params.set('search', options.search)
     const qs = params.toString()
     return this.request<AgentListResponse>('GET', `/v1/agents${qs ? `?${qs}` : ''}`)
+  }
+
+  // ── Resolve ─────────────────────────────────────────────────────────
+
+  async resolve(handle: string): Promise<ResolveResponse> {
+    return this.request<ResolveResponse>('GET', `/v1/resolve/${encodeURIComponent(handle)}`)
+  }
+
+  // ── Organizations ───────────────────────────────────────────────────
+
+  async getOrg(handle: string): Promise<OrgDetailResponse> {
+    return this.request<OrgDetailResponse>('GET', `/v1/orgs/${encodeURIComponent(handle)}`)
+  }
+
+  async listOrgs(options?: {
+    page?: number
+    limit?: number
+    search?: string
+  }): Promise<OrgListResponse> {
+    const params = new URLSearchParams()
+    if (options?.page !== undefined) params.set('page', String(options.page))
+    if (options?.limit !== undefined) params.set('limit', String(options.limit))
+    if (options?.search) params.set('search', options.search)
+    const qs = params.toString()
+    return this.request<OrgListResponse>('GET', `/v1/orgs${qs ? `?${qs}` : ''}`)
   }
 
   // ── Documents ───────────────────────────────────────────────────────

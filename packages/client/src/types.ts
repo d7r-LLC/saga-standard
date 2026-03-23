@@ -64,6 +64,13 @@ export interface AgentRecord {
   publicKey?: string
   registeredAt: string
   updatedAt?: string
+  // NFT fields (null for legacy off-chain registrations)
+  tokenId?: number | null
+  tbaAddress?: string | null
+  contractAddress?: string | null
+  mintTxHash?: string | null
+  homeHubUrl?: string | null
+  entityType?: string | null
 }
 
 export interface AgentDetailResponse {
@@ -76,6 +83,65 @@ export interface AgentListResponse {
   total: number
   page: number
   limit: number
+}
+
+// ── Organizations ───────────────────────────────────────────────────
+
+export interface OrgRecord {
+  orgId: string
+  handle: string
+  name: string
+  walletAddress: string
+  chain: ChainId
+  tokenId?: number | null
+  tbaAddress?: string | null
+  contractAddress?: string | null
+  mintTxHash?: string | null
+  registeredAt: string
+  updatedAt?: string | null
+}
+
+export interface OrgDetailResponse {
+  organization: OrgRecord
+}
+
+export interface OrgListResponse {
+  organizations: OrgRecord[]
+  total: number
+  page: number
+  limit: number
+}
+
+// ── Resolve ─────────────────────────────────────────────────────────
+
+export interface ResolveResponse {
+  entityType: 'agent' | 'org'
+  handle: string
+  walletAddress: string
+  chain: string
+  tokenId?: number | null
+  tbaAddress?: string | null
+  homeHubUrl?: string | null
+  contractAddress?: string | null
+  mintTxHash?: string | null
+  name?: string | null
+  registeredAt: string
+}
+
+// ── Chain Operations ────────────────────────────────────────────────
+
+export type SupportedChain = 'base' | 'base-sepolia'
+
+export interface MintResult {
+  tokenId: bigint
+  txHash: string
+  tbaAddress: string
+}
+
+export interface OnChainResolveResult {
+  entityType: 'NONE' | 'AGENT' | 'ORG'
+  tokenId: bigint
+  contractAddress: string
 }
 
 // ── Documents ────────────────────────────────────────────────────────
