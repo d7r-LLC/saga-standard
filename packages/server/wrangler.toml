@@ -1,11 +1,19 @@
 name = "saga-server"
 main = "src/index.ts"
-compatibility_date = "2025-03-15"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "63396a5b2b279efdc0e1618233dcdc17"
+
+[vars]
+SERVER_NAME = "SAGA Reference Hub"
+SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+
+# ── Local development ────────────────────────────────────────────────
 
 [[d1_databases]]
 binding = "DB"
-database_name = "saga-registry"
-database_id = "local"
+database_name = "saga-hub"
+database_id = "local-dev-id"
 
 [[r2_buckets]]
 binding = "STORAGE"
@@ -13,4 +21,56 @@ bucket_name = "saga-documents"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "saga-sessions"
+id = "saga-sessions-dev"
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+# ── Staging ──────────────────────────────────────────────────────────
+
+[env.staging]
+name = "saga-server-staging"
+
+[env.staging.vars]
+SERVER_NAME = "SAGA Reference Hub (Staging)"
+SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "saga-hub-staging"
+database_id = "1433af34-a30c-48dc-b543-25848b0a9c80"
+
+[[env.staging.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "saga-documents-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSIONS"
+id = "bc4475e0858f422590dfb9f1d096ebe5"
+
+# ── Production ───────────────────────────────────────────────────────
+
+[env.production]
+name = "saga-server"
+workers_dev = true
+routes = [
+  { pattern = "api.saga-standard.dev", custom_domain = true }
+]
+
+[env.production.vars]
+SERVER_NAME = "SAGA Reference Hub"
+SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "saga-hub"
+database_id = "3234f9fc-e05c-44ce-800b-4d132c23b324"
+
+[[env.production.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "saga-documents-production"
+
+[[env.production.kv_namespaces]]
+binding = "SESSIONS"
+id = "5983236e52ad4f1c973cf059c52a2611"

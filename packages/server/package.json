@@ -1,7 +1,7 @@
 {
   "name": "@epicdm/saga-server",
   "version": "0.1.0",
-  "description": "SAGA reference server — Cloudflare Worker implementing Appendix D",
+  "description": "SAGA reference hub — Cloudflare Worker implementing the SAGA API (agents, documents, transfers)",
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
@@ -11,13 +11,14 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply saga-registry --local",
+    "db:migrate:local": "wrangler d1 migrations apply saga-hub --local",
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
     "@epicdm/saga-sdk": "workspace:*",
     "drizzle-orm": "^0.38.0",
-    "hono": "^4.7.0"
+    "hono": "^4.7.0",
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250313.0",

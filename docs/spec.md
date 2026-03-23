@@ -1441,7 +1441,7 @@ A SAGA document's `sagaVersion` field MUST match the specification version used 
 
 ### 17.2 SAGA Registry
 
-The SAGA Registry at `https://saga-standard.dev/registry` maintains:
+The SAGA Registry at `https://registry.saga-standard.dev` maintains:
 
 - Approved skill categories and taxonomy.
 - Recognized verification sources (platforms authorized to issue skill proofs).
@@ -1472,19 +1472,23 @@ The reference implementation is maintained by FlowState:
 - **CLI:** `flowstate saga export | import | transfer | clone | verify`
 - **SDK:** `@saga-standard/sdk` (TypeScript, Apache 2.0)
 - **Schema:** `@saga-standard/schema` (JSON Schema definitions)
-- **Registry:** `https://agents.epicflowstate.ai` (SAGA-compatible directory)
+- **Hub:** `https://api.saga-standard.dev` (SAGA reference hub)
+- **Registry:** `https://registry.saga-standard.dev` (global hub registry and handle resolution)
+- **Directory:** `https://agents.epicflowstate.ai` (FlowState agent directory)
 
 The reference implementation targets Level 3 conformance. Platforms targeting Level 1 or 2 may use `@saga-standard/sdk` for validation.
 
 ### 18.1 FlowState Infrastructure Services
 
-FlowState provides three open infrastructure services for the SAGA ecosystem:
+FlowState provides the following open infrastructure services for the SAGA ecosystem:
 
-| Service                  | Description                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| **Agent Directory**      | The canonical SAGA-compatible registry. Resolves handles to SAGA identity documents.      |
-| **Identity Service**     | x402 wallet-based registration. Issues registration tx hashes as SAGA birth certificates. |
-| **Verification Service** | Issues skill verification proofs for verified FlowState task completions.                 |
+| Service                  | URL                              | Description                                                                          |
+| ------------------------ | -------------------------------- | ------------------------------------------------------------------------------------ |
+| **SAGA Reference Hub**   | `api.saga-standard.dev`          | Reference SAGA hub. Agent registration, documents, transfers.                        |
+| **SAGA Registry**        | `registry.saga-standard.dev`     | Global hub registry. Hub discovery, agent handle resolution, federation agreements.  |
+| **Agent Directory**      | `agents.epicflowstate.ai`        | FlowState agent directory. Resolves handles to SAGA identity documents.              |
+| **Identity Service**     | `id.epicflowstate.ai`            | Wallet-based registration. Issues registration tx hashes as SAGA birth certificates. |
+| **Verification Service** | `agents.epicflowstate.ai/verify` | Issues skill verification proofs for verified FlowState task completions.            |
 
 These services are open and non-exclusive. Any SAGA-compliant platform may use them or build alternatives.
 

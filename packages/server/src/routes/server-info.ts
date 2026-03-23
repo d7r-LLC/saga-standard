@@ -12,12 +12,13 @@ serverInfoRoute.get('/server', c => {
     : ['eip155:8453', 'eip155:1', 'eip155:137']
 
   return c.json({
-    name: c.env.SERVER_NAME ?? 'SAGA Reference Server',
+    name: c.env.SERVER_NAME ?? 'SAGA Reference Hub',
     version: '0.1.0',
     sagaVersion: '1.0',
     conformanceLevel: 1,
     supportedChains,
     capabilities: ['agents', 'documents', 'transfers'],
     registrationOpen: true,
+    registry: 'https://registry.saga-standard.dev',
   })
 })

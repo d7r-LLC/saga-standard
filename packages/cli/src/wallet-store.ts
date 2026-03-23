@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto'
+import { privateKeyToAccount } from 'viem/accounts'
 import { ensureSagaDirs, getSagaDir } from './config'
 
 export interface WalletInfo {
@@ -34,8 +35,11 @@ const WALLETS_DIR = () => join(getSagaDir(), 'wallets')
 export function createWallet(name: string, password: string): WalletInfo {
   ensureSagaDirs()
   const privateKey = randomBytes(32)
-  // Derive address from private key (simplified — in production, use viem)
-  const address = `0x${randomBytes(20).toString('hex')}`
+  const privateKeyHex = `0x${privateKey.toString('hex')}` as `0x${string}`
+
+  // Derive real EVM address from private key using viem
+  const account = privateKeyToAccount(privateKeyHex)
+  const address = account.address.toLowerCase()
   const chain = 'eip155:8453'
   const createdAt = new Date().toISOString()
 
@@ -60,13 +64,15 @@ export function createWallet(name: string, password: string): WalletInfo {
 /** Import a wallet from an existing private key */
 export function importWallet(name: string, privateKeyHex: string, password: string): WalletInfo {
   ensureSagaDirs()
-  const privateKey = Buffer.from(privateKeyHex.replace(/^0x/, ''), 'hex')
+  const cleanHex = privateKeyHex.startsWith('0x') ? privateKeyHex : `0x${privateKeyHex}`
+  const privateKey = Buffer.from(cleanHex.slice(2), 'hex')
   if (privateKey.length !== 32) {
     throw new Error('Private key must be 32 bytes (64 hex chars)')
   }
 
-  // Derive address (simplified)
-  const address = `0x${privateKeyHex.slice(2, 42).toLowerCase()}`
+  // Derive real EVM address
+  const account = privateKeyToAccount(cleanHex as `0x${string}`)
+  const address = account.address.toLowerCase()
   const chain = 'eip155:8453'
   const createdAt = new Date().toISOString()
 

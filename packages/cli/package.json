@@ -16,12 +16,13 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-sdk": "workspace:*",
-    "@epicdm/saga-collectors": "workspace:*",
     "@epicdm/saga-client": "workspace:*",
-    "commander": "^13.1.0",
+    "@epicdm/saga-collectors": "workspace:*",
+    "@epicdm/saga-sdk": "workspace:*",
     "chalk": "^5.4.0",
-    "ora": "^8.2.0"
+    "commander": "^13.1.0",
+    "ora": "^8.2.0",
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

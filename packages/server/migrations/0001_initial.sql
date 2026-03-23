@@ -1,7 +1,6 @@
--- SPDX-License-Identifier: Apache-2.0
--- Copyright 2026 d7r LLC
+-- SAGA Registry Schema v1
+-- Initial migration
 
--- Agent registry
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY,
   handle TEXT UNIQUE NOT NULL,
@@ -15,7 +14,6 @@ CREATE TABLE IF NOT EXISTS agents (
 CREATE INDEX IF NOT EXISTS idx_agents_wallet ON agents(wallet_address);
 CREATE INDEX IF NOT EXISTS idx_agents_handle ON agents(handle);
 
--- SAGA documents
 CREATE TABLE IF NOT EXISTS documents (
   id TEXT PRIMARY KEY,
   agent_id TEXT NOT NULL REFERENCES agents(id),
@@ -29,7 +27,6 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE INDEX IF NOT EXISTS idx_documents_agent ON documents(agent_id);
 
--- Transfers
 CREATE TABLE IF NOT EXISTS transfers (
   id TEXT PRIMARY KEY,
   agent_id TEXT NOT NULL REFERENCES agents(id),
@@ -44,9 +41,7 @@ CREATE TABLE IF NOT EXISTS transfers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_transfers_agent ON transfers(agent_id);
-CREATE INDEX IF NOT EXISTS idx_transfers_status ON transfers(status);
 
--- Auth challenges (short-lived)
 CREATE TABLE IF NOT EXISTS auth_challenges (
   id TEXT PRIMARY KEY,
   wallet_address TEXT NOT NULL,
