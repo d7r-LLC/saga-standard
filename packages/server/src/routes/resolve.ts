@@ -10,7 +10,13 @@ import { agents, organizations } from '../db/schema'
 export const resolveRoutes = new Hono<{ Bindings: Env }>()
 
 /**
- * GET /v1/resolve/:handle — Resolve a handle to an agent or organization
+ * GET /v1/resolve/:handle — Resolve a handle to an agent or organization.
+ *
+ * Checks agents first, then organizations. On-chain, the HandleRegistry
+ * contract enforces cross-entity handle uniqueness so collisions are
+ * prevented at the contract level. Off-chain registrations also check
+ * both tables (see POST /v1/agents). If both tables somehow contain the
+ * same handle, agent takes precedence.
  */
 resolveRoutes.get('/:handle', async c => {
   const handle = c.req.param('handle') as string

@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { eq, like, or, sql } from 'drizzle-orm'
 import type { Env } from '../bindings'
-import { agents, documents } from '../db/schema'
+import { agents, documents, organizations } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 
@@ -15,6 +15,13 @@ export const agentRoutes = new Hono<{
   Bindings: Env
   Variables: { session: SessionData }
 }>()
+
+/** Parse a numeric query param with a fallback for NaN/missing values */
+function parseIntParam(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
 
 /**
  * POST /v1/agents — Register a new agent (off-chain, legacy)
@@ -58,7 +65,7 @@ agentRoutes.post('/', requireAuth, async c => {
   const agentId = generateId('agent')
   const now = new Date().toISOString()
 
-  // Check handle uniqueness
+  // Check handle uniqueness in agents table
   const existing = await db
     .select({ id: agents.id })
     .from(agents)
@@ -66,6 +73,17 @@ agentRoutes.post('/', requireAuth, async c => {
     .limit(1)
 
   if (existing.length > 0) {
+    return c.json({ error: 'Handle already taken', code: 'HANDLE_TAKEN' }, 409)
+  }
+
+  // Check handle uniqueness in organizations table (cross-entity uniqueness)
+  const existingOrg = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.handle, body.handle))
+    .limit(1)
+
+  if (existingOrg.length > 0) {
     return c.json({ error: 'Handle already taken', code: 'HANDLE_TAKEN' }, 409)
   }
 
@@ -156,8 +174,8 @@ agentRoutes.get('/:handleOrAddress', async c => {
  * GET /v1/agents — List agents with pagination and search
  */
 agentRoutes.get('/', async c => {
-  const page = Math.max(1, Number(c.req.query('page') ?? 1))
-  const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 20)))
+  const page = Math.max(1, parseIntParam(c.req.query('page'), 1))
+  const limit = Math.min(100, Math.max(1, parseIntParam(c.req.query('limit'), 20)))
   const search = c.req.query('search')
   const offset = (page - 1) * limit
 

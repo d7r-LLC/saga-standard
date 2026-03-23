@@ -9,12 +9,19 @@ import { organizations } from '../db/schema'
 
 export const orgRoutes = new Hono<{ Bindings: Env }>()
 
+/** Parse a numeric query param with a fallback for NaN/missing values */
+function parseIntParam(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
+
 /**
  * GET /v1/orgs — List organizations with pagination and search
  */
 orgRoutes.get('/', async c => {
-  const page = Math.max(1, Number(c.req.query('page') ?? 1))
-  const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 20)))
+  const page = Math.max(1, parseIntParam(c.req.query('page'), 1))
+  const limit = Math.min(100, Math.max(1, parseIntParam(c.req.query('limit'), 20)))
   const search = c.req.query('search')
   const offset = (page - 1) * limit
 

@@ -55,14 +55,14 @@ app.route('/v1/agents', documentRoutes)
 // Health check
 app.get('/health', c => c.json({ status: 'ok' }))
 
-// Default export is the Hono app (used by tests via app.request())
-// Cloudflare Workers uses the module export below
-export default app
+// Named export for testing (tests use app.request())
+export { app }
 
-// Module worker export for Cloudflare (fetch + scheduled)
-export const worker = {
+// Default export: Cloudflare Worker module format with fetch + scheduled
+// The scheduled handler must be on the default export for CF cron triggers to invoke it
+export default {
   fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runIndexer(env))
   },
 }

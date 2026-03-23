@@ -1,24 +1,94 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { type Log, createPublicClient, http, toEventSelector } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { drizzle } from 'drizzle-orm/d1'
 import type { Env } from '../bindings'
 import { INDEXER_CURSOR_KEY } from './types'
-import { handleAgentTransfer, handleOrgTransfer } from './event-handlers'
+import type {
+  AgentRegisteredEvent,
+  EventMeta,
+  HomeHubUpdatedEvent,
+  OrgNameUpdatedEvent,
+  OrgRegisteredEvent,
+  TransferEvent,
+} from './types'
+import {
+  handleAgentRegistered,
+  handleAgentTransfer,
+  handleHomeHubUpdated,
+  handleOrgNameUpdated,
+  handleOrgRegistered,
+  handleOrgTransfer,
+} from './event-handlers'
 
 /** Maximum blocks to fetch per poll (stay within CF CPU limits) */
 const MAX_BLOCKS_PER_POLL = 2000n
 
-/** Pre-computed event topic0 selectors */
-const AGENT_REGISTERED_TOPIC = toEventSelector(
-  'AgentRegistered(uint256,string,address,string,uint256)'
-)
-const HOME_HUB_UPDATED_TOPIC = toEventSelector('HomeHubUpdated(uint256,string,string)')
-const ORG_REGISTERED_TOPIC = toEventSelector('OrgRegistered(uint256,string,string,address,uint256)')
-const ORG_NAME_UPDATED_TOPIC = toEventSelector('OrgNameUpdated(uint256,string,string)')
-const TRANSFER_TOPIC = toEventSelector('Transfer(address,address,uint256)')
+/**
+ * Event ABIs for log filtering and decoding.
+ * Passed to viem's getLogs `events` parameter for server-side topic0 filtering
+ * and automatic decoding of indexed/non-indexed parameters.
+ */
+export const EVENT_ABIS = [
+  {
+    type: 'event',
+    name: 'AgentRegistered',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'handle', type: 'string', indexed: false },
+      { name: 'owner', type: 'address', indexed: false },
+      { name: 'hubUrl', type: 'string', indexed: false },
+      { name: 'registeredAt', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'HomeHubUpdated',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'oldUrl', type: 'string', indexed: false },
+      { name: 'newUrl', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'OrgRegistered',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'handle', type: 'string', indexed: false },
+      { name: 'name', type: 'string', indexed: false },
+      { name: 'owner', type: 'address', indexed: false },
+      { name: 'registeredAt', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'OrgNameUpdated',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'oldName', type: 'string', indexed: false },
+      { name: 'newName', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'Transfer',
+    inputs: [
+      { name: 'from', type: 'address', indexed: true },
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'tokenId', type: 'uint256', indexed: true },
+    ],
+  },
+] as const
+
+/** A decoded event log, abstracted from viem's return type for testability */
+export interface DecodedEventLog {
+  eventName: string
+  args: Record<string, unknown>
+  address: string
+}
 
 /**
  * Run the on-chain event indexer.
@@ -36,11 +106,12 @@ export async function runIndexer(env: Env): Promise<void> {
   })
 
   const db = drizzle(env.DB)
-  const chain = 'eip155:84532' // Base Sepolia
+  const chain = env.INDEXER_CHAIN ?? 'eip155:84532'
 
-  // Read cursor from KV
+  // Read cursor from KV, fall back to configured start block
   const cursorStr = await env.INDEXER_STATE.get(INDEXER_CURSOR_KEY)
-  const fromBlock = cursorStr ? BigInt(cursorStr) + 1n : 0n
+  const startBlock = env.INDEXER_START_BLOCK ? BigInt(env.INDEXER_START_BLOCK) : 0n
+  const fromBlock = cursorStr ? BigInt(cursorStr) + 1n : startBlock
 
   // Get current block
   const latestBlock = await client.getBlockNumber()
@@ -52,96 +123,115 @@ export async function runIndexer(env: Env): Promise<void> {
   const agentContract = env.AGENT_IDENTITY_CONTRACT as `0x${string}`
   const orgContract = env.ORG_IDENTITY_CONTRACT as `0x${string}`
 
-  // Fetch logs for both contracts
+  // Fetch logs for both contracts with server-side topic0 filtering.
+  // The `events` parameter tells the RPC to only return logs matching
+  // these event signatures, avoiding unnecessary client-side filtering.
   const logs = await client.getLogs({
     address: [agentContract, orgContract],
+    events: EVENT_ABIS,
     fromBlock,
     toBlock,
   })
 
-  // Process each log
+  // Process each log, tracking failures for safe cursor advancement
+  let lastSuccessBlock = fromBlock > 0n ? fromBlock - 1n : 0n
+  let hasFailure = false
+
   for (const log of logs) {
-    const meta = {
+    const logBlock = log.blockNumber ?? 0n
+    const meta: EventMeta = {
       txHash: log.transactionHash ?? '',
       contractAddress: log.address.toLowerCase(),
       chain,
-      blockNumber: log.blockNumber ?? 0n,
+      blockNumber: logBlock,
     }
 
     try {
-      await processLog(db, log, meta, agentContract.toLowerCase(), orgContract.toLowerCase())
+      await processDecodedLog(
+        db,
+        {
+          eventName: log.eventName,
+          args: log.args as Record<string, unknown>,
+          address: log.address,
+        },
+        meta,
+        agentContract.toLowerCase(),
+        orgContract.toLowerCase()
+      )
+      // Only advance success marker if no prior failure (preserve ordering)
+      if (!hasFailure) {
+        lastSuccessBlock = logBlock
+      }
     } catch (err) {
-      // Log error but continue processing remaining events
+      hasFailure = true
       // eslint-disable-next-line no-console
       console.error(`Failed to process log in tx ${meta.txHash}:`, err)
     }
   }
 
-  // Advance cursor
-  await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, toBlock.toString())
+  // Advance cursor safely:
+  // - If all logs succeeded (or no logs at all), advance to toBlock
+  // - If there were failures, advance to the last block before the first failure
+  //   so failed events will be retried on the next poll
+  if (!hasFailure) {
+    await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, toBlock.toString())
+  } else if (lastSuccessBlock >= fromBlock) {
+    await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, lastSuccessBlock.toString())
+  }
+  // If the very first log failed, don't advance the cursor at all
 }
 
-async function processLog(
+/**
+ * Process a single decoded event log by dispatching to the appropriate handler.
+ * Accepts a simple interface for testability (no dependency on viem's complex
+ * decoded log types).
+ */
+export async function processDecodedLog(
   db: ReturnType<typeof drizzle>,
-  log: Log,
-  meta: { txHash: string; contractAddress: string; chain: string; blockNumber: bigint },
+  log: DecodedEventLog,
+  meta: EventMeta,
   agentAddress: string,
   orgAddress: string
 ): Promise<void> {
-  const topic0 = log.topics[0]
-  if (!topic0) return
-
   const isAgent = log.address.toLowerCase() === agentAddress
   const isOrg = log.address.toLowerCase() === orgAddress
+  if (!isAgent && !isOrg) return
 
-  // Handle Transfer events (skip mints, handled by Registered events)
-  if (topic0 === TRANSFER_TOPIC) {
-    const from = `0x${log.topics[1]?.slice(26)}` as `0x${string}`
-    const to = `0x${log.topics[2]?.slice(26)}` as `0x${string}`
-    const tokenId = BigInt(log.topics[3] ?? '0')
-
-    // Skip mint events (from = zero address)
-    if (from === '0x0000000000000000000000000000000000000000') return
-
-    if (isAgent) {
-      await handleAgentTransfer(db, { from, to, tokenId })
-    } else if (isOrg) {
-      await handleOrgTransfer(db, { from, to, tokenId })
+  switch (log.eventName) {
+    case 'Transfer': {
+      const args = log.args as unknown as TransferEvent
+      // Skip mint events (from = zero address)
+      if (args.from === '0x0000000000000000000000000000000000000000') return
+      if (isAgent) {
+        await handleAgentTransfer(db, args)
+      } else if (isOrg) {
+        await handleOrgTransfer(db, args)
+      }
+      break
     }
-    return
-  }
 
-  // AgentRegistered, OrgRegistered, HomeHubUpdated, OrgNameUpdated
-  // These require decoding log.data which needs the full ABI.
-  // For now, we handle only Transfer events. Full event decoding
-  // will be added when contracts are deployed and we can test against
-  // real event data. The event handlers are ready (see event-handlers.ts).
-  if (topic0 === AGENT_REGISTERED_TOPIC && isAgent) {
-    // TODO: decode log.data with decodeEventLog and call handleAgentRegistered
-    return
-  }
+    case 'AgentRegistered': {
+      if (!isAgent) break
+      await handleAgentRegistered(db, log.args as unknown as AgentRegisteredEvent, meta)
+      break
+    }
 
-  if (topic0 === ORG_REGISTERED_TOPIC && isOrg) {
-    // TODO: decode log.data with decodeEventLog and call handleOrgRegistered
-    return
-  }
+    case 'OrgRegistered': {
+      if (!isOrg) break
+      await handleOrgRegistered(db, log.args as unknown as OrgRegisteredEvent, meta)
+      break
+    }
 
-  if (topic0 === HOME_HUB_UPDATED_TOPIC && isAgent) {
-    // TODO: decode log.data with decodeEventLog and call handleHomeHubUpdated
-    return
-  }
+    case 'HomeHubUpdated': {
+      if (!isAgent) break
+      await handleHomeHubUpdated(db, log.args as unknown as HomeHubUpdatedEvent)
+      break
+    }
 
-  if (topic0 === ORG_NAME_UPDATED_TOPIC && isOrg) {
-    // TODO: decode log.data with decodeEventLog and call handleOrgNameUpdated
-    return
+    case 'OrgNameUpdated': {
+      if (!isOrg) break
+      await handleOrgNameUpdated(db, log.args as unknown as OrgNameUpdatedEvent)
+      break
+    }
   }
-}
-
-// Re-export selectors for testing
-export {
-  AGENT_REGISTERED_TOPIC,
-  ORG_REGISTERED_TOPIC,
-  TRANSFER_TOPIC,
-  HOME_HUB_UPDATED_TOPIC,
-  ORG_NAME_UPDATED_TOPIC,
 }

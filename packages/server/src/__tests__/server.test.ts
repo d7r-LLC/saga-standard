@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import app from '../index'
+import { app } from '../index'
 import { createMockEnv, runMigrations } from './test-helpers'
 import type { Env } from '../bindings'
 
