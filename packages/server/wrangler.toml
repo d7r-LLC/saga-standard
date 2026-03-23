@@ -63,7 +63,7 @@ id = "bc4475e0858f422590dfb9f1d096ebe5"
 
 [[env.staging.kv_namespaces]]
 binding = "INDEXER_STATE"
-id = "saga-indexer-staging"
+id = "8557943d39f74dc9a6198e6dee6a19f8"
 
 # ── Production ───────────────────────────────────────────────────────
 
