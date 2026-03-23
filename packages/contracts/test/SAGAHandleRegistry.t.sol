@@ -11,7 +11,7 @@ contract SAGAHandleRegistryTest is Test {
     address public unauthorizedUser;
 
     event HandleRegistered(
-        string indexed handleIndexed,
+        bytes32 indexed handleKey,
         string handle,
         SAGAHandleRegistry.EntityType entityType,
         uint256 tokenId,
@@ -145,13 +145,31 @@ contract SAGAHandleRegistryTest is Test {
         registry.setAuthorizedContract(address(0xD), true);
     }
 
-    // --- Test 14: emits HandleRegistered event ---
+    // --- Test 14: emits HandleRegistered event with bytes32 key ---
     function test_registerHandle_emitsEvent() public {
         vm.prank(authorizedContract);
-        vm.expectEmit(false, false, false, true);
+        // The indexed key is keccak256 of the lowercased handle
+        vm.expectEmit(true, false, false, true);
         emit HandleRegistered(
-            "event-test", "event-test", SAGAHandleRegistry.EntityType.AGENT, 42, authorizedContract
+            keccak256(abi.encodePacked("event-test")),
+            "event-test",
+            SAGAHandleRegistry.EntityType.AGENT,
+            42,
+            authorizedContract
         );
         registry.registerHandle("event-test", SAGAHandleRegistry.EntityType.AGENT, 42);
+    }
+
+    // --- Test 15: validation runs before key computation (no DoS on long input) ---
+    function test_registerHandle_validatesBeforeKeyComputation() public {
+        // A 200-char string should be rejected by _validateHandle before _toLower runs
+        bytes memory longInput = new bytes(200);
+        for (uint256 i = 0; i < 200; i++) {
+            longInput[i] = "a";
+        }
+
+        vm.prank(authorizedContract);
+        vm.expectRevert("SAGAHandleRegistry: invalid length");
+        registry.registerHandle(string(longInput), SAGAHandleRegistry.EntityType.AGENT, 0);
     }
 }

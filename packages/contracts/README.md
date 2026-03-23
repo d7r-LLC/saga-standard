@@ -20,7 +20,7 @@ foundryup
 
 # Install dependencies (OpenZeppelin via git submodule)
 cd packages/contracts
-forge install OpenZeppelin/openzeppelin-contracts --no-commit
+forge install OpenZeppelin/openzeppelin-contracts
 ```
 
 ## Build & Test

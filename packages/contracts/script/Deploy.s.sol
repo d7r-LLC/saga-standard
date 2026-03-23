@@ -18,7 +18,9 @@ contract Deploy is Script {
         // Tokenbound V3 account implementation
         address tbaImplementation = vm.envAddress("TBA_IMPLEMENTATION");
 
-        vm.startBroadcast();
+        // Use DEPLOYER_PRIVATE_KEY from .env
+        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        vm.startBroadcast(deployerKey);
 
         // 1. Deploy handle registry
         SAGAHandleRegistry registry = new SAGAHandleRegistry();

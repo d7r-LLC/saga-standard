@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../src/SAGAOrgIdentity.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract SAGAOrgIdentityTest is Test {
     SAGAHandleRegistry public registry;
@@ -164,5 +165,27 @@ contract SAGAOrgIdentityTest is Test {
         vm.prank(user2);
         org.registerOrganization("supply-2", "Org Two");
         assertEq(org.totalSupply(), 2);
+    }
+
+    // --- Test 13: registeredAt returns block.timestamp ---
+    function test_registeredAt_returnsTimestamp() public {
+        vm.warp(1_700_000_000);
+
+        vm.prank(user1);
+        uint256 tokenId = org.registerOrganization("timestamp-org", "Timestamp Org");
+
+        assertEq(org.registeredAt(tokenId), 1_700_000_000);
+    }
+
+    // --- Test 14: orgHandle nonexistent reverts with OZ custom error ---
+    function test_orgHandle_nonexistentReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 999));
+        org.orgHandle(999);
+    }
+
+    // --- Test 15: registeredAt nonexistent reverts ---
+    function test_registeredAt_nonexistentReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 999));
+        org.registeredAt(999);
     }
 }

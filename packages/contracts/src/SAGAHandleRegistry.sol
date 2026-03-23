@@ -27,7 +27,7 @@ contract SAGAHandleRegistry is Ownable {
     mapping(address => bool) public authorizedContracts;
 
     event HandleRegistered(
-        string indexed handleIndexed,
+        bytes32 indexed handleKey,
         string handle,
         EntityType entityType,
         uint256 tokenId,
@@ -58,10 +58,12 @@ contract SAGAHandleRegistry is Ownable {
         require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
 
+        // Validate handle length and characters before computing the key
+        // to prevent unbounded _toLower loop on oversized input
+        _validateHandle(handle);
+
         bytes32 key = _handleKey(handle);
         require(_handles[key].entityType == EntityType.NONE, "SAGAHandleRegistry: handle taken");
-
-        _validateHandle(handle);
 
         _handles[key] = HandleRecord({
             entityType: entityType,
@@ -70,7 +72,7 @@ contract SAGAHandleRegistry is Ownable {
             registeredAt: block.timestamp
         });
 
-        emit HandleRegistered(handle, handle, entityType, tokenId, msg.sender);
+        emit HandleRegistered(key, handle, entityType, tokenId, msg.sender);
     }
 
     // --- Resolution (public view) ---

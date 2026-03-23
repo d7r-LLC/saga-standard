@@ -215,4 +215,20 @@ contract SAGAAgentIdentityTest is Test {
         assertEq(agent.tokenOfOwnerByIndex(user1, 0), 0);
         assertEq(agent.tokenOfOwnerByIndex(user1, 1), 1);
     }
+
+    // --- Test 17: registeredAt returns block.timestamp ---
+    function test_registeredAt_returnsTimestamp() public {
+        vm.warp(1_700_000_000);
+
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("timestamp-test", "https://hub.example.com");
+
+        assertEq(agent.registeredAt(tokenId), 1_700_000_000);
+    }
+
+    // --- Test 18: registeredAt nonexistent reverts ---
+    function test_registeredAt_nonexistentReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 999));
+        agent.registeredAt(999);
+    }
 }

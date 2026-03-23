@@ -50,7 +50,7 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
         returns (uint256)
     {
         uint256 tokenId = _nextTokenId++;
-        _mint(msg.sender, tokenId);
+        _safeMint(msg.sender, tokenId);
 
         _agentHandles[tokenId] = handle;
         _homeHubUrls[tokenId] = hubUrl;

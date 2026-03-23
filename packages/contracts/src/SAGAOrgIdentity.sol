@@ -50,7 +50,7 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
         );
 
         uint256 tokenId = _nextTokenId++;
-        _mint(msg.sender, tokenId);
+        _safeMint(msg.sender, tokenId);
 
         _orgHandles[tokenId] = handle;
         _orgNames[tokenId] = name;
@@ -76,17 +76,17 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     // --- View functions ---
 
     function orgHandle(uint256 tokenId) external view returns (string memory) {
-        require(_ownerOf(tokenId) != address(0), "SAGAOrgIdentity: nonexistent token");
+        _requireOwned(tokenId);
         return _orgHandles[tokenId];
     }
 
     function orgName(uint256 tokenId) external view returns (string memory) {
-        require(_ownerOf(tokenId) != address(0), "SAGAOrgIdentity: nonexistent token");
+        _requireOwned(tokenId);
         return _orgNames[tokenId];
     }
 
     function registeredAt(uint256 tokenId) external view returns (uint256) {
-        require(_ownerOf(tokenId) != address(0), "SAGAOrgIdentity: nonexistent token");
+        _requireOwned(tokenId);
         return _registeredAt[tokenId];
     }
 

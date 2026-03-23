@@ -8,8 +8,10 @@ import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {IERC6551Registry} from "../src/interfaces/IERC6551Registry.sol";
 
 /// @dev Minimal mock ERC-6551 registry for local testing.
-///      Computes deterministic addresses and deploys minimal bytecode on createAccount.
+///      Uses _created mapping for idempotence (real registry uses CREATE2 code deployment).
 contract MockERC6551Registry is IERC6551Registry {
+    mapping(address => bool) public _created;
+
     /// @notice Compute a deterministic address from the inputs (matches CREATE2 pattern)
     function account(
         address implementation,
@@ -29,7 +31,7 @@ contract MockERC6551Registry is IERC6551Registry {
         );
     }
 
-    /// @notice Create an account by computing the address and deploying minimal code there
+    /// @notice Create an account (idempotent via _created tracking)
     function createAccount(
         address implementation,
         bytes32 salt,
@@ -39,20 +41,17 @@ contract MockERC6551Registry is IERC6551Registry {
     ) external override returns (address) {
         address computed = this.account(implementation, salt, chainId, tokenContract, tokenId);
 
-        // If already created, return the same address (idempotent)
-        if (computed.code.length > 0) {
+        // Idempotent: return existing account if already created
+        if (_created[computed]) {
             return computed;
         }
 
-        // Mark as created (mock - real registry uses CREATE2)
         _created[computed] = true;
 
         emit ERC6551AccountCreated(computed, implementation, salt, chainId, tokenContract, tokenId);
 
         return computed;
     }
-
-    mapping(address => bool) public _created;
 }
 
 contract SAGATBAHelperTest is Test {
@@ -124,24 +123,53 @@ contract SAGATBAHelperTest is Test {
         assertEq(computed, created);
     }
 
-    // --- Test 6: createAccount is idempotent ---
+    // --- Test 6: createAccount is idempotent (returns same address, no re-emit) ---
     function test_createAccount_idempotent() public {
         address first = tbaHelper.createAccount(address(agentIdentity), 0);
         address second = tbaHelper.createAccount(address(agentIdentity), 0);
 
         assertEq(first, second);
+        // Verify the mock tracked creation
+        assertTrue(mockRegistry._created(first));
     }
 
-    // --- Test 7: created TBA can receive ETH ---
-    function test_createdAccount_canReceiveETH() public {
+    // --- Test 7: TBA address can hold ETH (any address can, verifying non-zero) ---
+    function test_tbaAddress_canHoldETH() public {
         address tba = tbaHelper.createAccount(address(agentIdentity), 0);
 
         // Fund the test contract
         vm.deal(address(this), 1 ether);
 
-        // Send ETH to the TBA address
+        // Send ETH to the TBA address (verifies address is valid, not a contract test)
         (bool success,) = tba.call{value: 0.1 ether}("");
         assertTrue(success);
         assertEq(tba.balance, 0.1 ether);
+    }
+
+    // --- Test 8: computeAccountForChain returns different address for different chains ---
+    function test_computeAccountForChain_differentChains() public view {
+        address localAddr = tbaHelper.computeAccount(address(agentIdentity), 0);
+        address otherChainAddr =
+            tbaHelper.computeAccountForChain(address(agentIdentity), 0, 999_999);
+
+        assertTrue(localAddr != otherChainAddr);
+    }
+
+    // --- Test 9: computeAccountForChain with current chain matches computeAccount ---
+    function test_computeAccountForChain_sameChainMatchesCompute() public view {
+        address computed = tbaHelper.computeAccount(address(agentIdentity), 0);
+        address forChain =
+            tbaHelper.computeAccountForChain(address(agentIdentity), 0, block.chainid);
+
+        assertEq(computed, forChain);
+    }
+
+    // --- Test 10: computeAccountForChain is deterministic ---
+    function test_computeAccountForChain_deterministic() public view {
+        address addr1 = tbaHelper.computeAccountForChain(address(agentIdentity), 0, 8453);
+        address addr2 = tbaHelper.computeAccountForChain(address(agentIdentity), 0, 8453);
+
+        assertEq(addr1, addr2);
+        assertTrue(addr1 != address(0));
     }
 }
