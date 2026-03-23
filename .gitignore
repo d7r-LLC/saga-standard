@@ -45,3 +45,6 @@ pnpm-debug.log*
 .plans/
 
 # Lock files are committed (pnpm-lock.yaml)
+
+# Worktrees
+.worktrees/
