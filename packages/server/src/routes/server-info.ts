@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono'
 import type { Env } from '../bindings'
+import { SERVER_VERSION } from '../version'
 
 export const serverInfoRoute = new Hono<{ Bindings: Env }>()
 
@@ -13,7 +14,7 @@ serverInfoRoute.get('/server', c => {
 
   return c.json({
     name: c.env.SERVER_NAME ?? 'SAGA Reference Hub',
-    version: '0.1.0',
+    version: SERVER_VERSION,
     sagaVersion: '1.0',
     conformanceLevel: 1,
     supportedChains,

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { createPublicClient, http } from 'viem'
-import { baseSepolia } from 'viem/chains'
+import { type Chain, createPublicClient, http } from 'viem'
+import { base, baseSepolia } from 'viem/chains'
 import { drizzle } from 'drizzle-orm/d1'
 import type { Env } from '../bindings'
 import { INDEXER_CURSOR_KEY } from './types'
@@ -90,6 +90,20 @@ export interface DecodedEventLog {
   address: string
 }
 
+/** Select the viem Chain object based on CAIP-2 identifier */
+function getViemChain(caip2: string): Chain {
+  switch (caip2) {
+    case 'eip155:8453':
+      return base
+    case 'eip155:84532':
+      return baseSepolia
+    default:
+      throw new Error(
+        `Unsupported INDEXER_CHAIN value "${caip2}". Supported: "eip155:8453" (Base) and "eip155:84532" (Base Sepolia).`
+      )
+  }
+}
+
 /**
  * Run the on-chain event indexer.
  * Called by the Cloudflare Worker scheduled handler.
@@ -100,13 +114,13 @@ export async function runIndexer(env: Env): Promise<void> {
     return
   }
 
-  const client = createPublicClient({
-    chain: baseSepolia,
-    transport: http(env.BASE_RPC_URL),
-  })
-
   const db = drizzle(env.DB)
   const chain = env.INDEXER_CHAIN ?? 'eip155:84532'
+
+  const client = createPublicClient({
+    chain: getViemChain(chain),
+    transport: http(env.BASE_RPC_URL),
+  })
 
   // Read cursor from KV, fall back to configured start block
   const cursorStr = await env.INDEXER_STATE.get(INDEXER_CURSOR_KEY)

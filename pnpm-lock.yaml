@@ -193,6 +193,9 @@ importers:
       '@epicdm/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
+      '@saga-standard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@cloudflare/workers-types@4.20260317.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)

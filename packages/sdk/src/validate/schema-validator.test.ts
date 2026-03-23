@@ -307,3 +307,82 @@ describe('validateSchema — NFT identity fields', () => {
     expect(result.valid).toBe(false)
   })
 })
+
+// ── Handle pattern alignment ─────────────────────────────────────
+
+describe('validateSchema — handle patterns', () => {
+  it('accepts handles with dots', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'marcus.chen',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('accepts handles with underscores', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'my_agent_01',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('accepts mixed-case handles with dots and underscores', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'My.Agent_01',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
+  it('rejects handles shorter than 3 characters', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'ab',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(false)
+  })
+
+  it('rejects handles starting with a dot', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: '.bad-handle',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(false)
+  })
+})

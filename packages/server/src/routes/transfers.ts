@@ -9,8 +9,7 @@ import { agents, documents, transfers } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 import { validateDocumentEncryption } from '../middleware/validate-document'
-
-const HANDLE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,62}[a-zA-Z0-9]$/
+import { HANDLE_REGEX, computeChecksum } from '../utils'
 
 export const transferRoutes = new Hono<{
   Bindings: Env
@@ -309,7 +308,7 @@ transferRoutes.post('/import', requireAuth, async c => {
     httpMetadata: { contentType: 'application/json' },
   })
 
-  const checksum = await computeImportChecksum(new TextEncoder().encode(jsonStr))
+  const checksum = await computeChecksum(new TextEncoder().encode(jsonStr))
   await db.insert(documents).values({
     id: documentId,
     agentId,
@@ -334,11 +333,3 @@ transferRoutes.post('/import', requireAuth, async c => {
     201
   )
 })
-
-async function computeImportChecksum(data: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  const hex = Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  return `sha256:${hex}`
-}

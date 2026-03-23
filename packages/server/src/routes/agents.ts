@@ -8,20 +8,12 @@ import type { Env } from '../bindings'
 import { agents, documents, organizations } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
-
-const HANDLE_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]{1,62}[a-zA-Z0-9]$/
+import { HANDLE_REGEX, parseIntParam } from '../utils'
 
 export const agentRoutes = new Hono<{
   Bindings: Env
   Variables: { session: SessionData }
 }>()
-
-/** Parse a numeric query param with a fallback for NaN/missing values */
-function parseIntParam(value: string | undefined, fallback: number): number {
-  if (value === undefined) return fallback
-  const parsed = parseInt(value, 10)
-  return Number.isNaN(parsed) ? fallback : parsed
-}
 
 /**
  * POST /v1/agents — Register a new agent (off-chain, legacy)

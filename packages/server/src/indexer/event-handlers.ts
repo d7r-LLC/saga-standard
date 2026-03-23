@@ -3,6 +3,7 @@
 
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { computeTBAAddress } from '@saga-standard/contracts'
 import { agents, organizations } from '../db/schema'
 import { generateId } from '../middleware/auth'
 import type {
@@ -13,6 +14,7 @@ import type {
   OrgRegisteredEvent,
   TransferEvent,
 } from './types'
+import { CHAIN_ID_MAP, TBA_IMPLEMENTATION } from './types'
 
 /**
  * Convert a bigint token ID to a JS number, throwing if the value
@@ -30,6 +32,27 @@ export function safeTokenId(tokenId: bigint): number {
   return Number(tokenId)
 }
 
+/** Convert a Solidity uint256 timestamp (seconds since epoch) to ISO 8601 string */
+function timestampToISO(timestamp: bigint): string {
+  return new Date(Number(timestamp) * 1000).toISOString()
+}
+
+/** Compute the ERC-6551 TBA address for a token. Returns null if chain is unknown or address is invalid. */
+function computeTBA(tokenId: bigint, contractAddress: string, chain: string): string | null {
+  const chainId = CHAIN_ID_MAP[chain]
+  if (!chainId) return null
+  try {
+    return computeTBAAddress({
+      implementation: TBA_IMPLEMENTATION,
+      chainId,
+      tokenContract: contractAddress as `0x${string}`,
+      tokenId,
+    })
+  } catch {
+    return null
+  }
+}
+
 /**
  * Handle AgentRegistered event.
  * If the handle already exists (off-chain registration), upsert NFT fields.
@@ -42,6 +65,7 @@ export async function handleAgentRegistered(
 ): Promise<void> {
   const now = new Date().toISOString()
   const id = safeTokenId(event.tokenId)
+  const tbaAddress = computeTBA(event.tokenId, meta.contractAddress, meta.chain)
 
   const existing = await db
     .select({ id: agents.id })
@@ -59,6 +83,7 @@ export async function handleAgentRegistered(
         homeHubUrl: event.hubUrl,
         walletAddress: event.owner.toLowerCase(),
         entityType: 'agent',
+        tbaAddress,
         updatedAt: now,
       })
       .where(eq(agents.handle, event.handle))
@@ -73,7 +98,8 @@ export async function handleAgentRegistered(
       mintTxHash: meta.txHash,
       homeHubUrl: event.hubUrl,
       entityType: 'agent',
-      registeredAt: now,
+      tbaAddress,
+      registeredAt: timestampToISO(event.registeredAt),
       updatedAt: now,
     })
   }
@@ -127,6 +153,7 @@ export async function handleOrgRegistered(
 ): Promise<void> {
   const now = new Date().toISOString()
   const id = safeTokenId(event.tokenId)
+  const tbaAddress = computeTBA(event.tokenId, meta.contractAddress, meta.chain)
 
   const existing = await db
     .select({ id: organizations.id })
@@ -143,6 +170,7 @@ export async function handleOrgRegistered(
         contractAddress: meta.contractAddress,
         mintTxHash: meta.txHash,
         walletAddress: event.owner.toLowerCase(),
+        tbaAddress,
         updatedAt: now,
       })
       .where(eq(organizations.handle, event.handle))
@@ -156,7 +184,8 @@ export async function handleOrgRegistered(
       tokenId: id,
       contractAddress: meta.contractAddress,
       mintTxHash: meta.txHash,
-      registeredAt: now,
+      tbaAddress,
+      registeredAt: timestampToISO(event.registeredAt),
       updatedAt: now,
     })
   }
