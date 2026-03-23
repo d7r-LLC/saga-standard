@@ -92,8 +92,16 @@ export interface DecodedEventLog {
 
 /** Select the viem Chain object based on CAIP-2 identifier */
 function getViemChain(caip2: string): Chain {
-  if (caip2 === 'eip155:8453') return base
-  return baseSepolia
+  switch (caip2) {
+    case 'eip155:8453':
+      return base
+    case 'eip155:84532':
+      return baseSepolia
+    default:
+      throw new Error(
+        `Unsupported INDEXER_CHAIN value "${caip2}". Supported: "eip155:8453" (Base) and "eip155:84532" (Base Sepolia).`
+      )
+  }
 }
 
 /**

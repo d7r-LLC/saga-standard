@@ -215,7 +215,8 @@
               "type": "string",
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$",
               "description": "Organization handle in the shared namespace",
-              "minLength": 3
+              "minLength": 3,
+              "maxLength": 64
             },
             "name": {
               "type": "string",

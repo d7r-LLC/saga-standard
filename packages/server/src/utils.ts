@@ -11,7 +11,7 @@ export function parseIntParam(value: string | undefined, fallback: number): numb
   return Number.isNaN(parsed) ? fallback : parsed
 }
 
-/** Compute SHA-256 checksum as hex string */
+/** Compute SHA-256 checksum, returned as `sha256:<hex>` prefixed string */
 export async function computeChecksum(data: Uint8Array): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data)
   const hex = Array.from(new Uint8Array(hash))

@@ -341,6 +341,21 @@ describe('validateSchema — handle patterns', () => {
     expect(result.valid).toBe(true)
   })
 
+  it('accepts mixed-case handles with dots and underscores', () => {
+    const doc = minimalDoc({
+      layers: {
+        identity: {
+          handle: 'My.Agent_01',
+          walletAddress: '0xabc123',
+          chain: 'eip155:8453',
+          createdAt: '2026-03-23T10:00:00Z',
+        },
+      },
+    })
+    const result = validateSchema(doc)
+    expect(result.valid).toBe(true)
+  })
+
   it('rejects handles shorter than 3 characters', () => {
     const doc = minimalDoc({
       layers: {

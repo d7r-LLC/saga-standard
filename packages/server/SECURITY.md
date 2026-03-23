@@ -2,7 +2,7 @@
 
 ## Signature Verification
 
-The reference server does NOT perform full EIP-191 signature verification. The `verifySignature` function in `src/routes/auth.ts` accepts any well-formed signature string and returns true. Security relies on the challenge-response mechanism (nonce + expiry) for replay protection, not cryptographic verification of wallet ownership.
+The reference server does NOT perform full EIP-191 signature verification. The `verifySignature` function in `src/routes/auth.ts` performs only minimal placeholder checks (rejecting signatures shorter than 10 characters) and does not validate that the signature is well-formed hex, 0x-prefixed, or cryptographically authentic. Security relies on the challenge-response mechanism (nonce + expiry) for replay protection, not cryptographic verification of wallet ownership.
 
 **This is a known limitation of the reference implementation.** Production deployments MUST integrate proper signature verification using viem's `verifyMessage` or equivalent:
 
