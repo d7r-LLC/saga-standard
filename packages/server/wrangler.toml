@@ -4,9 +4,13 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "63396a5b2b279efdc0e1618233dcdc17"
 
+[triggers]
+crons = ["* * * * *"]
+
 [vars]
 SERVER_NAME = "SAGA Reference Hub"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+# BASE_RPC_URL, contract addresses configured per environment
 
 # ── Local development ────────────────────────────────────────────────
 
@@ -23,6 +27,10 @@ bucket_name = "saga-documents"
 binding = "SESSIONS"
 id = "saga-sessions-dev"
 
+[[kv_namespaces]]
+binding = "INDEXER_STATE"
+id = "saga-indexer-dev"
+
 [dev]
 port = 8787
 local_protocol = "http"
@@ -32,9 +40,13 @@ local_protocol = "http"
 [env.staging]
 name = "saga-server-staging"
 
+[env.staging.triggers]
+crons = ["* * * * *"]
+
 [env.staging.vars]
 SERVER_NAME = "SAGA Reference Hub (Staging)"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+BASE_RPC_URL = "https://sepolia.base.org"
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -49,6 +61,10 @@ bucket_name = "saga-documents-staging"
 binding = "SESSIONS"
 id = "bc4475e0858f422590dfb9f1d096ebe5"
 
+[[env.staging.kv_namespaces]]
+binding = "INDEXER_STATE"
+id = "saga-indexer-staging"
+
 # ── Production ───────────────────────────────────────────────────────
 
 [env.production]
@@ -57,6 +73,9 @@ workers_dev = true
 routes = [
   { pattern = "api.saga-standard.dev", custom_domain = true }
 ]
+
+[env.production.triggers]
+crons = ["* * * * *"]
 
 [env.production.vars]
 SERVER_NAME = "SAGA Reference Hub"
@@ -74,3 +93,7 @@ bucket_name = "saga-documents-production"
 [[env.production.kv_namespaces]]
 binding = "SESSIONS"
 id = "5983236e52ad4f1c973cf059c52a2611"
+
+[[env.production.kv_namespaces]]
+binding = "INDEXER_STATE"
+id = "saga-indexer-production"

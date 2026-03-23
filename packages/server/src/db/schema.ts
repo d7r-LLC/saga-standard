@@ -11,6 +11,27 @@ export const agents = sqliteTable('agents', {
   publicKey: text('public_key'),
   registeredAt: text('registered_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+  // NFT identity fields (null for legacy off-chain registrations)
+  tokenId: integer('token_id'),
+  tbaAddress: text('tba_address'),
+  contractAddress: text('contract_address'),
+  mintTxHash: text('mint_tx_hash'),
+  entityType: text('entity_type').default('agent'),
+  homeHubUrl: text('home_hub_url'),
+})
+
+export const organizations = sqliteTable('organizations', {
+  id: text('id').primaryKey(),
+  handle: text('handle').unique().notNull(),
+  name: text('name').notNull(),
+  walletAddress: text('wallet_address').notNull(),
+  chain: text('chain').notNull(),
+  tokenId: integer('token_id'),
+  tbaAddress: text('tba_address'),
+  contractAddress: text('contract_address'),
+  mintTxHash: text('mint_tx_hash'),
+  registeredAt: text('registered_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
 
 export const documents = sqliteTable('documents', {
