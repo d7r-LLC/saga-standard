@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { SERVER_VERSION } from './version'
 import type { Env } from './bindings'
 import { authRoutes } from './routes/auth'
 import { agentRoutes } from './routes/agents'
@@ -26,7 +27,7 @@ app.get('/', c => {
   }
   return c.json({
     name: c.env.SERVER_NAME ?? 'SAGA Reference Hub',
-    version: '0.2.0',
+    version: SERVER_VERSION,
     sagaVersion: '1.0',
     docs: 'https://saga-standard.dev',
     registry: 'https://registry.saga-standard.dev',

@@ -9,6 +9,7 @@ import { agents, documents } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 import { validateDocumentEncryption } from '../middleware/validate-document'
+import { computeChecksum } from '../utils'
 
 export const documentRoutes = new Hono<{
   Bindings: Env
@@ -292,12 +293,3 @@ documentRoutes.delete('/:handle/documents/:documentId', requireAuth, async c => 
 
   return new Response(null, { status: 204 })
 })
-
-/** Compute SHA-256 checksum as hex */
-async function computeChecksum(data: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data)
-  const hex = Array.from(new Uint8Array(hash))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  return `sha256:${hex}`
-}

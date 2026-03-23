@@ -50,3 +50,12 @@ export interface OrgNameUpdatedEvent {
 
 /** KV key for the indexer block cursor */
 export const INDEXER_CURSOR_KEY = 'indexer:lastBlock'
+
+/** ERC-6551 TBA implementation address (same across all EVM chains) */
+export const TBA_IMPLEMENTATION = '0x55266d75D1a14E4572138116aF39863Ed6596E7F' as const
+
+/** Map CAIP-2 chain identifiers to numeric chain IDs for TBA computation */
+export const CHAIN_ID_MAP: Record<string, number> = {
+  'eip155:84532': 84532,
+  'eip155:8453': 8453,
+}

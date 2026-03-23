@@ -9,6 +9,9 @@ import type { Env } from '../bindings'
 const WALLET = '0xaabbccddee1234567890aabbccddee1234567890'
 const CHAIN = 'eip155:84532'
 
+/** Current time as seconds since epoch (matches Solidity block.timestamp) */
+const NOW_SECONDS = BigInt(Math.floor(Date.now() / 1000))
+
 let env: Env
 
 async function req(
@@ -138,6 +141,32 @@ describe('org routes', () => {
     const res = await req('GET', '/v1/orgs/nonexistent')
     expect(res.status).toBe(404)
   })
+
+  it('includes mintTxHash in org list response', async () => {
+    const now = new Date().toISOString()
+    await env.DB.prepare(
+      'INSERT INTO organizations (id, handle, name, wallet_address, chain, token_id, mint_tx_hash, registered_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+      .bind(
+        'org_mint',
+        'minted-org',
+        'Minted Org',
+        WALLET.toLowerCase(),
+        CHAIN,
+        5,
+        '0xmint_tx_hash_for_org',
+        now,
+        now
+      )
+      .run()
+
+    const res = await req('GET', '/v1/orgs')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { organizations: Record<string, unknown>[] }
+    const org = body.organizations.find(o => o.handle === 'minted-org')
+    expect(org).toBeTruthy()
+    expect(org!.mintTxHash).toBe('0xmint_tx_hash_for_org')
+  })
 })
 
 describe('agent routes — NFT fields', () => {
@@ -177,7 +206,6 @@ describe('agent routes — NFT fields', () => {
 
 describe('integration — event handler → API', () => {
   it('agent registered event flows through to resolve API', async () => {
-    // Import event handler directly
     const { handleAgentRegistered } = await import('../indexer/event-handlers')
     const { drizzle } = await import('drizzle-orm/d1')
     const db = drizzle(env.DB)
@@ -189,7 +217,7 @@ describe('integration — event handler → API', () => {
         handle: 'minted.agent',
         owner: WALLET,
         hubUrl: 'https://hub.example.com',
-        registeredAt: BigInt(Date.now()),
+        registeredAt: NOW_SECONDS,
       },
       {
         txHash: '0xtx1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd',
@@ -209,10 +237,67 @@ describe('integration — event handler → API', () => {
     expect(body.homeHubUrl).toBe('https://hub.example.com')
   })
 
+  it('agent registered event stores computed TBA address', async () => {
+    const { handleAgentRegistered } = await import('../indexer/event-handlers')
+    const { drizzle } = await import('drizzle-orm/d1')
+    const db = drizzle(env.DB)
+
+    await handleAgentRegistered(
+      db,
+      {
+        tokenId: 100n,
+        handle: 'tba.agent',
+        owner: WALLET,
+        hubUrl: 'https://hub.example.com',
+        registeredAt: NOW_SECONDS,
+      },
+      {
+        txHash: '0xtx_tba_test',
+        contractAddress: '0x1111111111111111111111111111111111111111',
+        chain: CHAIN,
+        blockNumber: 500n,
+      }
+    )
+
+    const res = await req('GET', '/v1/resolve/tba.agent')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.tbaAddress).toBeTruthy()
+    expect(body.tbaAddress).toMatch(/^0x[0-9a-fA-F]{40}$/)
+  })
+
+  it('org registered event stores computed TBA address', async () => {
+    const { handleOrgRegistered } = await import('../indexer/event-handlers')
+    const { drizzle } = await import('drizzle-orm/d1')
+    const db = drizzle(env.DB)
+
+    await handleOrgRegistered(
+      db,
+      {
+        tokenId: 200n,
+        handle: 'tba-org',
+        name: 'TBA Org',
+        owner: WALLET,
+        registeredAt: NOW_SECONDS,
+      },
+      {
+        txHash: '0xtx_org_tba_test',
+        contractAddress: '0x2222222222222222222222222222222222222222',
+        chain: CHAIN,
+        blockNumber: 501n,
+      }
+    )
+
+    const res = await req('GET', '/v1/orgs/tba-org')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { organization: Record<string, unknown> }
+    expect(body.organization.tbaAddress).toBeTruthy()
+    expect(body.organization.tbaAddress).toMatch(/^0x[0-9a-fA-F]{40}$/)
+  })
+
   it('agent owned by org TBA is traceable', async () => {
     const orgTba = '0xorgTba1234567890abcdef1234567890abcdef12'
 
-    // Seed org with a known TBA
     const now = new Date().toISOString()
     await env.DB.prepare(
       'INSERT INTO organizations (id, handle, name, wallet_address, chain, tba_address, registered_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
@@ -229,20 +314,17 @@ describe('integration — event handler → API', () => {
       )
       .run()
 
-    // Seed agent owned by org's TBA
     await env.DB.prepare(
       'INSERT INTO agents (id, handle, wallet_address, chain, registered_at, updated_at, token_id, entity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
       .bind('agent_employed', 'employed.agent', orgTba.toLowerCase(), CHAIN, now, now, 10, 'agent')
       .run()
 
-    // Verify agent is owned by org TBA address
     const agentRes = await req('GET', '/v1/agents/employed.agent')
     expect(agentRes.status).toBe(200)
     const agentBody = (await agentRes.json()) as { agent: Record<string, unknown> }
     expect(agentBody.agent.walletAddress).toBe(orgTba.toLowerCase())
 
-    // Verify org has that TBA
     const orgRes = await req('GET', '/v1/orgs/d7r-llc')
     expect(orgRes.status).toBe(200)
     const orgBody = (await orgRes.json()) as { organization: Record<string, unknown> }
@@ -257,7 +339,6 @@ describe('integration — event handler → API', () => {
     const walletA = '0xaaaa000000000000000000000000000000000001'
     const walletB = '0xbbbb000000000000000000000000000000000002'
 
-    // Register agent with wallet A
     await handleAgentRegistered(
       db,
       {
@@ -265,7 +346,7 @@ describe('integration — event handler → API', () => {
         handle: 'transfer.agent',
         owner: walletA,
         hubUrl: 'https://hub.example.com',
-        registeredAt: BigInt(Date.now()),
+        registeredAt: NOW_SECONDS,
       },
       {
         txHash: '0xtx_register',
@@ -275,14 +356,12 @@ describe('integration — event handler → API', () => {
       }
     )
 
-    // Transfer to wallet B
     await handleAgentTransfer(db, {
       from: walletA,
       to: walletB,
       tokenId: 55n,
     })
 
-    // Verify API returns new owner
     const res = await req('GET', '/v1/agents/transfer.agent')
     expect(res.status).toBe(200)
     const body = (await res.json()) as { agent: Record<string, unknown> }
@@ -290,10 +369,8 @@ describe('integration — event handler → API', () => {
   })
 
   it('legacy off-chain agent resolves with null NFT fields', async () => {
-    // Seed directly (off-chain registration has no NFT fields)
     await seedLegacyAgent('offchain.agent')
 
-    // Resolve returns no NFT fields
     const res = await req('GET', '/v1/resolve/offchain.agent')
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
@@ -313,7 +390,7 @@ describe('integration — event handler → API', () => {
       handle: 'idempotent.agent',
       owner: WALLET,
       hubUrl: 'https://hub.example.com',
-      registeredAt: BigInt(Date.now()),
+      registeredAt: NOW_SECONDS,
     }
     const meta = {
       txHash: '0xtx_idempotent',
@@ -322,13 +399,9 @@ describe('integration — event handler → API', () => {
       blockNumber: 200n,
     }
 
-    // First call creates
+    await handleAgentRegistered(db, event, meta)
     await handleAgentRegistered(db, event, meta)
 
-    // Second call upserts without error
-    await handleAgentRegistered(db, event, meta)
-
-    // Verify only one record exists with correct data
     const res = await req('GET', '/v1/resolve/idempotent.agent')
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
@@ -337,19 +410,12 @@ describe('integration — event handler → API', () => {
   })
 
   it('duplicate handle across agent and org is caught', async () => {
-    // Seed an agent with handle "shared-name"
     await seedLegacyAgent('shared-name')
-
-    // Attempt to seed an org with the same handle
-    // The agents and organizations tables have separate UNIQUE constraints,
-    // but the resolve route checks agents first then orgs.
-    // Verify resolve returns the agent (agents take priority).
     await seedOrg('shared-name', 'Shared Org')
 
     const res = await req('GET', '/v1/resolve/shared-name')
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
-    // Agent should take priority in resolve since agents table is checked first
     expect(body.entityType).toBe('agent')
   })
 })

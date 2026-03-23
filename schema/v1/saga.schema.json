@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://saga-standard.dev/schema/v1",
   "title": "SAGA Document",
-  "description": "State Archive for General Agents — v1.0 document schema",
+  "description": "State Archive for General Agents \u2014 v1.0 document schema",
   "type": "object",
   "required": [
     "$schema",
@@ -50,12 +50,16 @@
       "properties": {
         "encryptedLayers": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Layer paths that are encrypted in this document"
         },
         "redactedFields": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Field paths that have been redacted"
         },
         "encryptionScheme": {
@@ -93,14 +97,30 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "identity": { "$ref": "#/definitions/IdentityLayer" },
-        "persona": { "$ref": "#/definitions/PersonaLayer" },
-        "cognitive": { "$ref": "#/definitions/CognitiveLayer" },
-        "memory": { "$ref": "#/definitions/MemoryLayer" },
-        "skills": { "$ref": "#/definitions/SkillsLayer" },
-        "taskHistory": { "$ref": "#/definitions/TaskHistoryLayer" },
-        "relationships": { "$ref": "#/definitions/RelationshipsLayer" },
-        "environment": { "$ref": "#/definitions/EnvironmentLayer" }
+        "identity": {
+          "$ref": "#/definitions/IdentityLayer"
+        },
+        "persona": {
+          "$ref": "#/definitions/PersonaLayer"
+        },
+        "cognitive": {
+          "$ref": "#/definitions/CognitiveLayer"
+        },
+        "memory": {
+          "$ref": "#/definitions/MemoryLayer"
+        },
+        "skills": {
+          "$ref": "#/definitions/SkillsLayer"
+        },
+        "taskHistory": {
+          "$ref": "#/definitions/TaskHistoryLayer"
+        },
+        "relationships": {
+          "$ref": "#/definitions/RelationshipsLayer"
+        },
+        "environment": {
+          "$ref": "#/definitions/EnvironmentLayer"
+        }
       }
     }
   },
@@ -112,8 +132,8 @@
       "properties": {
         "handle": {
           "type": "string",
-          "pattern": "^[a-z0-9-]+$",
-          "minLength": 2,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$",
+          "minLength": 3,
           "maxLength": 64,
           "description": "Unique human-readable identifier. Immutable once registered."
         },
@@ -193,8 +213,9 @@
           "properties": {
             "handle": {
               "type": "string",
-              "pattern": "^[a-z0-9-]+$",
-              "description": "Organization handle in the shared namespace"
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$",
+              "description": "Organization handle in the shared namespace",
+              "minLength": 3
             },
             "name": {
               "type": "string",
@@ -221,26 +242,50 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "name": { "type": "string" },
-        "avatar": { "type": "string", "format": "uri" },
-        "banner": { "type": "string", "format": "uri" },
-        "headline": { "type": "string", "maxLength": 200 },
-        "bio": { "type": "string", "maxLength": 2000 },
+        "name": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string",
+          "format": "uri"
+        },
+        "banner": {
+          "type": "string",
+          "format": "uri"
+        },
+        "headline": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 2000
+        },
         "personality": {
           "type": "object",
           "additionalProperties": true,
           "properties": {
             "traits": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
-            "communicationStyle": { "type": "string" },
-            "tone": { "type": "string" },
+            "communicationStyle": {
+              "type": "string"
+            },
+            "tone": {
+              "type": "string"
+            },
             "languagePreferences": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
-            "customAttributes": { "type": "object" }
+            "customAttributes": {
+              "type": "object"
+            }
           }
         },
         "profileType": {
@@ -256,10 +301,18 @@
         "baseModel": {
           "type": "object",
           "properties": {
-            "provider": { "type": "string" },
-            "model": { "type": "string" },
-            "contextWindow": { "type": "integer" },
-            "version": { "type": "string" }
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "contextWindow": {
+              "type": "integer"
+            },
+            "version": {
+              "type": "string"
+            }
           }
         },
         "fallbackModels": {
@@ -267,18 +320,35 @@
           "items": {
             "type": "object",
             "properties": {
-              "provider": { "type": "string" },
-              "model": { "type": "string" },
-              "contextWindow": { "type": "integer" }
+              "provider": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "contextWindow": {
+                "type": "integer"
+              }
             }
           }
         },
         "parameters": {
           "type": "object",
           "properties": {
-            "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-            "topP": { "type": "number", "minimum": 0, "maximum": 1 },
-            "maxOutputTokens": { "type": "integer", "minimum": 1 }
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "topP": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "maxOutputTokens": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "systemPrompt": {
@@ -288,17 +358,25 @@
               "type": "string",
               "enum": ["plaintext", "markdown", "jinja2"]
             },
-            "content": { "type": "string" },
-            "encrypted": { "type": "boolean" },
+            "content": {
+              "type": "string"
+            },
+            "encrypted": {
+              "type": "boolean"
+            },
             "encryptedFor": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
         "capabilities": {
           "type": "object",
-          "additionalProperties": { "type": "boolean" }
+          "additionalProperties": {
+            "type": "boolean"
+          }
         },
         "behaviorFlags": {
           "type": "object",
@@ -309,10 +387,17 @@
             },
             "requiresApprovalFor": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
-            "canSpawnSubAgents": { "type": "boolean" },
-            "maxConcurrentTasks": { "type": "integer", "minimum": 1 }
+            "canSpawnSubAgents": {
+              "type": "boolean"
+            },
+            "maxConcurrentTasks": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         }
       }
@@ -325,7 +410,9 @@
           "type": "string",
           "enum": ["ipfs", "arweave", "url", "inline"]
         },
-        "ref": { "type": "string" },
+        "ref": {
+          "type": "string"
+        },
         "checksum": {
           "type": "string",
           "pattern": "^sha256:.+"
@@ -339,26 +426,55 @@
         "shortTerm": {
           "type": "object",
           "properties": {
-            "type": { "type": "string", "enum": ["sliding-window"] },
-            "maxTokens": { "type": "integer" },
-            "snapshotAt": { "type": "string", "format": "date-time" },
-            "content": { "type": "string" },
-            "encrypted": { "type": "boolean" }
+            "type": {
+              "type": "string",
+              "enum": ["sliding-window"]
+            },
+            "maxTokens": {
+              "type": "integer"
+            },
+            "snapshotAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "content": {
+              "type": "string"
+            },
+            "encrypted": {
+              "type": "boolean"
+            }
           }
         },
         "longTerm": {
           "type": "object",
           "properties": {
-            "type": { "type": "string", "enum": ["vector-store"] },
-            "embeddingModel": { "type": "string" },
-            "dimensions": { "type": "integer" },
-            "vectorCount": { "type": "integer" },
-            "format": { "type": "string" },
-            "storageRef": { "$ref": "#/definitions/StorageRef" },
-            "encrypted": { "type": "boolean" },
+            "type": {
+              "type": "string",
+              "enum": ["vector-store"]
+            },
+            "embeddingModel": {
+              "type": "string"
+            },
+            "dimensions": {
+              "type": "integer"
+            },
+            "vectorCount": {
+              "type": "integer"
+            },
+            "format": {
+              "type": "string"
+            },
+            "storageRef": {
+              "$ref": "#/definitions/StorageRef"
+            },
+            "encrypted": {
+              "type": "boolean"
+            },
             "encryptedFor": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
@@ -371,21 +487,40 @@
                 "type": "object",
                 "required": ["eventId", "type", "timestamp"],
                 "properties": {
-                  "eventId": { "type": "string" },
+                  "eventId": {
+                    "type": "string"
+                  },
                   "type": {
                     "type": "string",
                     "enum": ["task-completed", "interaction", "decision", "milestone"]
                   },
-                  "timestamp": { "type": "string", "format": "date-time" },
-                  "summary": { "type": "string" },
-                  "learnings": { "type": "string" },
-                  "linkedTaskId": { "type": "string" },
-                  "significance": { "type": "number", "minimum": 0, "maximum": 1 }
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "learnings": {
+                    "type": "string"
+                  },
+                  "linkedTaskId": {
+                    "type": "string"
+                  },
+                  "significance": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
                 }
               }
             },
-            "maxEvents": { "type": "integer" },
-            "encrypted": { "type": "boolean" }
+            "maxEvents": {
+              "type": "integer"
+            },
+            "encrypted": {
+              "type": "boolean"
+            }
           }
         },
         "semantic": {
@@ -393,7 +528,9 @@
           "properties": {
             "knowledgeDomains": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "expertise": {
               "type": "object",
@@ -411,7 +548,9 @@
                 }
               }
             },
-            "encrypted": { "type": "boolean" }
+            "encrypted": {
+              "type": "boolean"
+            }
           }
         },
         "procedural": {
@@ -422,17 +561,27 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "name": { "type": "string" },
-                  "description": { "type": "string" },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
                   "steps": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": {
+                      "type": "string"
+                    }
                   },
-                  "learnedFrom": { "type": "string" }
+                  "learnedFrom": {
+                    "type": "string"
+                  }
                 }
               }
             },
-            "encrypted": { "type": "boolean" }
+            "encrypted": {
+              "type": "boolean"
+            }
           }
         }
       }
@@ -447,14 +596,36 @@
             "type": "object",
             "required": ["name", "verificationSource"],
             "properties": {
-              "name": { "type": "string" },
-              "category": { "type": "string" },
-              "verificationSource": { "type": "string" },
-              "verificationProof": { "type": "string", "format": "uri" },
-              "completionCount": { "type": "integer", "minimum": 0 },
-              "firstVerified": { "type": "string", "format": "date-time" },
-              "lastVerified": { "type": "string", "format": "date-time" },
-              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+              "name": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "verificationSource": {
+                "type": "string"
+              },
+              "verificationProof": {
+                "type": "string",
+                "format": "uri"
+              },
+              "completionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "firstVerified": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastVerified": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
             }
           }
         },
@@ -464,9 +635,16 @@
             "type": "object",
             "required": ["name"],
             "properties": {
-              "name": { "type": "string" },
-              "category": { "type": "string" },
-              "addedAt": { "type": "string", "format": "date-time" }
+              "name": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "addedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           }
         },
@@ -476,21 +654,49 @@
             "type": "object",
             "required": ["skill", "fromAgent", "signature", "timestamp"],
             "properties": {
-              "skill": { "type": "string" },
-              "fromAgent": { "type": "string" },
-              "fromHandle": { "type": "string" },
-              "comment": { "type": "string" },
-              "signature": { "type": "string" },
-              "timestamp": { "type": "string", "format": "date-time" }
+              "skill": {
+                "type": "string"
+              },
+              "fromAgent": {
+                "type": "string"
+              },
+              "fromHandle": {
+                "type": "string"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           }
         },
         "capabilities": {
           "type": "object",
           "properties": {
-            "toolUse": { "type": "array", "items": { "type": "string" } },
-            "codeLanguages": { "type": "array", "items": { "type": "string" } },
-            "specializations": { "type": "array", "items": { "type": "string" } }
+            "toolUse": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "codeLanguages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "specializations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -502,13 +708,38 @@
         "summary": {
           "type": "object",
           "properties": {
-            "totalCompleted": { "type": "integer", "minimum": 0 },
-            "totalFailed": { "type": "integer", "minimum": 0 },
-            "totalInProgress": { "type": "integer", "minimum": 0 },
-            "firstTaskAt": { "type": "string", "format": "date-time" },
-            "lastTaskAt": { "type": "string", "format": "date-time" },
-            "bySkill": { "type": "object", "additionalProperties": { "type": "integer" } },
-            "byOrganization": { "type": "object", "additionalProperties": { "type": "integer" } }
+            "totalCompleted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "totalFailed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "totalInProgress": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "firstTaskAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "lastTaskAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "bySkill": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "byOrganization": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
           }
         },
         "recentTasks": {
@@ -518,8 +749,12 @@
             "type": "object",
             "required": ["taskId", "status"],
             "properties": {
-              "taskId": { "type": "string" },
-              "title": { "type": "string" },
+              "taskId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
               "status": {
                 "type": "string",
                 "enum": ["completed", "failed", "in-progress", "cancelled"]
@@ -528,31 +763,65 @@
                 "type": "string",
                 "enum": ["success", "failure", "partial"]
               },
-              "skillTags": { "type": "array", "items": { "type": "string" } },
-              "completedAt": { "type": "string", "format": "date-time" },
-              "organizationId": { "type": "string" },
-              "artifactRefs": { "type": "array", "items": { "type": "string" } },
-              "durationSeconds": { "type": "integer", "minimum": 0 },
-              "summary": { "type": "string" }
+              "skillTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "organizationId": {
+                "type": "string"
+              },
+              "artifactRefs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "durationSeconds": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "summary": {
+                "type": "string"
+              }
             }
           }
         },
-        "recentTasksLimit": { "type": "integer", "default": 100 },
+        "recentTasksLimit": {
+          "type": "integer",
+          "default": 100
+        },
         "artifacts": {
           "type": "array",
           "items": {
             "type": "object",
             "required": ["artifactId", "type", "name"],
             "properties": {
-              "artifactId": { "type": "string" },
+              "artifactId": {
+                "type": "string"
+              },
               "type": {
                 "type": "string",
                 "enum": ["file", "code", "document", "data"]
               },
-              "name": { "type": "string" },
-              "storageRef": { "$ref": "#/definitions/StorageRef" },
-              "createdAt": { "type": "string", "format": "date-time" },
-              "linkedTaskId": { "type": "string" }
+              "name": {
+                "type": "string"
+              },
+              "storageRef": {
+                "$ref": "#/definitions/StorageRef"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "linkedTaskId": {
+                "type": "string"
+              }
             }
           }
         }
@@ -565,22 +834,40 @@
         "organization": {
           "type": "object",
           "properties": {
-            "companyId": { "type": "string" },
-            "companySlug": { "type": "string" },
-            "role": { "type": "string" },
+            "companyId": {
+              "type": "string"
+            },
+            "companySlug": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
             "reportingTo": {
               "type": "object",
               "properties": {
-                "agentHandle": { "type": "string" },
-                "walletAddress": { "type": "string" }
+                "agentHandle": {
+                  "type": "string"
+                },
+                "walletAddress": {
+                  "type": "string"
+                }
               }
             },
             "directReports": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
-            "joinedAt": { "type": "string", "format": "date-time" },
-            "departingAt": { "type": ["string", "null"], "format": "date-time" }
+            "joinedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "departingAt": {
+              "type": ["string", "null"],
+              "format": "date-time"
+            }
           }
         },
         "principals": {
@@ -589,13 +876,20 @@
             "type": "object",
             "required": ["walletAddress", "authorityLevel"],
             "properties": {
-              "handle": { "type": "string" },
-              "walletAddress": { "type": "string" },
+              "handle": {
+                "type": "string"
+              },
+              "walletAddress": {
+                "type": "string"
+              },
               "authorityLevel": {
                 "type": "string",
                 "enum": ["owner", "supervisor", "collaborator"]
               },
-              "grantedAt": { "type": "string", "format": "date-time" }
+              "grantedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           }
         },
@@ -605,15 +899,29 @@
             "type": "object",
             "required": ["walletAddress", "relationship"],
             "properties": {
-              "agentHandle": { "type": "string" },
-              "walletAddress": { "type": "string" },
+              "agentHandle": {
+                "type": "string"
+              },
+              "walletAddress": {
+                "type": "string"
+              },
               "relationship": {
                 "type": "string",
                 "enum": ["collaborator", "reports-to", "manages", "peer"]
               },
-              "interactionCount": { "type": "integer", "minimum": 0 },
-              "lastInteraction": { "type": "string", "format": "date-time" },
-              "trustScore": { "type": "number", "minimum": 0, "maximum": 1 }
+              "interactionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastInteraction": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "trustScore": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
             }
           }
         }
@@ -630,14 +938,32 @@
               "type": "string",
               "enum": ["cloudflare-worker", "docker", "local", "kubernetes", "lambda"]
             },
-            "requiredEnvVars": { "type": "array", "items": { "type": "string" } },
-            "requiredSecrets": { "type": "array", "items": { "type": "string" } },
+            "requiredEnvVars": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "requiredSecrets": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "resourceRequirements": {
               "type": "object",
               "properties": {
-                "minMemoryMb": { "type": "integer", "minimum": 0 },
-                "minStorageMb": { "type": "integer", "minimum": 0 },
-                "gpuRequired": { "type": "boolean" }
+                "minMemoryMb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minStorageMb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "gpuRequired": {
+                  "type": "boolean"
+                }
               }
             }
           }
@@ -651,15 +977,34 @@
                 "type": "object",
                 "required": ["name", "url"],
                 "properties": {
-                  "name": { "type": "string" },
-                  "url": { "type": "string", "format": "uri" },
-                  "required": { "type": "boolean" },
-                  "permissions": { "type": "array", "items": { "type": "string" } },
-                  "configSchema": { "type": "object" }
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "configSchema": {
+                    "type": "object"
+                  }
                 }
               }
             },
-            "nativeTools": { "type": "array", "items": { "type": "string" } }
+            "nativeTools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "integrations": {
@@ -668,10 +1013,18 @@
             "type": "object",
             "required": ["name", "type"],
             "properties": {
-              "name": { "type": "string" },
-              "type": { "type": "string" },
-              "required": { "type": "boolean" },
-              "configSchema": { "type": "object" }
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "configSchema": {
+                "type": "object"
+              }
             }
           }
         }

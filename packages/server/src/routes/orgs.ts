@@ -6,15 +6,9 @@ import { drizzle } from 'drizzle-orm/d1'
 import { eq, like, or, sql } from 'drizzle-orm'
 import type { Env } from '../bindings'
 import { organizations } from '../db/schema'
+import { parseIntParam } from '../utils'
 
 export const orgRoutes = new Hono<{ Bindings: Env }>()
-
-/** Parse a numeric query param with a fallback for NaN/missing values */
-function parseIntParam(value: string | undefined, fallback: number): number {
-  if (value === undefined) return fallback
-  const parsed = parseInt(value, 10)
-  return Number.isNaN(parsed) ? fallback : parsed
-}
 
 /**
  * GET /v1/orgs — List organizations with pagination and search
@@ -49,6 +43,7 @@ orgRoutes.get('/', async c => {
       tokenId: o.tokenId ?? null,
       tbaAddress: o.tbaAddress ?? null,
       contractAddress: o.contractAddress ?? null,
+      mintTxHash: o.mintTxHash ?? null,
       registeredAt: o.registeredAt,
       updatedAt: o.updatedAt,
     })),

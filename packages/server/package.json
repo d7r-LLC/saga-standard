@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@epicdm/saga-sdk": "workspace:*",
+    "@saga-standard/contracts": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "hono": "^4.7.0",
     "viem": "^2.47.6"
