@@ -9,6 +9,9 @@ import { agentRoutes } from './routes/agents'
 import { documentRoutes } from './routes/documents'
 import { transferRoutes } from './routes/transfers'
 import { serverInfoRoute } from './routes/server-info'
+import { resolveRoutes } from './routes/resolve'
+import { orgRoutes } from './routes/orgs'
+import { runIndexer } from './indexer/chain-indexer'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -23,13 +26,15 @@ app.get('/', c => {
   }
   return c.json({
     name: c.env.SERVER_NAME ?? 'SAGA Reference Hub',
-    version: '0.1.0',
+    version: '0.2.0',
     sagaVersion: '1.0',
     docs: 'https://saga-standard.dev',
     registry: 'https://registry.saga-standard.dev',
     endpoints: {
       server: '/v1/server',
       agents: '/v1/agents',
+      orgs: '/v1/orgs',
+      resolve: '/v1/resolve/:handle',
       auth: '/v1/auth/challenge',
       health: '/health',
     },
@@ -40,6 +45,8 @@ app.get('/', c => {
 app.route('/v1/auth', authRoutes)
 app.route('/v1/agents', agentRoutes)
 app.route('/v1/transfers', transferRoutes)
+app.route('/v1/resolve', resolveRoutes)
+app.route('/v1/orgs', orgRoutes)
 app.route('/v1', serverInfoRoute)
 
 // Document routes are nested under agents
@@ -48,5 +55,16 @@ app.route('/v1/agents', documentRoutes)
 // Health check
 app.get('/health', c => c.json({ status: 'ok' }))
 
+// Default export is the Hono app (used by tests via app.request())
+// Cloudflare Workers uses the module export below
 export default app
+
+// Module worker export for Cloudflare (fetch + scheduled)
+export const worker = {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runIndexer(env))
+  },
+}
+
 export type { Env }

@@ -421,6 +421,7 @@ export function createMockEnv(): Env {
     DB: createMockD1(),
     STORAGE: createMockR2(),
     SESSIONS: createMockKV(),
+    INDEXER_STATE: createMockKV(),
     SERVER_NAME: 'Test SAGA Server',
   }
 }
@@ -434,6 +435,25 @@ export async function runMigrations(db: D1Database): Promise<void> {
       wallet_address TEXT NOT NULL,
       chain TEXT NOT NULL,
       public_key TEXT,
+      registered_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      token_id INTEGER,
+      tba_address TEXT,
+      contract_address TEXT,
+      mint_tx_hash TEXT,
+      entity_type TEXT DEFAULT 'agent',
+      home_hub_url TEXT
+    );
+    CREATE TABLE IF NOT EXISTS organizations (
+      id TEXT PRIMARY KEY,
+      handle TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      wallet_address TEXT NOT NULL,
+      chain TEXT NOT NULL,
+      token_id INTEGER,
+      tba_address TEXT,
+      contract_address TEXT,
+      mint_tx_hash TEXT,
       registered_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

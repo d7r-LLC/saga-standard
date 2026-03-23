@@ -17,7 +17,7 @@ export const agentRoutes = new Hono<{
 }>()
 
 /**
- * POST /v1/agents — Register a new agent
+ * POST /v1/agents — Register a new agent (off-chain, legacy)
  */
 agentRoutes.post('/', requireAuth, async c => {
   const session = c.get('session')
@@ -130,6 +130,13 @@ agentRoutes.get('/:handleOrAddress', async c => {
       publicKey: agent.publicKey,
       registeredAt: agent.registeredAt,
       updatedAt: agent.updatedAt,
+      // NFT fields (null for legacy off-chain registrations)
+      tokenId: agent.tokenId ?? null,
+      tbaAddress: agent.tbaAddress ?? null,
+      contractAddress: agent.contractAddress ?? null,
+      mintTxHash: agent.mintTxHash ?? null,
+      entityType: agent.entityType ?? 'agent',
+      homeHubUrl: agent.homeHubUrl ?? null,
     },
     latestDocument:
       docs.length > 0
@@ -177,6 +184,13 @@ agentRoutes.get('/', async c => {
       publicKey: a.publicKey,
       registeredAt: a.registeredAt,
       updatedAt: a.updatedAt,
+      // NFT fields
+      tokenId: a.tokenId ?? null,
+      tbaAddress: a.tbaAddress ?? null,
+      contractAddress: a.contractAddress ?? null,
+      mintTxHash: a.mintTxHash ?? null,
+      entityType: a.entityType ?? 'agent',
+      homeHubUrl: a.homeHubUrl ?? null,
     })),
     total: countResult[0]?.count ?? 0,
     page,
