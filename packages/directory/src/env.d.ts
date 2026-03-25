@@ -2,21 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 interface CloudflareEnv {
-  DB: D1Database
-  CACHE: KVNamespace
   SESSIONS: KVNamespace
-  NEXT_INC_CACHE_R2_BUCKET: R2Bucket
-  IDENTITY_ISSUER_URL: string
-  CRON_SECRET: string
-  WEBHOOK_SECRET: string
-  REGISTRATION_ENABLED?: string
-  TREASURY_WALLET_ADDRESS: string
-  PAYMENT_SERVICE_URL?: string
+  SAGA_SERVER_URL: string
+  WALLETCONNECT_PROJECT_ID?: string
 }
 
 declare module '@opennextjs/cloudflare' {
-  export function getCloudflareContext(): Promise<{
-    env: CloudflareEnv
-    ctx: ExecutionContext
-  }>
+  export function getCloudflareContext<T = { env: CloudflareEnv }>(): Promise<T>
 }
