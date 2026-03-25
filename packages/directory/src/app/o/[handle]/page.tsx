@@ -4,8 +4,7 @@
 import { notFound } from 'next/navigation'
 import { type Metadata } from 'next'
 import { createSagaClient } from '@/lib/saga-client'
-import { ProfileHero } from '@/components/agent-profile/profile-hero'
-import { ProfileDetails } from '@/components/agent-profile/profile-details'
+import { OrgHero } from '@/components/org-profile/org-hero'
 
 export const revalidate = 60
 
@@ -18,30 +17,31 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { handle } = await params
   return {
-    title: `@${handle}`,
-    description: `SAGA agent profile for @${handle}`,
+    title: handle,
+    description: `SAGA organization profile for ${handle}`,
   }
 }
 
-export default async function AgentProfilePage({ params }: PageProps) {
+export default async function OrgProfilePage({ params }: PageProps) {
   const { handle } = await params
   const client = await createSagaClient()
 
   let detail
   try {
-    detail = await client.getAgent(handle)
+    detail = await client.getOrg(handle)
   } catch {
     notFound()
   }
 
+  const org = detail.organization
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <ProfileHero agent={detail.agent} />
+      <OrgHero org={org} />
       <div className="mt-8">
-        <ProfileDetails
-          agent={detail.agent}
-          latestDocument={detail.latestDocument}
-        />
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Registered {new Date(org.registeredAt).toLocaleDateString()}
+        </p>
       </div>
     </div>
   )
