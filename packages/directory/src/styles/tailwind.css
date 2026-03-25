@@ -1,0 +1,12 @@
+/* Copyright 2026 d7r LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+@import 'tailwindcss';
+@import '@epicdm/chrome/styles/prism.css';
+@import '@epicdm/chrome/styles/theme.css';
+
+@source "../../../shared/chrome/src";
+
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));

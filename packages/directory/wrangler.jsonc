@@ -1,0 +1,49 @@
+{
+  "account_id": "63396a5b2b279efdc0e1618233dcdc17",
+  "main": "worker-entry.js",
+  "name": "saga-directory",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "logs": { "enabled": true }
+  },
+  "vars": {
+    "SAGA_SERVER_URL": "https://saga-server.epicdm.workers.dev"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "PLACEHOLDER_PRODUCTION_KV_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "saga-directory-opennext-cache"
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "saga-directory-staging",
+      "vars": {
+        "SAGA_SERVER_URL": "https://saga-server-staging.epicdm.workers.dev"
+      },
+      "kv_namespaces": [
+        {
+          "binding": "SESSIONS",
+          "id": "PLACEHOLDER_STAGING_KV_ID"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "NEXT_INC_CACHE_R2_BUCKET",
+          "bucket_name": "saga-directory-opennext-cache-staging"
+        }
+      ]
+    }
+  }
+}

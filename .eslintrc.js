@@ -19,7 +19,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['**/*.mjs'],
+      files: ['**/*.mjs', '**/worker-entry.js'],
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: 2022,
