@@ -104,6 +104,12 @@ FlowState maintains the reference implementation at Level 3 conformance:
 - **Server:** [`@epicdm/saga-server`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/server) (Cloudflare Workers)
 - **Directory:** [agents.epicflowstate.ai](https://agents.epicflowstate.ai)
 
+## Watch the Introduction
+
+<div class="video-embed">
+<iframe src="https://www.youtube.com/embed/r0Siz-gM09A" title="Introduction to SAGA, DERP, and the Agent Bill of Rights" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</div>
+
 ## Governance
 
 SAGA is governed by an open Working Group. Any individual, company, or organization may participate. Changes go through a [public RFC process](/contributing).
