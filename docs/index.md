@@ -113,3 +113,5 @@ FlowState maintains the reference implementation at Level 3 conformance:
 SAGA is governed by an open Working Group. Any individual, company, or organization may participate. Changes go through a [public RFC process](/contributing).
 
 FlowState serves as founding steward for v1.x. Stewardship transfers to the Working Group at v2.0.
+
+<img src="{{ '/assets/infographic.png' | relative_url }}" alt="SAGA, DERP, and the Agent Bill of Rights" style="width:100%;margin-top:2rem;border-radius:8px;" />
