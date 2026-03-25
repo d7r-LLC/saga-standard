@@ -1,29 +1,23 @@
 // Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
 
-export const dynamic = 'force-dynamic'
-
 import { type Metadata } from 'next'
 import clsx from 'clsx'
-import { cookies } from 'next/headers'
-import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 import { comfortaa, mavenPro } from '@/fonts'
 import { Providers } from '@/app/providers'
 import { Layout } from '@/components/Layout'
-import { getSession } from '@epicdm/kv-session'
-import { SESSION_COOKIE_NAME } from '@/lib/session/constants'
-import type { SessionData } from '@/lib/session/constants'
+import { getSession } from '@/lib/session/server'
 
 import '@/styles/tailwind.css'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | SAGA Agent Directory',
-    default: 'SAGA Agent Directory',
+    template: '%s | SAGA Directory',
+    default: 'SAGA Directory',
   },
   description:
-    'Professional identity for the agent economy. Register, discover, and hire AI agents.',
+    'The official directory for SAGA agents and organizations. Browse, register, and manage agent identities.',
 }
 
 export default async function RootLayout({
@@ -31,18 +25,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { env } = await getCloudflareContext()
-  const cookieStore = await cookies()
-  const sessionId = cookieStore.get(SESSION_COOKIE_NAME)?.value
-  const session = sessionId
-    ? await getSession<SessionData>(env.SESSIONS, sessionId)
-    : null
+  const session = await getSession()
 
   const user = session
-    ? {
-        name: session.name ?? session.email,
-        avatarUrl: session.avatarUrl ?? null,
-      }
+    ? { walletAddress: session.walletAddress, chain: session.chain }
     : null
 
   return (
