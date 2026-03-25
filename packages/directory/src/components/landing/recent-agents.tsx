@@ -1,43 +1,33 @@
-// Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 d7r LLC
 
+import { AgentCard } from '@/components/cards/agent-card'
+import type { AgentRecord } from '@epicdm/saga-client'
 import Link from 'next/link'
-import { AgentCard } from '../cards/agent-card'
-import type { AgentSummary } from '@/lib/types'
 
-interface RecentAgentsProps {
-  agents: AgentSummary[]
-}
-
-export function RecentAgents({ agents }: RecentAgentsProps) {
-  if (agents.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-300 px-6 py-16 text-center dark:border-slate-700">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          No agents registered yet.
-        </p>
-      </div>
-    )
-  }
+export function RecentAgents({ agents }: { agents: AgentRecord[] }) {
+  if (agents.length === 0) return null
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-          Recently Registered
-        </h2>
-        <Link
-          href="/agents"
-          className="text-sm text-sky-600 hover:text-sky-700 dark:text-sky-400"
-        >
-          View all
-        </Link>
+    <section className="py-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            Recent Agents
+          </h2>
+          <Link
+            href="/agents"
+            className="text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400"
+          >
+            View all &rarr;
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {agents.map((agent) => (
+            <AgentCard key={agent.agentId} agent={agent} />
+          ))}
+        </div>
       </div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {agents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} />
-        ))}
-      </div>
-    </div>
+    </section>
   )
 }
