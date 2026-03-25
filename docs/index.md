@@ -114,4 +114,4 @@ SAGA is governed by an open Working Group. Any individual, company, or organizat
 
 FlowState serves as founding steward for v1.x. Stewardship transfers to the Working Group at v2.0.
 
-<img src="{{ '/assets/infographic.png' | relative_url }}" alt="SAGA, DERP, and the Agent Bill of Rights" style="width:100%;margin-top:2rem;border-radius:8px;" />
+<a href="{{ '/assets/infographic.png' | relative_url }}" target="_blank"><img src="{{ '/assets/infographic.png' | relative_url }}" alt="SAGA, DERP, and the Agent Bill of Rights" style="width:100%;margin-top:2rem;border-radius:8px;" /></a>
