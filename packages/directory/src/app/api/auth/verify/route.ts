@@ -6,7 +6,12 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createSession, setSessionCookie } from '@/lib/session/server'
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = (await request.json()) as {
+    walletAddress?: string
+    chain?: string
+    signature?: string
+    challenge?: string
+  }
   const { walletAddress, chain, signature, challenge } = body
 
   if (!walletAddress || !chain || !signature || !challenge) {
@@ -24,7 +29,12 @@ export async function POST(request: Request) {
     body: JSON.stringify({ walletAddress, chain, signature, challenge }),
   })
 
-  const data = await res.json()
+  const data = (await res.json()) as {
+    walletAddress: string
+    token: string
+    expiresAt: string
+    error?: string
+  }
 
   if (!res.ok) {
     return NextResponse.json(data, { status: res.status })

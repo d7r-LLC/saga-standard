@@ -58,14 +58,18 @@ export function TransferInitiateForm({
         }),
       })
 
-      const data = await res.json()
+      const data = (await res.json()) as {
+        error?: string
+        transferId?: string
+        consentMessage?: string
+      }
       if (!res.ok) {
         setError(data.error ?? 'Transfer initiation failed')
         return
       }
 
       setResult({
-        transferId: data.transferId,
+        transferId: data.transferId ?? '',
         consentMessage: data.consentMessage,
       })
     } catch {

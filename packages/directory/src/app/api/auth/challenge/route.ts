@@ -5,7 +5,10 @@ import { NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = (await request.json()) as {
+    walletAddress?: string
+    chain?: string
+  }
   const { walletAddress, chain } = body
 
   if (!walletAddress || !chain) {

@@ -15,7 +15,7 @@ export async function POST(
   }
 
   const { transferId } = await params
-  const body = await request.json()
+  const body = (await request.json()) as { signature?: string }
   const { signature } = body
 
   if (!signature) {

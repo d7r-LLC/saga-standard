@@ -37,7 +37,7 @@ export function RegisterForm({
       })
 
       if (!res.ok) {
-        const data = await res.json()
+        const data = (await res.json()) as { error?: string }
         setError(data.error ?? 'Registration failed')
         return
       }
