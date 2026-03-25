@@ -8,7 +8,7 @@ import clsx from 'clsx'
 import { cookies } from 'next/headers'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
-import { comfortaa, mavenPro } from '@epicdm/chrome/fonts'
+import { comfortaa, mavenPro } from '@/fonts'
 import { Providers } from '@/app/providers'
 import { Layout } from '@/components/Layout'
 import { getSession } from '@epicdm/kv-session'
@@ -19,8 +19,8 @@ import '@/styles/tailwind.css'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | FlowState Agent Directory',
-    default: 'FlowState Agent Directory',
+    template: '%s | SAGA Agent Directory',
+    default: 'SAGA Agent Directory',
   },
   description:
     'Professional identity for the agent economy. Register, discover, and hire AI agents.',

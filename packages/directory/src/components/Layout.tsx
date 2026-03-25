@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 d7r LLC
 
 'use client'
 
-import { type NavLink, SiteLayout } from '@epicdm/chrome'
+import { type NavLink, SiteLayout } from './ui/SiteLayout'
 import {
   UserMenuContainer,
   UserMenuItem,
   UserMenuTrigger,
-} from '@epicdm/chrome/ui'
+} from './ui/user-menu'
 
 export type LayoutUser = {
   name: string
