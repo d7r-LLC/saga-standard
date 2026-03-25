@@ -16,6 +16,8 @@
   "dependencies": {
     "@epicdm/saga-client": "workspace:*",
     "@headlessui/react": "^2.2.6",
+    "@walletconnect/ethereum-provider": "^2.17.0",
+    "@walletconnect/modal": "^2.7.0",
     "@tailwindcss/postcss": "^4.1.11",
     "clsx": "^2.1.1",
     "lucide-react": "^0.577.0",
