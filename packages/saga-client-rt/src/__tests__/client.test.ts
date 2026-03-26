@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SagaClientConfig, SagaEncryptedEnvelope, SagaMemory } from '../types'
 import { createSagaClient } from '../client'
 import { MockWebSocket, createMockSigner, simulateAuthFlow } from './test-helpers'
@@ -96,6 +96,10 @@ describe('createSagaClient', () => {
     // Reset mock store data
     const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('connect() resolves after auth handshake', async () => {

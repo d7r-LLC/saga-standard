@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryBackend, createSagaKeyRing } from '@epicdm/saga-crypto'
 import type { SagaEncryptedEnvelope } from '@epicdm/saga-crypto'
 import { createSagaClient } from '../client'
@@ -21,6 +21,10 @@ async function setupKeyRing(walletKey: Uint8Array) {
 describe('SagaClient integration', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('Alice stores memory locally and retrieves it', async () => {

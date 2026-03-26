@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   RelayConnectionCallbacks,
   RelayConnectionConfig,
@@ -25,6 +25,10 @@ function createCallbacks(overrides?: Partial<RelayConnectionCallbacks>): RelayCo
 describe('createRelayConnection', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('completes auth flow and resolves connect()', async () => {
