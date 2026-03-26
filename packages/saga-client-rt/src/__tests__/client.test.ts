@@ -214,8 +214,11 @@ describe('createSagaClient', () => {
     expect(results).toHaveLength(0)
   })
 
-  it('sendMessage() requires registered peer key', async () => {
-    const { config, getWs } = createTestConfig()
+  it('sendMessage() attempts key discovery and throws when key not found', async () => {
+    const mockFetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Handle not found' }), { status: 404 })
+    )
+    const { config, getWs } = createTestConfig({ fetchFn: mockFetchFn })
     const { client } = await connectClient(config, getWs)
 
     await expect(
@@ -223,7 +226,7 @@ describe('createSagaClient', () => {
         messageType: 'task-request',
         payload: { task: 'test' },
       })
-    ).rejects.toThrow('No public key registered for bob@epicflow')
+    ).rejects.toThrow('No public key found for bob')
   })
 
   it('sendMessage() seals and sends through relay', async () => {

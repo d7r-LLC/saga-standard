@@ -15,12 +15,13 @@ import type {
 import { createRelayConnection } from './relay-connection'
 import { createMessageRouter } from './message-router'
 import { createDedup } from './dedup'
+import { createKeyResolver } from './key-resolver'
 
 const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
 export function createSagaClient(config: SagaClientConfig): SagaClient {
   const handle = config.identity.split('@')[0]
-  const peerKeys = new Map<string, Uint8Array>()
+  const keyResolver = createKeyResolver(config.hubUrl, config.fetchFn)
   const messageHandlers = new Set<(from: string, msg: SagaDirectMessage) => void>()
   const groupHandlers = new Set<(groupId: string, from: string, msg: SagaDirectMessage) => void>()
   const connectionHandlers = new Set<(connected: boolean) => void>()
@@ -30,9 +31,14 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   const backend = config.storageBackend ?? new MemoryBackend()
   const store = createEncryptedStore(config.keyRing, backend)
 
-  // Decrypt function wired to KeyRing + peer keys
+  // Decrypt function wired to KeyRing + key resolver
   async function decrypt(envelope: SagaEncryptedEnvelope): Promise<Uint8Array> {
-    const senderKey = peerKeys.get(envelope.from)
+    let senderKey: Uint8Array | undefined
+    try {
+      senderKey = await keyResolver.resolve(envelope.from)
+    } catch {
+      // Sender key not available — proceed without it (private scope doesn't need it)
+    }
     const result = open(envelope, config.keyRing, senderKey)
     return result instanceof Promise ? result : Promise.resolve(result)
   }
@@ -180,10 +186,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
     },
 
     async sendMessage(to: string, message: SagaDirectMessage): Promise<string> {
-      const recipientKey = peerKeys.get(to)
-      if (!recipientKey) {
-        throw new Error(`No public key registered for ${to}`)
-      }
+      const recipientKey = await keyResolver.resolve(to)
 
       const plaintext = new TextEncoder().encode(JSON.stringify(message))
       const envelope = await seal(
@@ -239,7 +242,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
     },
 
     registerPeerKey(identity: string, publicKey: Uint8Array): void {
-      peerKeys.set(identity, publicKey)
+      keyResolver.register(identity, publicKey)
     },
 
     getPeers(): ConnectedPeer[] {
