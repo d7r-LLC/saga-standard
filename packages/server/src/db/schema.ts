@@ -91,3 +91,9 @@ export const groupMembers = sqliteTable(
     pk: primaryKey({ columns: [table.groupId, table.handle] }),
   })
 )
+
+export const replicationPolicies = sqliteTable('replication_policies', {
+  orgId: text('org_id').primaryKey(),
+  policyJson: text('policy_json').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})

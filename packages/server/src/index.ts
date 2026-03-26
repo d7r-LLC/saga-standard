@@ -15,6 +15,7 @@ import { orgRoutes } from './routes/orgs'
 import { relayRoutes } from './routes/relay'
 import { keyRoutes } from './routes/keys'
 import { groupRoutes } from './routes/groups'
+import { policyRoutes } from './routes/policies'
 import { RelayRoom } from './relay/relay-room'
 import { runIndexer } from './indexer/chain-indexer'
 
@@ -45,6 +46,7 @@ app.get('/', c => {
       keys: '/v1/keys/:handle',
       relay: '/v1/relay',
       groups: '/v1/groups',
+      policies: '/v1/orgs/:orgId/policy',
     },
   })
 })
@@ -55,6 +57,7 @@ app.route('/v1/agents', agentRoutes)
 app.route('/v1/transfers', transferRoutes)
 app.route('/v1/resolve', resolveRoutes)
 app.route('/v1/orgs', orgRoutes)
+app.route('/v1/orgs', policyRoutes)
 app.route('/v1/keys', keyRoutes)
 app.route('/v1/groups', groupRoutes)
 app.route('/v1', serverInfoRoute)
