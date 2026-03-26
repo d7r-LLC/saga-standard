@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const agents = sqliteTable('agents', {
   id: text('id').primaryKey(),
@@ -26,6 +26,7 @@ export const organizations = sqliteTable('organizations', {
   name: text('name').notNull(),
   walletAddress: text('wallet_address').notNull(),
   chain: text('chain').notNull(),
+  publicKey: text('public_key'),
   tokenId: integer('token_id'),
   tbaAddress: text('tba_address'),
   contractAddress: text('contract_address'),
@@ -78,3 +79,15 @@ export const memoryEnvelopes = sqliteTable('memory_envelopes', {
   storedAt: text('stored_at').notNull(),
   envelopeTs: text('envelope_ts').notNull(),
 })
+
+export const groupMembers = sqliteTable(
+  'group_members',
+  {
+    groupId: text('group_id').notNull(),
+    handle: text('handle').notNull(),
+    addedAt: text('added_at').notNull(),
+  },
+  table => ({
+    pk: primaryKey({ columns: [table.groupId, table.handle] }),
+  })
+)

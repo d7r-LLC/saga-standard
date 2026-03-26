@@ -486,6 +486,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
       name TEXT NOT NULL,
       wallet_address TEXT NOT NULL,
       chain TEXT NOT NULL,
+      public_key TEXT,
       token_id INTEGER,
       tba_address TEXT,
       contract_address TEXT,
@@ -529,6 +530,12 @@ export async function runMigrations(db: D1Database): Promise<void> {
       envelope_json TEXT NOT NULL,
       stored_at TEXT NOT NULL,
       envelope_ts TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id TEXT NOT NULL,
+      handle TEXT NOT NULL,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (group_id, handle)
     );
   `)
 }

@@ -13,6 +13,7 @@ import { serverInfoRoute } from './routes/server-info'
 import { resolveRoutes } from './routes/resolve'
 import { orgRoutes } from './routes/orgs'
 import { relayRoutes } from './routes/relay'
+import { keyRoutes } from './routes/keys'
 import { RelayRoom } from './relay/relay-room'
 import { runIndexer } from './indexer/chain-indexer'
 
@@ -40,6 +41,7 @@ app.get('/', c => {
       resolve: '/v1/resolve/:handle',
       auth: '/v1/auth/challenge',
       health: '/health',
+      keys: '/v1/keys/:handle',
       relay: '/v1/relay',
     },
   })
@@ -51,6 +53,7 @@ app.route('/v1/agents', agentRoutes)
 app.route('/v1/transfers', transferRoutes)
 app.route('/v1/resolve', resolveRoutes)
 app.route('/v1/orgs', orgRoutes)
+app.route('/v1/keys', keyRoutes)
 app.route('/v1', serverInfoRoute)
 app.route('/v1', relayRoutes)
 
