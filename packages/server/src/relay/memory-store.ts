@@ -40,7 +40,7 @@ export function createCanonicalMemoryStore(db: D1Database): CanonicalMemoryStore
         .where(
           and(eq(memoryEnvelopes.agentHandle, agentHandle), gt(memoryEnvelopes.storedAt, since))
         )
-        .orderBy(asc(memoryEnvelopes.storedAt))
+        .orderBy(asc(memoryEnvelopes.storedAt), asc(memoryEnvelopes.id))
         .limit(limit + 1)
 
       const hasMore = rows.length > limit

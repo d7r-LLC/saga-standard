@@ -51,7 +51,7 @@ export interface MailboxAckMessage {
 export interface SyncRequestMessage {
   type: 'sync-request'
   since: string // ISO 8601 checkpoint timestamp
-  collections?: string[] // optional filter: which memory types
+  collections?: string[] // reserved — currently ignored by hub (cannot filter encrypted blobs)
 }
 
 export type ClientMessage =

@@ -302,12 +302,18 @@ export class RelayRoom {
       const recipientSet = this.getHandleMap().get(recipientHandle)
 
       if (recipientSet && recipientSet.size > 0) {
+        let delivered = false
         for (const recipientWs of recipientSet) {
           try {
             this.sendJson(recipientWs, { type: 'relay:deliver', envelope })
+            delivered = true
           } catch {
-            // Individual send failure
+            // Individual send failure — continue trying other connections
           }
+        }
+        // Fall back to mailbox if all connections failed
+        if (!delivered) {
+          await this.mailbox.store(recipientHandle, envelope)
         }
       } else {
         await this.mailbox.store(recipientHandle, envelope)
