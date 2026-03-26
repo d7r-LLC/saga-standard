@@ -1,0 +1,40 @@
+# Secure SAGA contract deployment container
+# See: docs/superpowers/specs/2026-03-26-secure-deploy-design.md
+
+# Stage 1: Pull Foundry binaries
+FROM ghcr.io/foundry-rs/foundry:latest AS foundry
+
+# Stage 2: Slim runtime with Foundry + 1Password CLI
+FROM debian:bookworm-slim
+
+# Copy Foundry binaries
+COPY --from=foundry /usr/local/bin/forge /usr/local/bin/forge
+COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
+
+# Install 1Password CLI, curl, jq
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl jq ca-certificates gnupg \
+    && curl -sS https://downloads.1password.com/linux/keys/1password.asc \
+       | gpg --dearmor -o /usr/share/keyrings/1password.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password.gpg] \
+       https://downloads.1password.com/linux/debian/amd64 stable main" \
+       > /etc/apt/sources.list.d/1password.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends 1password-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy contract sources (frozen snapshot, no host volume mounts)
+WORKDIR /deploy
+COPY src/ src/
+COPY script/ script/
+COPY lib/ lib/
+COPY foundry.toml .
+
+# Copy entrypoint
+COPY scripts/deploy-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Security: disable shell history
+ENV HISTFILE=/dev/null
+
+ENTRYPOINT ["/entrypoint.sh"]
