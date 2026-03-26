@@ -20,11 +20,14 @@ function unquote(s: string): string {
 export function createMockD1(): D1Database {
   // Each table stores an ordered list of rows.
   // Each row is a Map<columnName, value> to preserve insertion column order.
-  const tables = new Map<string, { columns: string[]; rows: Record<string, unknown>[] }>()
+  const tables = new Map<
+    string,
+    { columns: string[]; rows: Record<string, unknown>[]; primaryKey: string[] }
+  >()
 
   function getTable(name: string) {
     if (!tables.has(name)) {
-      tables.set(name, { columns: [], rows: [] })
+      tables.set(name, { columns: [], rows: [], primaryKey: [] })
     }
     return tables.get(name)!
   }
@@ -66,9 +69,12 @@ export function createMockD1(): D1Database {
 
     // INSERT OR IGNORE: skip if a row with the same primary key already exists
     if (isOrIgnore && table.columns.length > 0) {
-      const pkCol = table.columns[0]
-      const pkVal = row[pkCol]
-      if (table.rows.some(r => r[pkCol] === pkVal)) {
+      // Use composite PK if available, otherwise fall back to first column
+      const pkCols = table.primaryKey.length > 0 ? table.primaryKey : [table.columns[0]]
+      const isDuplicate = table.rows.some(r =>
+        pkCols.every(col => r[col] !== undefined && r[col] === row[col])
+      )
+      if (isDuplicate) {
         return
       }
     }
@@ -337,6 +343,11 @@ export function createMockD1(): D1Database {
             const table = getTable(tableName)
             if (table.columns.length === 0) {
               table.columns = cols
+            }
+            // Extract composite PRIMARY KEY constraint, e.g. PRIMARY KEY (col1, col2)
+            const pkM = m[2].match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i)
+            if (pkM && table.primaryKey.length === 0) {
+              table.primaryKey = pkM[1].split(',').map(c => c.trim().replace(/"/g, ''))
             }
           }
         }
