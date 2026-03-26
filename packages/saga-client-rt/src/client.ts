@@ -17,6 +17,7 @@ import { createMessageRouter } from './message-router'
 import { createDedup } from './dedup'
 import { createKeyResolver } from './key-resolver'
 import { classifyMemory } from './policy-engine'
+import { runRetention } from './retention-engine'
 
 const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
@@ -159,6 +160,23 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   // Periodically clean up dedup tracker
   const dedupCleanupInterval = setInterval(() => dedup.cleanup(), 10 * 60 * 1000)
 
+  // Phase 6: Retention enforcement timer (runs hourly when governance is active)
+  const retentionInterval =
+    config.governance && companyStore
+      ? setInterval(
+          async () => {
+            try {
+              await runRetention(store, companyStore, config.governance!.policy, entry => {
+                store.put(`audit:${entry.memoryId}:retention`, entry).catch(() => {})
+              })
+            } catch {
+              // Retention run failed — will retry next interval
+            }
+          },
+          60 * 60 * 1000
+        )
+      : undefined
+
   const sagaClient: SagaClient = {
     connect(): Promise<void> {
       return connection.connect()
@@ -166,6 +184,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async disconnect(): Promise<void> {
       clearInterval(dedupCleanupInterval)
+      if (retentionInterval) clearInterval(retentionInterval)
       connection.disconnect()
     },
 
