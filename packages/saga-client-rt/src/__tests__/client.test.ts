@@ -771,4 +771,48 @@ describe('governance — storeMemory', () => {
     const relaySends = sent.filter(m => m.type === 'relay:send')
     expect(relaySends.length).toBeGreaterThan(0)
   })
+
+  it('logs audit entries for classified memories', async () => {
+    const { config, getWs } = createTestConfig({
+      governance: {
+        orgId: 'acme-corp',
+        policy: {
+          orgId: 'acme-corp',
+          defaultScope: 'agent-portable',
+          restricted: { memoryTypes: ['procedural'] },
+          retention: {},
+        },
+        companyKeyRing: {
+          isUnlocked: true,
+          getPublicKey: () => new Uint8Array(32).fill(99),
+          hasGroupKey: vi.fn().mockReturnValue(false),
+        } as unknown as SagaClientConfig['keyRing'],
+      },
+    })
+
+    const { client } = await connectClient(config, getWs)
+
+    await client.storeMemory({
+      id: 'mem-audited',
+      type: 'procedural',
+      content: { steps: ['step 1'] },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    })
+
+    const auditLog = await client.queryAuditLog()
+    expect(auditLog.length).toBeGreaterThanOrEqual(1)
+    const entry = auditLog.find(e => e.memoryId === 'mem-audited')
+    expect(entry).toBeDefined()
+    expect(entry!.appliedScope).toBe('org-internal')
+    expect(entry!.reason).toContain('memoryType')
+  })
+
+  it('queryAuditLog returns empty array without governance', async () => {
+    const { config, getWs } = createTestConfig()
+    const { client } = await connectClient(config, getWs)
+
+    const auditLog = await client.queryAuditLog()
+    expect(auditLog).toEqual([])
+  })
 })

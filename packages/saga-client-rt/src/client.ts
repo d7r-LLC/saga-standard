@@ -5,6 +5,7 @@ import { MemoryBackend, createEncryptedStore, open, seal } from '@epicdm/saga-cr
 import type {
   ConnectedPeer,
   MemoryFilter,
+  PolicyAuditEntry,
   SagaClient,
   SagaClientConfig,
   SagaDirectMessage,
@@ -285,6 +286,23 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async deleteMemory(memoryId: string): Promise<void> {
       await store.delete(`memory:${memoryId}`)
+    },
+
+    async queryAuditLog(filter?: { since?: string; limit?: number }): Promise<PolicyAuditEntry[]> {
+      if (!config.governance) return []
+
+      const entries = await store.query({ prefix: 'audit:' })
+      let results = entries.map((e: { value: unknown }) => e.value as PolicyAuditEntry)
+
+      if (filter?.since) {
+        const since = filter.since
+        results = results.filter(e => e.timestamp >= since)
+      }
+      if (filter?.limit !== undefined) {
+        results = results.slice(0, filter.limit)
+      }
+
+      return results
     },
 
     async sendMessage(to: string, message: SagaDirectMessage): Promise<string> {

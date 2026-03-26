@@ -180,6 +180,10 @@ export interface SagaClient {
   // ── Status ──
   getPeers(): ConnectedPeer[]
   onConnectionChange(handler: (connected: boolean) => void): Unsubscribe
+
+  // ── Governance ──
+  /** Query policy audit trail entries (Phase 6 — governance only) */
+  queryAuditLog(filter?: { since?: string; limit?: number }): Promise<PolicyAuditEntry[]>
 }
 
 // ── Internal types — relay protocol messages ─────────────────────
