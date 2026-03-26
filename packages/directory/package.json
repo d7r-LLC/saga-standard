@@ -10,15 +10,16 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:staging": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env staging",
     "deploy:production": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "typecheck": "echo 'typecheck deferred: source rewrite in progress'",
+    "typecheck": "tsc --noEmit",
     "test": "echo 'no tests yet'"
   },
   "dependencies": {
     "@epicdm/saga-client": "workspace:*",
     "@headlessui/react": "^2.2.6",
+    "@tailwindcss/postcss": "^4.1.11",
     "@walletconnect/ethereum-provider": "^2.17.0",
     "@walletconnect/modal": "^2.7.0",
-    "@tailwindcss/postcss": "^4.1.11",
+    "bs58": "^6.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.577.0",
     "next": "^15",

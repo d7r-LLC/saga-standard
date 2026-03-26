@@ -17,7 +17,7 @@
   "kv_namespaces": [
     {
       "binding": "SESSIONS",
-      "id": "PLACEHOLDER_PRODUCTION_KV_ID"
+      "id": "3235cd761b9e4d028a3a3a9afe2e7b47"
     }
   ],
   "r2_buckets": [
@@ -35,7 +35,7 @@
       "kv_namespaces": [
         {
           "binding": "SESSIONS",
-          "id": "PLACEHOLDER_STAGING_KV_ID"
+          "id": "83400e37fe384bb681c2abc0470b876e"
         }
       ],
       "r2_buckets": [

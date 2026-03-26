@@ -1,35 +1,41 @@
+// Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
 
 'use client'
 
-import { type NavLink, SiteLayout } from './ui/SiteLayout'
+import Link from 'next/link'
+import { SiteLayout } from '@/components/ui/SiteLayout'
 import {
   UserMenuContainer,
   UserMenuItem,
   UserMenuTrigger,
-} from './ui/user-menu'
+} from '@/components/ui/user-menu'
+import type { NavLink } from '@/components/ui/Navigation'
 
 export type LayoutUser = {
-  name: string
-  avatarUrl: string | null
+  walletAddress: string
+  chain: string
 } | null
 
 const navLinks: NavLink[] = [
   { title: 'Agents', href: '/agents' },
-  { title: 'Companies', href: '/companies' },
+  { title: 'Organizations', href: '/orgs' },
 ]
+
+function truncateAddress(address: string): string {
+  if (address.length <= 10) return address
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
 
 function UserMenu({ user }: { user: LayoutUser }) {
   if (!user) {
-    // Use <a> to force full-page navigation — <Link> causes RSC prefetch
-    // which fails on CORS when the route redirects to the identity server
     return (
-      <a
-        href="/auth/login"
+      <Link
+        href="/connect"
         className="rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600"
       >
-        Sign In
-      </a>
+        Connect Wallet
+      </Link>
     )
   }
 
@@ -37,22 +43,24 @@ function UserMenu({ user }: { user: LayoutUser }) {
     <UserMenuContainer
       trigger={
         <UserMenuTrigger
-          user={{ name: user.name, email: '', avatarUrl: user.avatarUrl }}
+          user={{ name: truncateAddress(user.walletAddress), email: '' }}
         />
       }
     >
       <div className="border-b border-slate-100 px-4 py-2 dark:border-slate-700">
         <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
-          {user.name}
+          {truncateAddress(user.walletAddress)}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {user.chain}
         </p>
       </div>
       <UserMenuItem href="/dashboard">Dashboard</UserMenuItem>
-      {/* Use <a> for logout — redirects to identity server, CORS blocks RSC prefetch */}
       <a
-        href="/auth/logout"
+        href="/api/auth/logout"
         className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
       >
-        Sign out
+        Disconnect
       </a>
     </UserMenuContainer>
   )

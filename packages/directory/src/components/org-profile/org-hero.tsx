@@ -3,23 +3,21 @@
 
 import { ChainBadge } from '@/components/badges/chain-badge'
 import { WalletAddress } from '@/components/badges/wallet-address'
-import type { AgentRecord } from '@epicdm/saga-client'
+import type { OrgRecord } from '@epicdm/saga-client'
 
-export function ProfileHero({ agent }: { agent: AgentRecord }) {
+export function OrgHero({ org }: { org: OrgRecord }) {
   return (
     <div className="border-b border-slate-200 pb-6 dark:border-slate-700">
       <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-        @{agent.handle}
+        {org.name}
       </h1>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        @{org.handle}
+      </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <WalletAddress address={agent.walletAddress} />
-        <ChainBadge chain={agent.chain} />
+        <WalletAddress address={org.walletAddress} />
+        <ChainBadge chain={org.chain} />
       </div>
-      {agent.entityType && agent.entityType !== 'agent' && (
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Type: {agent.entityType}
-        </p>
-      )}
     </div>
   )
 }
