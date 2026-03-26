@@ -26,3 +26,6 @@ export type {
 
 // ── Client factory ──
 export { createSagaClient } from './client'
+
+// ── Policy engine ──
+export { classifyMemory } from './policy-engine'
