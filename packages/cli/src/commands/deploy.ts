@@ -4,7 +4,7 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import ora from 'ora'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { deriveNetworkAllowlist, loadDeployConfig, resolveChainConfig } from '../deploy-config'
@@ -100,6 +100,18 @@ export const deployCommand = new Command('deploy')
         console.log()
         console.log(chalk.yellow('Review the above carefully.'))
         console.log()
+
+        // Require confirmation for production
+        const readline = await import('node:readline')
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        const answer = await new Promise<string>(resolve => {
+          rl.question(chalk.yellow('Proceed with production deployment? [y/N] '), resolve)
+        })
+        rl.close()
+        if (answer.toLowerCase() !== 'y') {
+          console.log(chalk.yellow('Aborted.'))
+          return
+        }
       }
 
       const mode = opts.finalize ? 'finalize' : opts.broadcast ? 'broadcast' : 'dry-run'
@@ -122,7 +134,7 @@ export const deployCommand = new Command('deploy')
       const buildSpinner = ora('Building deploy container...').start()
       try {
         const buildArgs = buildDockerBuildArgs(contractsDir)
-        execSync(`docker ${buildArgs.join(' ')}`, { stdio: 'pipe' })
+        execFileSync('docker', buildArgs, { stdio: 'pipe' })
         buildSpinner.succeed('Deploy container built.')
       } catch (err) {
         buildSpinner.fail('Failed to build deploy container.')
@@ -134,7 +146,7 @@ export const deployCommand = new Command('deploy')
       const netSpinner = ora('Creating restricted network...').start()
       try {
         const netArgs = buildDockerNetworkCreateArgs(networkName)
-        execSync(`docker ${netArgs.join(' ')}`, { stdio: 'pipe' })
+        execFileSync('docker', netArgs, { stdio: 'pipe' })
         netSpinner.succeed(`Network created: ${networkName}`)
         console.log(chalk.dim(`  Allowlist: ${allowlist.join(', ')}`))
       } catch (err) {
@@ -169,7 +181,7 @@ export const deployCommand = new Command('deploy')
             : a
         )
 
-        containerOutput = execSync(`docker ${cmdArgs.join(' ')}`, {
+        containerOutput = execFileSync('docker', cmdArgs, {
           encoding: 'utf-8',
           timeout: 300_000, // 5 minute timeout
         }).trim()
@@ -186,7 +198,7 @@ export const deployCommand = new Command('deploy')
         console.error(chalk.dim((err as Error).message))
         // Clean up network
         try {
-          execSync(`docker ${buildDockerNetworkRmArgs(networkName).join(' ')}`, { stdio: 'pipe' })
+          execFileSync('docker', buildDockerNetworkRmArgs(networkName), { stdio: 'pipe' })
         } catch {
           /* network cleanup is best-effort */
         }
@@ -195,7 +207,7 @@ export const deployCommand = new Command('deploy')
 
       // ── Clean up network ──
       try {
-        execSync(`docker ${buildDockerNetworkRmArgs(networkName).join(' ')}`, { stdio: 'pipe' })
+        execFileSync('docker', buildDockerNetworkRmArgs(networkName), { stdio: 'pipe' })
       } catch {
         /* best-effort */
       }

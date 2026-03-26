@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ── Logging (never logs secret values) ──────────────────────────────────
 log() { echo "{\"log\":\"$1\",\"ts\":\"$(date -u +%FT%TZ)\"}" >&2; }
-die() { echo "{\"error\":\"$1\"}" && exit 1; }
+die() { echo "{\"error\":\"$1\"}" >&2 && exit 1; }
 
 # ── Parse config from base64 env var ────────────────────────────────────
 [ -z "${DEPLOY_CONFIG:-}" ] && die "DEPLOY_CONFIG not set"
@@ -18,6 +18,7 @@ EXPLORER_KEY_ITEM=$(echo "$CONFIG" | jq -r '.op.explorerKeyItem') || die "missin
 SAFE_ADDR=$(echo "$CONFIG" | jq -r '.safe') || die "missing .safe"
 SAFE_TX_SERVICE=$(echo "$CONFIG" | jq -r '.safeTransactionService') || die "missing .safeTransactionService"
 VERIFY=$(echo "$CONFIG" | jq -r '.verify') || die "missing .verify"
+SAFE_THRESHOLD=$(echo "$CONFIG" | jq -r '.safeThreshold') || die "missing .safeThreshold"
 ERC6551_REGISTRY=$(echo "$CONFIG" | jq -r '.external.erc6551Registry') || die "missing .external.erc6551Registry"
 TBA_IMPLEMENTATION=$(echo "$CONFIG" | jq -r '.external.tbaImplementation') || die "missing .external.tbaImplementation"
 MODE=${DEPLOY_MODE:-dry-run}
@@ -53,7 +54,7 @@ SIM_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
 # Parse simulation results
 ADDRESSES=$(echo "$SIM_OUTPUT" | jq -c '
   [.transactions[]? | select(.transactionType == "CREATE") |
-   {name: .contractName, address: .contractAddress}] |
+   {key: .contractName, value: .contractAddress}] |
   from_entries // {}
 ' 2>/dev/null || echo '{}')
 
@@ -112,8 +113,13 @@ if [ "$MODE" = "broadcast" ]; then
   fi
 
   # Sign the Safe transaction hash
-  TX_HASH=$(cast keccak "$(echo -n "${SAFE_ADDR}${TO_ADDR}${CALL_DATA}${NONCE}" | cast --to-bytes32)" 2>/dev/null) \
-    || die "failed to compute tx hash"
+  TX_HASH=$(cast call "$SAFE_ADDR" \
+    "getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256)(bytes32)" \
+    "$TO_ADDR" 0 "$CALL_DATA" "$OPERATION" 0 0 0 \
+    "0x0000000000000000000000000000000000000000" \
+    "0x0000000000000000000000000000000000000000" \
+    "$NONCE" \
+    --rpc-url "$RPC" 2>/dev/null) || die "failed to compute safe tx hash"
 
   SIGNATURE=$(cast wallet sign "$TX_HASH" --private-key "$SIGNER_KEY" 2>/dev/null) \
     || die "failed to sign safe transaction"
