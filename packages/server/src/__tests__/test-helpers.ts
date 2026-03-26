@@ -351,10 +351,24 @@ export function createMockKV(): KVNamespace {
     async delete(key: string) {
       store.delete(key)
     },
-    async list() {
+    async list(opts?: { prefix?: string; limit?: number }) {
+      // Evict expired entries
+      for (const [k, entry] of store) {
+        if (entry.expiration && Date.now() / 1000 > entry.expiration) {
+          store.delete(k)
+        }
+      }
+      let keys = Array.from(store.keys()).sort()
+      if (opts?.prefix) {
+        keys = keys.filter(k => k.startsWith(opts.prefix!))
+      }
+      const total = keys.length
+      if (opts?.limit) {
+        keys = keys.slice(0, opts.limit)
+      }
       return {
-        keys: Array.from(store.keys()).map(name => ({ name })),
-        list_complete: true,
+        keys: keys.map(name => ({ name })),
+        list_complete: keys.length >= total,
         caches: [],
       }
     },
