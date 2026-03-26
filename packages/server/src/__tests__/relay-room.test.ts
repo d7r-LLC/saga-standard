@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/d1'
-import { agents } from '../db/schema'
+import { agents, groupMembers } from '../db/schema'
 import { RelayRoom } from '../relay/relay-room'
 import {
   createMockDurableObjectState,
@@ -491,6 +491,116 @@ describe('RelayRoom', () => {
       const response = getLastMessage(ws)
       expect(response.type).toBe('error')
       expect(response.error).toContain('Not authenticated')
+    })
+  })
+
+  describe('group fan-out routing', () => {
+    it('delivers group message to all online members', async () => {
+      // Insert group members
+      const orm = drizzle(env.DB)
+      await orm.insert(groupMembers).values([
+        { groupId: 'team-alpha', handle: 'alice', addedAt: new Date().toISOString() },
+        { groupId: 'team-alpha', handle: 'bob', addedAt: new Date().toISOString() },
+      ])
+
+      const aliceWs = createMockWebSocket()
+      const bobWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+      await authenticateWs(bobWs, 'bob', '0xbob')
+      bobWs._sent.length = 0 // Clear auth messages
+
+      const envelope = {
+        v: 1,
+        type: 'group-message',
+        scope: 'group',
+        from: 'alice@epicflow',
+        to: 'group:team-alpha',
+        ct: 'encrypted-group-data',
+        groupKeyId: 'team-alpha',
+        ts: new Date().toISOString(),
+        id: 'group-msg-001',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice gets ack
+      const ack = getLastMessage(aliceWs)
+      expect(ack.type).toBe('relay:ack')
+      expect(ack.messageId).toBe('group-msg-001')
+
+      // Bob receives the group message
+      const bobMessages = bobWs._sent.map((m: string) => JSON.parse(m))
+      const bobDelivers = bobMessages.filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(bobDelivers).toHaveLength(1)
+      expect((bobDelivers[0].envelope as Record<string, unknown>).id).toBe('group-msg-001')
+    })
+
+    it('mailboxes group message for offline members', async () => {
+      const orm = drizzle(env.DB)
+      await orm.insert(groupMembers).values([
+        { groupId: 'team-alpha', handle: 'alice', addedAt: new Date().toISOString() },
+        { groupId: 'team-alpha', handle: 'bob', addedAt: new Date().toISOString() },
+      ])
+
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+      // Bob is NOT connected
+
+      const envelope = {
+        v: 1,
+        type: 'group-message',
+        scope: 'group',
+        from: 'alice@epicflow',
+        to: 'group:team-alpha',
+        ct: 'encrypted-group-data',
+        groupKeyId: 'team-alpha',
+        ts: new Date().toISOString(),
+        id: 'group-msg-002',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice gets ack
+      expect(getLastMessage(aliceWs).type).toBe('relay:ack')
+
+      // Bob later connects and drains mailbox
+      const bobWs = createMockWebSocket()
+      await authenticateWs(bobWs, 'bob', '0xbob')
+      await room.webSocketMessage(bobWs, JSON.stringify({ type: 'mailbox:drain' }))
+
+      const batch = getLastMessage(bobWs)
+      expect(batch.type).toBe('mailbox:batch')
+      expect((batch.envelopes as unknown[]).length).toBe(1)
+    })
+
+    it('does not deliver group message back to sender', async () => {
+      const orm = drizzle(env.DB)
+      await orm.insert(groupMembers).values([
+        { groupId: 'team-alpha', handle: 'alice', addedAt: new Date().toISOString() },
+      ])
+
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+      aliceWs._sent.length = 0 // Clear auth messages
+
+      const envelope = {
+        v: 1,
+        type: 'group-message',
+        scope: 'group',
+        from: 'alice@epicflow',
+        to: 'group:team-alpha',
+        ct: 'x',
+        groupKeyId: 'team-alpha',
+        ts: new Date().toISOString(),
+        id: 'group-msg-003',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      const messages = aliceWs._sent.map((m: string) => JSON.parse(m))
+      const delivers = messages.filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(delivers).toHaveLength(0) // No echo back to sender
+      expect(messages.find((m: Record<string, unknown>) => m.type === 'relay:ack')).toBeDefined()
     })
   })
 
