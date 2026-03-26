@@ -29,8 +29,8 @@ export class RelayRoom {
   private env: Env
   private mailbox: RelayMailbox
 
-  /** Lazy cache: handle → WebSocket. Reconstructed from attachments on demand. */
-  private handleMap: Map<string, WebSocket> | null = null
+  /** Lazy cache: handle → Set<WebSocket>. Reconstructed from attachments on demand. */
+  private handleMap: Map<string, Set<WebSocket>> | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx
@@ -120,47 +120,53 @@ export class RelayRoom {
     const handleMap = this.getHandleMap()
 
     // Send pings
-    for (const [, ws] of handleMap) {
-      try {
-        this.sendJson(ws, { type: 'control:ping' })
-      } catch {
-        this.removeConnection(ws)
+    for (const [, wsSet] of handleMap) {
+      for (const ws of wsSet) {
+        try {
+          this.sendJson(ws, { type: 'control:ping' })
+        } catch {
+          this.removeConnection(ws)
+        }
       }
     }
 
     // Cleanup stale connections
     const now = Date.now()
-    for (const [, ws] of handleMap) {
-      const attachment = ws.deserializeAttachment() as WebSocketAttachment
-      if (attachment.authenticated && now - attachment.state.lastPong > STALE_TIMEOUT_MS) {
-        try {
-          ws.close(4001, 'Connection stale')
-        } catch {
-          // WebSocket may already be closed; ignore close error and proceed to cleanup
-        }
-        this.removeConnection(ws)
-      }
-    }
-
-    // Re-verify NFT ownership
-    for (const [handle, ws] of this.getHandleMap()) {
-      const attachment = ws.deserializeAttachment() as WebSocketAttachment
-      if (
-        attachment.authenticated &&
-        now - attachment.state.lastNftCheck > NFT_RECHECK_INTERVAL_MS
-      ) {
-        const valid = await reVerifyNft(handle, attachment.state.walletAddress, this.env.DB)
-        if (!valid) {
-          this.sendJson(ws, { type: 'auth:error', error: 'NFT verification failed' })
+    for (const [, wsSet] of handleMap) {
+      for (const ws of wsSet) {
+        const attachment = ws.deserializeAttachment() as WebSocketAttachment
+        if (attachment.authenticated && now - attachment.state.lastPong > STALE_TIMEOUT_MS) {
           try {
-            ws.close(4003, 'NFT verification failed')
+            ws.close(4001, 'Connection stale')
           } catch {
             // WebSocket may already be closed; ignore close error and proceed to cleanup
           }
           this.removeConnection(ws)
-        } else {
-          attachment.state.lastNftCheck = now
-          ws.serializeAttachment(attachment)
+        }
+      }
+    }
+
+    // Re-verify NFT ownership
+    for (const [handle, wsSet] of this.getHandleMap()) {
+      for (const ws of wsSet) {
+        const attachment = ws.deserializeAttachment() as WebSocketAttachment
+        if (
+          attachment.authenticated &&
+          now - attachment.state.lastNftCheck > NFT_RECHECK_INTERVAL_MS
+        ) {
+          const valid = await reVerifyNft(handle, attachment.state.walletAddress, this.env.DB)
+          if (!valid) {
+            this.sendJson(ws, { type: 'auth:error', error: 'NFT verification failed' })
+            try {
+              ws.close(4003, 'NFT verification failed')
+            } catch {
+              // WebSocket may already be closed; ignore close error and proceed to cleanup
+            }
+            this.removeConnection(ws)
+          } else {
+            attachment.state.lastNftCheck = now
+            ws.serializeAttachment(attachment)
+          }
         }
       }
     }
@@ -218,21 +224,6 @@ export class RelayRoom {
       return
     }
 
-    // Close any existing connection for this handle
-    const existing = this.getHandleMap().get(result.state.handle)
-    if (existing && existing !== ws) {
-      this.sendJson(existing, {
-        type: 'error',
-        error: 'Replaced by new connection',
-      })
-      try {
-        existing.close(4000, 'Replaced by new connection')
-      } catch {
-        // WebSocket may already be closed; ignore close error
-      }
-      this.removeConnection(existing)
-    }
-
     // Register authenticated connection
     const authAttachment: WebSocketAttachment = {
       authenticated: true,
@@ -278,13 +269,15 @@ export class RelayRoom {
 
     for (const recipient of recipients) {
       const recipientHandle = recipient.split('@')[0]
-      const recipientWs = this.getHandleMap().get(recipientHandle)
+      const recipientSet = this.getHandleMap().get(recipientHandle)
 
-      if (recipientWs) {
-        try {
-          this.sendJson(recipientWs, { type: 'relay:deliver', envelope })
-        } catch {
-          await this.mailbox.store(recipientHandle, envelope)
+      if (recipientSet && recipientSet.size > 0) {
+        for (const recipientWs of recipientSet) {
+          try {
+            this.sendJson(recipientWs, { type: 'relay:deliver', envelope })
+          } catch {
+            // Individual send failure
+          }
         }
       } else {
         await this.mailbox.store(recipientHandle, envelope)
@@ -326,16 +319,20 @@ export class RelayRoom {
   // ── Helpers ───────────────────────────────────────────────────
 
   /**
-   * Lazily build handle→WebSocket map from WebSocket attachments.
+   * Lazily build handle→Set<WebSocket> map from WebSocket attachments.
    * Survives DO hibernation via reconstruction.
    */
-  private getHandleMap(): Map<string, WebSocket> {
+  private getHandleMap(): Map<string, Set<WebSocket>> {
     if (!this.handleMap) {
       this.handleMap = new Map()
       for (const ws of this.ctx.getWebSockets()) {
         const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
         if (attachment?.authenticated) {
-          this.handleMap.set(attachment.state.handle, ws)
+          const handle = attachment.state.handle
+          if (!this.handleMap.has(handle)) {
+            this.handleMap.set(handle, new Set())
+          }
+          this.handleMap.get(handle)!.add(ws)
         }
       }
     }
@@ -351,7 +348,13 @@ export class RelayRoom {
   private removeConnection(ws: WebSocket): void {
     const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
     if (attachment?.authenticated) {
-      this.handleMap?.delete(attachment.state.handle)
+      const set = this.handleMap?.get(attachment.state.handle)
+      if (set) {
+        set.delete(ws)
+        if (set.size === 0) {
+          this.handleMap?.delete(attachment.state.handle)
+        }
+      }
     }
     // Mark as unauthenticated so it's excluded from future map rebuilds
     ws.serializeAttachment(null)

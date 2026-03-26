@@ -217,17 +217,15 @@ describe('Relay Integration', () => {
     expect(lastMessage(aliceWs).type).toBe('relay:deliver')
   })
 
-  it('connection replacement — new connection replaces old', async () => {
+  it('multi-connection — second connection coexists and both receive messages', async () => {
     const aliceWs1 = await connectAndAuth('alice', '0xalice')
     const aliceWs2 = await connectAndAuth('alice', '0xalice')
 
-    // First connection should have been notified and closed
-    const ws1Messages = parseSent(aliceWs1)
-    const replacedMsg = ws1Messages.find(m => m.error === 'Replaced by new connection')
-    expect(replacedMsg).toBeDefined()
-    expect(aliceWs1._closed).toBe(true)
+    // Both connections should remain open (multi-DERP support)
+    expect(aliceWs1._closed).toBe(false)
+    expect(aliceWs2._closed).toBe(false)
 
-    // New connection should work
+    // Both connections should receive messages sent to alice
     const bobWs = await connectAndAuth('bob', '0xbob')
     const envelope = {
       v: 1,
@@ -237,11 +235,14 @@ describe('Relay Integration', () => {
       to: 'alice@epicflow',
       ct: 'x',
       ts: new Date().toISOString(),
-      id: 'replace-test',
+      id: 'multi-conn-test',
     }
     await room.webSocketMessage(bobWs, JSON.stringify({ type: 'relay:send', envelope }))
 
-    // Message should arrive on the NEW connection (ws2), not the old one (ws1)
-    expect(lastMessage(aliceWs2).type).toBe('relay:deliver')
+    // Both ws1 and ws2 should have received the delivery
+    const ws1Delivers = parseSent(aliceWs1).filter(m => m.type === 'relay:deliver')
+    const ws2Delivers = parseSent(aliceWs2).filter(m => m.type === 'relay:deliver')
+    expect(ws1Delivers).toHaveLength(1)
+    expect(ws2Delivers).toHaveLength(1)
   })
 })

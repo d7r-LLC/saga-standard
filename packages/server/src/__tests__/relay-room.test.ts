@@ -247,6 +247,87 @@ describe('RelayRoom', () => {
     })
   })
 
+  describe('multi-connection support', () => {
+    it('allows two connections for the same handle', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+
+      // Neither should be closed
+      expect(ws1._closed).toBe(false)
+      expect(ws2._closed).toBe(false)
+    })
+
+    it('delivers relay message to all connections for a handle', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+      const sender = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+      await authenticateWs(sender, 'bob', '0xbob')
+
+      // Bob sends to alice
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'bob@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-payload',
+        ts: new Date().toISOString(),
+        id: 'msg-multi-1',
+      }
+      await room.webSocketMessage(sender, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Both ws1 and ws2 should receive the delivery
+      const ws1Messages = ws1._sent.map((m: string) => JSON.parse(m))
+      const ws2Messages = ws2._sent.map((m: string) => JSON.parse(m))
+      const ws1Delivers = ws1Messages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      const ws2Delivers = ws2Messages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(ws1Delivers).toHaveLength(1)
+      expect(ws2Delivers).toHaveLength(1)
+    })
+
+    it('removes only the disconnected connection, keeps others', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+
+      // Disconnect ws1
+      await room.webSocketClose(ws1, 1000, 'bye', true)
+
+      // Send to alice — only ws2 should receive
+      const sender = createMockWebSocket()
+      await authenticateWs(sender, 'bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'bob@epicflow',
+        to: 'alice@epicflow',
+        ct: 'x',
+        ts: new Date().toISOString(),
+        id: 'msg-multi-2',
+      }
+      await room.webSocketMessage(sender, JSON.stringify({ type: 'relay:send', envelope }))
+
+      const ws2Delivers = ws2._sent
+        .map((m: string) => JSON.parse(m))
+        .filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(ws2Delivers).toHaveLength(1)
+    })
+  })
+
   describe('connection lifecycle', () => {
     it('handles pong message', async () => {
       const ws = createMockWebSocket()
