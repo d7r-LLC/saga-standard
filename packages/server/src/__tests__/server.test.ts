@@ -631,4 +631,15 @@ describe('SAGA Reference Server', () => {
       expect(body.code).toBe('INVALID_HANDLE')
     })
   })
+
+  // -- Relay --
+
+  describe('GET /v1/relay', () => {
+    it('returns 426 for non-WebSocket requests', async () => {
+      const res = await req('GET', '/v1/relay')
+      expect(res.status).toBe(426)
+      const body = await res.json()
+      expect(body.code).toBe('UPGRADE_REQUIRED')
+    })
+  })
 })

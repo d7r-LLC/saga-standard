@@ -12,6 +12,8 @@ import { transferRoutes } from './routes/transfers'
 import { serverInfoRoute } from './routes/server-info'
 import { resolveRoutes } from './routes/resolve'
 import { orgRoutes } from './routes/orgs'
+import { relayRoutes } from './routes/relay'
+import { RelayRoom } from './relay/relay-room'
 import { runIndexer } from './indexer/chain-indexer'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -38,6 +40,7 @@ app.get('/', c => {
       resolve: '/v1/resolve/:handle',
       auth: '/v1/auth/challenge',
       health: '/health',
+      relay: '/v1/relay',
     },
   })
 })
@@ -49,6 +52,7 @@ app.route('/v1/transfers', transferRoutes)
 app.route('/v1/resolve', resolveRoutes)
 app.route('/v1/orgs', orgRoutes)
 app.route('/v1', serverInfoRoute)
+app.route('/v1', relayRoutes)
 
 // Document routes are nested under agents
 app.route('/v1/agents', documentRoutes)
@@ -69,3 +73,4 @@ export default {
 }
 
 export type { Env }
+export { RelayRoom }

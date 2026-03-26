@@ -7,6 +7,12 @@ export interface Env {
   SESSIONS: KVNamespace
   INDEXER_STATE: KVNamespace
 
+  /** KV namespace for offline relay message storage */
+  RELAY_MAILBOX: KVNamespace
+
+  /** Durable Object namespace for the WebSocket relay room */
+  RELAY_ROOM: DurableObjectNamespace
+
   /** Optional: server display name (default: "SAGA Reference Server") */
   SERVER_NAME?: string
 
