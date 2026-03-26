@@ -152,6 +152,7 @@ export const STALE_TIMEOUT_MS = 90_000
 export const NFT_RECHECK_INTERVAL_MS = 5 * 60_000
 export const CHALLENGE_TTL_MS = 5 * 60_000
 export const MAILBOX_TTL_SECONDS = 30 * 24 * 3600
+export const DM_TTL_SECONDS = 7 * 24 * 3600 // 7 days for direct messages
 export const MAILBOX_DRAIN_BATCH_SIZE = 50
 
 // ── Type guards ─────────────────────────────────────────────────
