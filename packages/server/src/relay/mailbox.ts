@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import type { RelayEnvelope } from './types'
-import { MAILBOX_DRAIN_BATCH_SIZE, MAILBOX_TTL_SECONDS } from './types'
+import { DM_TTL_SECONDS, MAILBOX_DRAIN_BATCH_SIZE, MAILBOX_TTL_SECONDS } from './types'
 
 /**
  * KV-backed offline message store for the relay.
@@ -36,7 +36,15 @@ export function createMailbox(
   return {
     async store(handle, envelope) {
       const key = mailboxKey(handle, envelope)
-      await kv.put(key, JSON.stringify(envelope), { expirationTtl: ttlSeconds })
+      // Per-envelope TTL: use envelope.ttl if present,
+      // otherwise use type-based default
+      const envelopeTtl =
+        typeof (envelope as Record<string, unknown>).ttl === 'number'
+          ? ((envelope as Record<string, unknown>).ttl as number)
+          : undefined
+      const isShortLived = envelope.type === 'direct-message' || envelope.type === 'group-message'
+      const effectiveTtl = envelopeTtl ?? (isShortLived ? DM_TTL_SECONDS : ttlSeconds)
+      await kv.put(key, JSON.stringify(envelope), { expirationTtl: effectiveTtl })
     },
 
     async drain(handle) {

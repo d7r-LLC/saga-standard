@@ -20,11 +20,14 @@ function unquote(s: string): string {
 export function createMockD1(): D1Database {
   // Each table stores an ordered list of rows.
   // Each row is a Map<columnName, value> to preserve insertion column order.
-  const tables = new Map<string, { columns: string[]; rows: Record<string, unknown>[] }>()
+  const tables = new Map<
+    string,
+    { columns: string[]; rows: Record<string, unknown>[]; primaryKey: string[] }
+  >()
 
   function getTable(name: string) {
     if (!tables.has(name)) {
-      tables.set(name, { columns: [], rows: [] })
+      tables.set(name, { columns: [], rows: [], primaryKey: [] })
     }
     return tables.get(name)!
   }
@@ -45,35 +48,47 @@ export function createMockD1(): D1Database {
       table.columns = cols
     }
 
-    // Parse VALUES — each token is either `?` or `null`
-    const valuesM = sql.match(/values\s*\(([^)]+)\)/i)
-    if (!valuesM) return
-    const valueTokens = valuesM[1].split(',').map(t => t.trim())
+    // Parse all VALUES groups — supports multi-row inserts: VALUES (?, ?, ?), (?, ?, ?)
+    const valuesSection = sql.match(/values\s*([\s\S]+)$/i)
+    if (!valuesSection) return
+    // Extract each (...) value group
+    const valueGroupRegex = /\(([^)]+)\)/g
+    const valueGroups: string[][] = []
+    let m: RegExpExecArray | null
+    while ((m = valueGroupRegex.exec(valuesSection[1])) !== null) {
+      valueGroups.push(m[1].split(',').map(t => t.trim()))
+    }
+    if (valueGroups.length === 0) return
 
     let paramIdx = 0
-    const row: Record<string, unknown> = {}
-    cols.forEach((col, i) => {
-      const token = valueTokens[i]?.trim()
-      if (token === '?') {
-        row[col] = params[paramIdx++]
-      } else if (token?.toLowerCase() === 'null') {
-        row[col] = null
-      } else {
-        // Literal value (number, string, etc.)
-        row[col] = token
-      }
-    })
+    for (const valueTokens of valueGroups) {
+      const row: Record<string, unknown> = {}
+      cols.forEach((col, i) => {
+        const token = valueTokens[i]?.trim()
+        if (token === '?') {
+          row[col] = params[paramIdx++]
+        } else if (token?.toLowerCase() === 'null') {
+          row[col] = null
+        } else {
+          // Literal value (number, string, etc.)
+          row[col] = token
+        }
+      })
 
-    // INSERT OR IGNORE: skip if a row with the same primary key already exists
-    if (isOrIgnore && table.columns.length > 0) {
-      const pkCol = table.columns[0]
-      const pkVal = row[pkCol]
-      if (table.rows.some(r => r[pkCol] === pkVal)) {
-        return
+      // INSERT OR IGNORE: skip if a row with the same primary key already exists
+      if (isOrIgnore && table.columns.length > 0) {
+        // Use composite PK if available, otherwise fall back to first column
+        const pkCols = table.primaryKey.length > 0 ? table.primaryKey : [table.columns[0]]
+        const isDuplicate = table.rows.some(r =>
+          pkCols.every(col => r[col] !== undefined && r[col] === row[col])
+        )
+        if (isDuplicate) {
+          continue
+        }
       }
+
+      table.rows.push(row)
     }
-
-    table.rows.push(row)
   }
 
   function executeUpdate(sql: string, params: unknown[]): void {
@@ -338,6 +353,11 @@ export function createMockD1(): D1Database {
             if (table.columns.length === 0) {
               table.columns = cols
             }
+            // Extract composite PRIMARY KEY constraint, e.g. PRIMARY KEY (col1, col2)
+            const pkM = m[2].match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i)
+            if (pkM && table.primaryKey.length === 0) {
+              table.primaryKey = pkM[1].split(',').map(c => c.trim().replace(/"/g, ''))
+            }
           }
         }
       }
@@ -486,6 +506,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
       name TEXT NOT NULL,
       wallet_address TEXT NOT NULL,
       chain TEXT NOT NULL,
+      public_key TEXT,
       token_id INTEGER,
       tba_address TEXT,
       contract_address TEXT,
@@ -529,6 +550,12 @@ export async function runMigrations(db: D1Database): Promise<void> {
       envelope_json TEXT NOT NULL,
       stored_at TEXT NOT NULL,
       envelope_ts TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS group_members (
+      group_id TEXT NOT NULL,
+      handle TEXT NOT NULL,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (group_id, handle)
     );
   `)
 }

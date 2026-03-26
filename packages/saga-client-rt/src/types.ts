@@ -48,6 +48,7 @@ export type SagaDirectMessageType =
   | 'data-payload'
   | 'coordination'
   | 'notification'
+  | 'key-distribution'
 
 /** Direct message payload (encrypted in envelope) */
 export interface SagaDirectMessage {
@@ -74,6 +75,13 @@ export interface WebSocketLike {
   onerror: ((ev: Event) => void) | null
 }
 
+/** Resolved public key from directory */
+export interface ResolvedKey {
+  handle: string
+  publicKey: Uint8Array
+  entityType: 'agent' | 'organization'
+}
+
 /** Configuration for createSagaClient */
 export interface SagaClientConfig {
   /** WSS URL for the hub relay (e.g. "wss://api.saga-standard.dev/v1/relay") */
@@ -88,6 +96,8 @@ export interface SagaClientConfig {
   storageBackend?: StorageBackend
   /** WebSocket factory — override for testing (defaults to native WebSocket) */
   createWebSocket?: (url: string) => WebSocketLike
+  /** Optional: custom fetch function for key discovery (defaults to global fetch) */
+  fetchFn?: typeof fetch
 }
 
 /** The SAGA client interface exposed to agent runtimes */
@@ -114,6 +124,10 @@ export interface SagaClient {
 
   // ── Peer key management (manual for Phase 3; Phase 5 adds auto-discovery) ──
   registerPeerKey(identity: string, publicKey: Uint8Array): void
+
+  // ── Group key distribution ──
+  /** Distribute a group key to all members via encrypted DMs */
+  distributeGroupKey(groupId: string, memberIdentities: string[]): Promise<void>
 
   // ── Status ──
   getPeers(): ConnectedPeer[]

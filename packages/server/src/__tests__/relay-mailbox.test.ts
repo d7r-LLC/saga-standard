@@ -6,6 +6,18 @@ import { createMockKV } from './test-helpers'
 import { createMailbox } from '../relay/mailbox'
 import type { RelayMailbox } from '../relay/mailbox'
 import type { RelayEnvelope } from '../relay/types'
+import { DM_TTL_SECONDS } from '../relay/types'
+
+function createSpiedKV() {
+  const kv = createMockKV()
+  const puts: Array<{ key: string; value: string; ttl?: number }> = []
+  const originalPut = kv.put.bind(kv)
+  kv.put = async (key: string, value: string, opts?: { expirationTtl?: number }) => {
+    puts.push({ key, value, ttl: opts?.expirationTtl })
+    return originalPut(key, value, opts)
+  }
+  return { kv, puts }
+}
 
 function makeEnvelope(overrides: Partial<RelayEnvelope> = {}): RelayEnvelope {
   return {
@@ -94,5 +106,38 @@ describe('createMailbox', () => {
     await mailbox.store('bob', makeEnvelope())
     await mailbox.store('bob', makeEnvelope())
     expect(await mailbox.count('bob')).toBe(2)
+  })
+
+  it('uses envelope ttl when present', async () => {
+    const { kv: spiedKv, puts } = createSpiedKV()
+    const box = createMailbox(spiedKv)
+    const envelope = makeEnvelope()
+    ;(envelope as Record<string, unknown>).ttl = 3600 // 1 hour
+    await box.store('alice', envelope)
+    expect(puts[puts.length - 1].ttl).toBe(3600)
+  })
+
+  it('uses 7-day TTL for direct-message envelopes without ttl field', async () => {
+    const { kv: spiedKv, puts } = createSpiedKV()
+    const box = createMailbox(spiedKv)
+    const envelope = makeEnvelope({ type: 'direct-message' })
+    await box.store('alice', envelope)
+    expect(puts[puts.length - 1].ttl).toBe(DM_TTL_SECONDS)
+  })
+
+  it('uses 7-day TTL for group-message envelopes', async () => {
+    const { kv: spiedKv, puts } = createSpiedKV()
+    const box = createMailbox(spiedKv)
+    const envelope = makeEnvelope({ type: 'group-message' })
+    await box.store('alice', envelope)
+    expect(puts[puts.length - 1].ttl).toBe(DM_TTL_SECONDS)
+  })
+
+  it('uses 30-day TTL for memory-sync envelopes', async () => {
+    const { kv: spiedKv, puts } = createSpiedKV()
+    const box = createMailbox(spiedKv)
+    const envelope = makeEnvelope({ type: 'memory-sync' })
+    await box.store('alice', envelope)
+    expect(puts[puts.length - 1].ttl).toBe(30 * 24 * 3600)
   })
 })

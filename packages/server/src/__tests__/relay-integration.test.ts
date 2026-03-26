@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/d1'
-import { agents, organizations } from '../db/schema'
+import { agents, groupMembers, organizations } from '../db/schema'
 import { RelayRoom } from '../relay/relay-room'
 import {
   createMockDurableObjectState,
@@ -258,6 +258,92 @@ describe('Relay Integration', () => {
     const ws2Delivers = parseSent(aliceWs2).filter(m => m.type === 'relay:deliver')
     expect(ws1Delivers).toHaveLength(1)
     expect(ws2Delivers).toHaveLength(1)
+  })
+
+  describe('direct messaging integration', () => {
+    it('full DM flow: alice sends to bob, bob receives', async () => {
+      const aliceWs = await connectAndAuth('alice', '0xalice')
+      const bobWs = await connectAndAuth('bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'alice@epicflow',
+        to: 'bob@epicflow',
+        ct: 'ZW5jcnlwdGVkLWRtLWNvbnRlbnQ=',
+        nonce: 'cmFuZG9tbm9uY2U=',
+        ts: new Date().toISOString(),
+        id: 'dm-integration-001',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice gets ack
+      expect(lastMessage(aliceWs)).toEqual({
+        type: 'relay:ack',
+        messageId: 'dm-integration-001',
+      })
+
+      // Bob receives the envelope
+      const bobDelivery = lastMessage(bobWs)
+      expect(bobDelivery.type).toBe('relay:deliver')
+      expect(bobDelivery.envelope).toEqual(envelope)
+
+      // Alice does NOT receive a relay:deliver (no echo to sender)
+      const aliceDelivers = parseSent(aliceWs).filter(m => m.type === 'relay:deliver')
+      expect(aliceDelivers).toHaveLength(0)
+    })
+  })
+
+  describe('group messaging integration', () => {
+    it('full group flow: alice sends to group, bob receives', async () => {
+      const orm = drizzle(env.DB)
+
+      // Insert group membership for 'team-alpha': alice and bob
+      await orm.insert(groupMembers).values({
+        groupId: 'team-alpha',
+        handle: 'alice',
+        addedAt: new Date().toISOString(),
+      })
+      await orm.insert(groupMembers).values({
+        groupId: 'team-alpha',
+        handle: 'bob',
+        addedAt: new Date().toISOString(),
+      })
+
+      const aliceWs = await connectAndAuth('alice', '0xalice')
+      const bobWs = await connectAndAuth('bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'group-message',
+        scope: 'group',
+        from: 'alice@epicflow',
+        to: 'group:team-alpha',
+        ct: 'Z3JvdXAtZW5jcnlwdGVkLWNvbnRlbnQ=',
+        nonce: 'Z3JvdXBub25jZQ==',
+        ts: new Date().toISOString(),
+        id: 'group-integration-001',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice gets ack
+      expect(lastMessage(aliceWs)).toEqual({
+        type: 'relay:ack',
+        messageId: 'group-integration-001',
+      })
+
+      // Bob receives the envelope
+      const bobDelivery = lastMessage(bobWs)
+      expect(bobDelivery.type).toBe('relay:deliver')
+      expect(bobDelivery.envelope).toEqual(envelope)
+
+      // Alice does NOT get relay:deliver (no echo to sender)
+      const aliceDelivers = parseSent(aliceWs).filter(m => m.type === 'relay:deliver')
+      expect(aliceDelivers).toHaveLength(0)
+    })
   })
 
   describe('memory sync protocol', () => {

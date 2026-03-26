@@ -294,6 +294,47 @@ export class RelayRoom {
       return // Memory-sync routing is handled above — don't fall through to normal routing
     }
 
+    // Group fan-out routing
+    if (typeof envelope.to === 'string' && envelope.to.startsWith('group:')) {
+      const groupId = envelope.to.slice('group:'.length)
+      const members = await this.getGroupMembers(groupId)
+
+      // Verify sender is a member of the group
+      if (!members.includes(senderHandle)) {
+        this.sendJson(ws, {
+          type: 'relay:error',
+          messageId: envelope.id,
+          error: 'Not a member of this group',
+        })
+        return
+      }
+
+      for (const memberHandle of members) {
+        if (memberHandle === senderHandle) continue // Don't echo to sender
+
+        const memberSet = this.getHandleMap().get(memberHandle)
+        if (memberSet && memberSet.size > 0) {
+          let delivered = false
+          for (const memberWs of memberSet) {
+            try {
+              this.sendJson(memberWs, { type: 'relay:deliver', envelope })
+              delivered = true
+            } catch {
+              // Individual send failure
+            }
+          }
+          if (!delivered) {
+            await this.mailbox.store(memberHandle, envelope)
+          }
+        } else {
+          await this.mailbox.store(memberHandle, envelope)
+        }
+      }
+
+      this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
+      return
+    }
+
     // Route to recipients
     const recipients = Array.isArray(envelope.to) ? envelope.to : [envelope.to]
 
@@ -430,5 +471,13 @@ export class RelayRoom {
   /** Send a JSON message to a WebSocket */
   private sendJson(ws: WebSocket, data: Record<string, unknown>): void {
     ws.send(JSON.stringify(data))
+  }
+
+  /** Look up group members from D1 */
+  private async getGroupMembers(groupId: string): Promise<string[]> {
+    const result = await this.env.DB.prepare('SELECT handle FROM group_members WHERE group_id = ?')
+      .bind(groupId)
+      .all()
+    return (result.results ?? []).map((r: Record<string, unknown>) => r.handle as string)
   }
 }
