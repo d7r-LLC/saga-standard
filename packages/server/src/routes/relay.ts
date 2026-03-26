@@ -13,7 +13,7 @@ export const relayRoutes = new Hono<{ Bindings: Env }>()
  */
 relayRoutes.get('/relay', async c => {
   const upgradeHeader = c.req.header('Upgrade')
-  if (upgradeHeader !== 'websocket') {
+  if ((upgradeHeader ?? '').toLowerCase() !== 'websocket') {
     return c.json({ error: 'Expected WebSocket upgrade', code: 'UPGRADE_REQUIRED' }, 426)
   }
 

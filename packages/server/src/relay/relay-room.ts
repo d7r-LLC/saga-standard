@@ -42,7 +42,7 @@ export class RelayRoom {
 
   async fetch(request: Request): Promise<Response> {
     const upgradeHeader = request.headers.get('Upgrade')
-    if (upgradeHeader !== 'websocket') {
+    if (upgradeHeader?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 })
     }
 
@@ -262,8 +262,9 @@ export class RelayRoom {
       return
     }
 
-    // Verify sender identity matches
-    if (!envelope.from.startsWith(senderState.handle)) {
+    // Verify sender identity matches (exact handle match before @)
+    const senderHandle = envelope.from.split('@')[0]
+    if (senderHandle !== senderState.handle) {
       this.sendJson(ws, {
         type: 'relay:error',
         messageId: envelope.id,

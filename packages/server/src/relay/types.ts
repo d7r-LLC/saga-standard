@@ -164,7 +164,32 @@ const SERVER_MESSAGE_TYPES = new Set([
 export function isClientMessage(msg: unknown): msg is ClientMessage {
   if (typeof msg !== 'object' || msg === null) return false
   const obj = msg as Record<string, unknown>
-  return typeof obj.type === 'string' && CLIENT_MESSAGE_TYPES.has(obj.type)
+  if (typeof obj.type !== 'string' || !CLIENT_MESSAGE_TYPES.has(obj.type)) return false
+
+  // Validate required fields per message type to prevent runtime crashes
+  // when handlers access expected properties
+  switch (obj.type) {
+    case 'auth:verify':
+      return (
+        typeof obj.walletAddress === 'string' &&
+        typeof obj.chain === 'string' &&
+        typeof obj.handle === 'string' &&
+        typeof obj.signature === 'string' &&
+        typeof obj.challenge === 'string'
+      )
+    case 'relay:send':
+      return typeof obj.envelope === 'object' && obj.envelope !== null
+    case 'mailbox:ack':
+      return (
+        Array.isArray(obj.messageIds) &&
+        obj.messageIds.every((id: unknown) => typeof id === 'string')
+      )
+    case 'control:pong':
+    case 'mailbox:drain':
+      return true
+    default:
+      return false
+  }
 }
 
 export function isServerMessage(msg: unknown): msg is ServerMessage {

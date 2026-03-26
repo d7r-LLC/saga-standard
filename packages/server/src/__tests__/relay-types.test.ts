@@ -48,6 +48,23 @@ describe('isClientMessage', () => {
     expect(isClientMessage({ type: 123 })).toBe(false)
     expect(isClientMessage({ type: 'unknown' })).toBe(false)
   })
+
+  it('rejects auth:verify with missing required fields', () => {
+    expect(isClientMessage({ type: 'auth:verify' })).toBe(false)
+    expect(isClientMessage({ type: 'auth:verify', walletAddress: '0x' })).toBe(false)
+  })
+
+  it('rejects relay:send with non-object envelope', () => {
+    expect(isClientMessage({ type: 'relay:send' })).toBe(false)
+    expect(isClientMessage({ type: 'relay:send', envelope: 'string' })).toBe(false)
+    expect(isClientMessage({ type: 'relay:send', envelope: null })).toBe(false)
+  })
+
+  it('rejects mailbox:ack with invalid messageIds', () => {
+    expect(isClientMessage({ type: 'mailbox:ack' })).toBe(false)
+    expect(isClientMessage({ type: 'mailbox:ack', messageIds: 'not-array' })).toBe(false)
+    expect(isClientMessage({ type: 'mailbox:ack', messageIds: [123] })).toBe(false)
+  })
 })
 
 describe('isServerMessage', () => {
