@@ -45,6 +45,27 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
   const router = createMessageRouter(decrypt, dedup, {
     onDirectMessage(from, message) {
+      if (message.messageType === 'key-distribution') {
+        const payload = message.payload as {
+          groupId: string
+          wrappedKey: { ct: string; nonce: string }
+        }
+        try {
+          const wrappedKey = {
+            ct: Uint8Array.from(atob(payload.wrappedKey.ct), c => c.charCodeAt(0)),
+            nonce: Uint8Array.from(atob(payload.wrappedKey.nonce), c => c.charCodeAt(0)),
+          }
+          // Sender key not needed for unwrapping — keyRing uses its own private key
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(config.keyRing.addGroupKey as unknown as (id: string, key: unknown) => void)(
+            payload.groupId,
+            wrappedKey
+          )
+        } catch {
+          // Key distribution failed — ignore silently
+        }
+        return
+      }
       peers.set(from, { handle: from, lastSeen: new Date().toISOString() })
       for (const handler of messageHandlers) handler(from, message)
     },
@@ -127,7 +148,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   // Periodically clean up dedup tracker
   const dedupCleanupInterval = setInterval(() => dedup.cleanup(), 10 * 60 * 1000)
 
-  return {
+  const sagaClient: SagaClient = {
     connect(): Promise<void> {
       return connection.connect()
     },
@@ -245,6 +266,29 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       keyResolver.register(identity, publicKey)
     },
 
+    async distributeGroupKey(groupId: string, memberIdentities: string[]): Promise<void> {
+      for (const member of memberIdentities) {
+        if (member === config.identity) continue // Skip self
+
+        const recipientKey = await keyResolver.resolve(member)
+        const wrappedKey = config.keyRing.wrapGroupKeyFor(groupId, recipientKey) as unknown as {
+          ct: Uint8Array
+          nonce: Uint8Array
+        }
+
+        await sagaClient.sendMessage(member, {
+          messageType: 'key-distribution',
+          payload: {
+            groupId,
+            wrappedKey: {
+              ct: btoa(String.fromCharCode(...wrappedKey.ct)),
+              nonce: btoa(String.fromCharCode(...wrappedKey.nonce)),
+            },
+          },
+        })
+      }
+    },
+
     getPeers(): ConnectedPeer[] {
       return Array.from(peers.values())
     },
@@ -254,4 +298,5 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       return () => connectionHandlers.delete(handler)
     },
   }
+  return sagaClient
 }

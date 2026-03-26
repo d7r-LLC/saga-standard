@@ -48,6 +48,7 @@ export type SagaDirectMessageType =
   | 'data-payload'
   | 'coordination'
   | 'notification'
+  | 'key-distribution'
 
 /** Direct message payload (encrypted in envelope) */
 export interface SagaDirectMessage {
@@ -123,6 +124,10 @@ export interface SagaClient {
 
   // ── Peer key management (manual for Phase 3; Phase 5 adds auto-discovery) ──
   registerPeerKey(identity: string, publicKey: Uint8Array): void
+
+  // ── Group key distribution ──
+  /** Distribute a group key to all members via encrypted DMs */
+  distributeGroupKey(groupId: string, memberIdentities: string[]): Promise<void>
 
   // ── Status ──
   getPeers(): ConnectedPeer[]

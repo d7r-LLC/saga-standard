@@ -537,3 +537,117 @@ describe('sync-on-activation', () => {
     expect(extraSyncRequests).toHaveLength(0)
   })
 })
+
+describe('group key distribution', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('distributeGroupKey sends key-distribution DM to each member', async () => {
+    const mockWrapGroupKeyFor = vi.fn().mockReturnValue({
+      ct: new Uint8Array([1, 2, 3]),
+      nonce: new Uint8Array([4, 5, 6]),
+    })
+
+    const { config, getWs } = createTestConfig({
+      keyRing: {
+        isUnlocked: true,
+        getPublicKey: () => new Uint8Array(32),
+        hasGroupKey: vi.fn().mockReturnValue(true),
+        wrapGroupKeyFor: mockWrapGroupKeyFor,
+        addGroupKey: vi.fn(),
+      } as unknown as SagaClientConfig['keyRing'],
+    })
+
+    const { client, ws } = await connectClient(config, getWs)
+
+    // Register peer keys for members
+    client.registerPeerKey('bob@epicflow', new Uint8Array(32).fill(1))
+    client.registerPeerKey('carol@epicflow', new Uint8Array(32).fill(2))
+
+    await client.distributeGroupKey('team-alpha', [
+      'alice@epicflow', // self — should be skipped
+      'bob@epicflow',
+      'carol@epicflow',
+    ])
+
+    // Should have called wrapGroupKeyFor for bob and carol (not alice)
+    expect(mockWrapGroupKeyFor).toHaveBeenCalledTimes(2)
+
+    // Should have sent relay:send messages for bob and carol
+    const sent = ws.allSent<Record<string, unknown>>()
+    const relaySends = sent.filter(m => m.type === 'relay:send')
+    // At least 2 relay:send for key-distribution (plus possibly memory-sync from connect)
+    const keyDistSends = relaySends.filter(m => {
+      const env = m.envelope as Record<string, unknown>
+      return env.type === 'direct-message'
+    })
+    expect(keyDistSends.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('handles incoming key-distribution message and injects group key', async () => {
+    const mockAddGroupKey = vi.fn()
+    const { config, getWs } = createTestConfig({
+      keyRing: {
+        isUnlocked: true,
+        getPublicKey: () => new Uint8Array(32),
+        hasGroupKey: vi.fn().mockReturnValue(false),
+        wrapGroupKeyFor: vi.fn(),
+        addGroupKey: mockAddGroupKey,
+      } as unknown as SagaClientConfig['keyRing'],
+    })
+
+    const { client: _client, ws } = await connectClient(config, getWs)
+
+    // Override the open mock to return key-distribution payload
+    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    crypto.open.mockImplementationOnce(async () => {
+      return new TextEncoder().encode(
+        JSON.stringify({
+          messageType: 'key-distribution',
+          payload: {
+            groupId: 'team-alpha',
+            wrappedKey: {
+              ct: btoa(String.fromCharCode(1, 2, 3)),
+              nonce: btoa(String.fromCharCode(4, 5, 6)),
+            },
+          },
+        })
+      )
+    })
+
+    // Simulate receiving a key-distribution envelope
+    ws.simulateMessage({
+      type: 'relay:deliver',
+      envelope: {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'bob@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-key-data',
+        ts: '2026-01-01T00:00:00Z',
+        id: 'key-dist-001',
+      },
+    })
+
+    await vi.waitFor(() => {
+      if (mockAddGroupKey.mock.calls.length === 0) throw new Error('waiting')
+    })
+
+    expect(mockAddGroupKey).toHaveBeenCalledWith(
+      'team-alpha',
+      expect.objectContaining({
+        ct: expect.any(Uint8Array),
+        nonce: expect.any(Uint8Array),
+      })
+    )
+  })
+})
