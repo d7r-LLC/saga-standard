@@ -286,6 +286,9 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async deleteMemory(memoryId: string): Promise<void> {
       await store.delete(`memory:${memoryId}`)
+      if (companyStore) {
+        await companyStore.delete(`memory:${memoryId}`)
+      }
     },
 
     async queryAuditLog(filter?: { since?: string; limit?: number }): Promise<PolicyAuditEntry[]> {

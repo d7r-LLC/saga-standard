@@ -37,15 +37,19 @@ export function classifyMemory(
     }
   }
 
-  // 3. Check restricted content patterns
+  // 3. Check restricted content patterns (try/catch guards against malformed regex)
   if (restricted.contentPatterns && restricted.contentPatterns.length > 0) {
     const serialized = JSON.stringify(memory.content)
     for (const pattern of restricted.contentPatterns) {
-      if (new RegExp(pattern, 'i').test(serialized)) {
-        return {
-          scope: 'org-internal',
-          reason: `contentPattern '${pattern}' matched`,
+      try {
+        if (new RegExp(pattern, 'i').test(serialized)) {
+          return {
+            scope: 'org-internal',
+            reason: `contentPattern '${pattern}' matched`,
+          }
         }
+      } catch {
+        // Malformed regex pattern — skip
       }
     }
   }
