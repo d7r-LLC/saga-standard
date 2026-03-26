@@ -25,7 +25,14 @@ policyRoutes.get('/:orgId/policy', requireAuth, async c => {
     return c.json({ error: 'No policy found for this organization', code: 'NOT_FOUND' }, 404)
   }
 
-  return c.json({ policy: JSON.parse(rows[0].policyJson) })
+  let policy: unknown
+  try {
+    policy = JSON.parse(rows[0].policyJson)
+  } catch {
+    return c.json({ error: 'Stored policy is invalid JSON', code: 'INVALID_POLICY_JSON' }, 500)
+  }
+
+  return c.json({ policy })
 })
 
 /** PUT /v1/orgs/:orgId/policy — Create or update the replication policy */

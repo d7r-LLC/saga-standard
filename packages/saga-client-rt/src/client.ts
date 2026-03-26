@@ -162,16 +162,21 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   const dedupCleanupInterval = setInterval(() => dedup.cleanup(), 10 * 60 * 1000)
 
   // Phase 6: Retention enforcement timer (runs hourly when governance is active)
+  let retentionRunning = false
   const retentionInterval =
     config.governance && companyStore
       ? setInterval(
           async () => {
+            if (retentionRunning) return // Prevent overlapping runs
+            retentionRunning = true
             try {
               await runRetention(store, companyStore, config.governance!.policy, entry => {
                 store.put(`audit:${entry.memoryId}:retention`, entry).catch(() => {})
               })
             } catch {
               // Retention run failed — will retry next interval
+            } finally {
+              retentionRunning = false
             }
           },
           60 * 60 * 1000
@@ -203,7 +208,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
         const auditEntry = {
           memoryId: memory.id,
           memoryType: memory.type,
-          originalScope: (memory.scope ?? 'unclassified') as string,
+          originalScope: memory.scope ?? 'unclassified',
           appliedScope: classification.scope,
           reason: classification.reason,
           timestamp: new Date().toISOString(),
@@ -212,27 +217,28 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
         if (classification.scope === 'org-internal') {
           // Org-internal: company store only, no sync
+          // Clear any stale copy from agent store (reclassification)
+          await store.delete(`memory:${memory.id}`)
           await companyStore.put(`memory:${memory.id}`, classified)
           return
         }
 
         // mutual or agent-portable: agent store + sync
+        // Clear any stale copy from company store (reclassification)
+        await companyStore.delete(`memory:${memory.id}`)
         await store.put(`memory:${memory.id}`, classified)
 
+        // Always use private scope for self-addressed memory-sync so the agent
+        // can decrypt it on future sync-response replays
         const plaintext = new TextEncoder().encode(JSON.stringify(classified))
-        const sealScope = classification.scope === 'mutual' ? 'mutual' : 'private'
-        const sealPayload: Record<string, unknown> = {
-          type: 'memory-sync',
-          scope: sealScope,
-          from: config.identity,
-          to: config.identity,
-          plaintext,
-        }
-        if (sealScope === 'mutual') {
-          sealPayload.recipientPublicKey = config.governance.companyKeyRing.getPublicKey()
-        }
         const envelope = await seal(
-          sealPayload as unknown as Parameters<typeof seal>[0],
+          {
+            type: 'memory-sync',
+            scope: 'private',
+            from: config.identity,
+            to: config.identity,
+            plaintext,
+          },
           config.keyRing
         )
         connection.send(envelope as SagaEncryptedEnvelope)
@@ -259,11 +265,15 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       const entries = await store.query({ prefix: 'memory:' })
       let results = entries.map((e: { value: unknown }) => e.value as SagaMemory)
 
-      // Phase 6: Merge org-internal memories from company store
+      // Phase 6: Merge org-internal memories from company store, dedup by id
       if (companyStore) {
         const companyEntries = await companyStore.query({ prefix: 'memory:' })
         const companyMemories = companyEntries.map((e: { value: unknown }) => e.value as SagaMemory)
         results = [...results, ...companyMemories]
+
+        const dedupById = new Map<string, SagaMemory>()
+        for (const m of results) dedupById.set(m.id, m)
+        results = Array.from(dedupById.values())
       }
 
       if (filter.type) {
@@ -296,6 +306,9 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
       const entries = await store.query({ prefix: 'audit:' })
       let results = entries.map((e: { value: unknown }) => e.value as PolicyAuditEntry)
+
+      // Sort by timestamp descending so limit returns most recent entries
+      results.sort((a, b) => (b.timestamp > a.timestamp ? 1 : b.timestamp < a.timestamp ? -1 : 0))
 
       if (filter?.since) {
         const since = filter.since
