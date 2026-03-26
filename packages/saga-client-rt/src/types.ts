@@ -169,6 +169,13 @@ export interface ServerErrorMsg {
   error: string
 }
 
+export interface SyncResponseMsg {
+  type: 'sync-response'
+  envelopes: SagaEncryptedEnvelope[]
+  checkpoint: string
+  hasMore: boolean
+}
+
 export type ServerMessage =
   | AuthChallengeMsg
   | AuthSuccessMsg
@@ -179,6 +186,7 @@ export type ServerMessage =
   | ControlPingMsg
   | MailboxBatchMsg
   | ServerErrorMsg
+  | SyncResponseMsg
 
 // ── Relay connection internal types ──────────────────────────────
 
@@ -189,6 +197,7 @@ export interface RelayConnectionCallbacks {
   onRelayAck(messageId: string): void
   onRelayError(messageId: string, error: string): void
   onError(error: string): void
+  onSyncResponse(envelopes: SagaEncryptedEnvelope[], checkpoint: string, hasMore: boolean): void
 }
 
 export interface RelayConnectionConfig {

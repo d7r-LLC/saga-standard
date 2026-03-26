@@ -18,6 +18,7 @@ function createCallbacks(overrides?: Partial<RelayConnectionCallbacks>): RelayCo
     onRelayAck: vi.fn(),
     onRelayError: vi.fn(),
     onError: vi.fn(),
+    onSyncResponse: vi.fn(),
     ...overrides,
   }
 }
@@ -395,5 +396,105 @@ describe('createRelayConnection', () => {
     await connectPromise
 
     expect(onMailboxBatch).toHaveBeenCalledWith(envelopes, 5)
+  })
+
+  describe('sync protocol', () => {
+    it('sends sync-request to server', async () => {
+      let ws!: MockWebSocket
+      const conn = createRelayConnection({
+        hubUrl: 'wss://test.example.com/v1/relay',
+        handle: 'alice',
+        signer: createMockSigner(),
+        callbacks: createCallbacks(),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = conn.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      conn.sendSyncRequest('2026-01-01T00:00:00.000Z')
+
+      const sent = ws.allSent<Record<string, unknown>>()
+      const syncReq = sent.find(m => m.type === 'sync-request')
+      expect(syncReq).toBeDefined()
+      expect(syncReq!.since).toBe('2026-01-01T00:00:00.000Z')
+    })
+
+    it('sends sync-request with collections filter', async () => {
+      let ws!: MockWebSocket
+      const conn = createRelayConnection({
+        hubUrl: 'wss://test.example.com/v1/relay',
+        handle: 'alice',
+        signer: createMockSigner(),
+        callbacks: createCallbacks(),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = conn.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      conn.sendSyncRequest('2026-01-01T00:00:00.000Z', ['episodic'])
+
+      const sent = ws.allSent<Record<string, unknown>>()
+      const syncReq = sent.find(m => m.type === 'sync-request')
+      expect(syncReq!.collections).toEqual(['episodic'])
+    })
+
+    it('invokes onSyncResponse callback on sync-response message', async () => {
+      let ws!: MockWebSocket
+      const onSyncResponse = vi.fn()
+      const conn = createRelayConnection({
+        hubUrl: 'wss://test.example.com/v1/relay',
+        handle: 'alice',
+        signer: createMockSigner(),
+        callbacks: createCallbacks({ onSyncResponse }),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = conn.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      const syncResponse = {
+        type: 'sync-response',
+        envelopes: [{ id: 'env1', v: 1, type: 'memory-sync', ct: 'data' }],
+        checkpoint: '2026-03-26T00:00:00.000Z',
+        hasMore: false,
+      }
+      ws.simulateMessage(syncResponse)
+
+      expect(onSyncResponse).toHaveBeenCalledWith(
+        syncResponse.envelopes,
+        syncResponse.checkpoint,
+        syncResponse.hasMore
+      )
+    })
+
+    it('does not throw when sendSyncRequest called while not connected', () => {
+      const conn = createRelayConnection({
+        hubUrl: 'wss://test.example.com/v1/relay',
+        handle: 'alice',
+        signer: createMockSigner(),
+        callbacks: createCallbacks(),
+        createWebSocket: () => new MockWebSocket(),
+      })
+
+      // Should not throw - just a no-op when not connected
+      expect(() => conn.sendSyncRequest('2026-01-01T00:00:00.000Z')).not.toThrow()
+    })
   })
 })

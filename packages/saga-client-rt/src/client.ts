@@ -78,6 +78,9 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       onError() {
         // Placeholder for error surfacing (future enhancement)
       },
+      onSyncResponse() {
+        // Will be implemented in sync-on-activation task (Task 7)
+      },
     },
     createWebSocket: config.createWebSocket,
   })
