@@ -72,16 +72,22 @@ fi
 if [ "$MODE" = "broadcast" ]; then
   log "encoding safe transaction batch"
 
-  # Run forge script to get the raw transaction data
+  # Re-simulate to extract transaction calldata (no --broadcast, no on-chain txs)
+  # The Safe will execute these transactions, not the signer EOA
   BROADCAST_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
     forge script script/Deploy.s.sol \
     --fork-url "$RPC" \
-    --broadcast \
-    --json 2>/dev/null) || die "broadcast simulation failed"
+    --json 2>/dev/null) || die "simulation for broadcast failed"
+
+  # Guard: Safe cannot execute raw CREATE transactions (no .to address)
+  HAS_CREATE_TX=$(echo "$BROADCAST_OUTPUT" | jq -r 'any(.transactions[]?; .transaction.to == null)' 2>/dev/null || echo "false")
+  if [ "$HAS_CREATE_TX" = "true" ]; then
+    die "Deploy script produces CREATE transactions. A Safe cannot execute raw CREATE — use a factory/CREATE2 deployment pattern."
+  fi
 
   # Extract transaction data for Safe batch proposal
   TRANSACTIONS=$(echo "$BROADCAST_OUTPUT" | jq -c '[.transactions[]? | {
-    to: .contractAddress,
+    to: .transaction.to,
     value: "0",
     data: .transaction.data,
     operation: 0
@@ -96,15 +102,25 @@ if [ "$MODE" = "broadcast" ]; then
   TX_COUNT=$(echo "$TRANSACTIONS" | jq 'length')
 
   if [ "$TX_COUNT" -gt 1 ]; then
-    # MultiSend encoding via cast
+    # MultiSend encoding: pack each tx as op(1) + to(20) + value(32) + dataLen(32) + data
     MULTISEND_ADDR="0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" # Safe MultiSend canonical
-    MULTISEND_DATA=$(echo "$TRANSACTIONS" | jq -r '
-      [.[] | "\(.to)|\(.value)|\(.data)"] | join(",")
-    ')
+    MULTISEND_PACKED=""
+    while IFS= read -r TX; do
+      TX_TO=$(echo "$TX" | jq -r '.to')
+      TX_DATA=$(echo "$TX" | jq -r '.data')
+      TX_TO_HEX="${TX_TO#0x}"
+      TX_DATA_HEX="${TX_DATA#0x}"
+      TX_DATA_LEN=$(( ${#TX_DATA_HEX} / 2 ))
+      # op=00 (CALL), to (20 bytes, left-padded), value (32 bytes, zero), dataLen (32 bytes), data
+      VALUE_HEX=$(printf '%064x' 0)
+      LEN_HEX=$(printf '%064x' "$TX_DATA_LEN")
+      MULTISEND_PACKED="${MULTISEND_PACKED}00${TX_TO_HEX}${VALUE_HEX}${LEN_HEX}${TX_DATA_HEX}"
+    done < <(echo "$TRANSACTIONS" | jq -c '.[]')
+
     OPERATION=1 # DelegateCall for MultiSend
     TO_ADDR="$MULTISEND_ADDR"
-    # Encode the multiSend call
-    CALL_DATA=$(cast calldata "multiSend(bytes)" "$MULTISEND_DATA" 2>/dev/null) \
+    # Encode the multiSend(bytes) call with packed transactions
+    CALL_DATA=$(cast calldata "multiSend(bytes)" "0x${MULTISEND_PACKED}" 2>/dev/null) \
       || die "failed to encode multisend"
   else
     OPERATION=0
@@ -187,16 +203,20 @@ if [ "$MODE" = "finalize" ]; then
   VERIFIED=false
   if [ "$VERIFY" = "true" ]; then
     log "verifying contracts"
+    VERIFY_FAILED=false
     for ROW in $(echo "$FINAL_ADDRESSES" | jq -r 'to_entries[] | "\(.key)=\(.value)"'); do
       NAME="${ROW%%=*}"
       ADDR="${ROW#*=}"
-      BASESCAN_API_KEY="$EXPLORER_KEY" forge verify-contract \
+      if ! BASESCAN_API_KEY="$EXPLORER_KEY" forge verify-contract \
         "$ADDR" "src/${NAME}.sol:${NAME}" \
         --chain-id "$CHAIN_ID" \
         --etherscan-api-key "$EXPLORER_KEY" \
-        --watch 2>/dev/null || log "verification failed for ${NAME} (non-fatal)"
+        --watch 2>/dev/null; then
+        log "verification failed for ${NAME} (non-fatal)"
+        VERIFY_FAILED=true
+      fi
     done
-    VERIFIED=true
+    [ "$VERIFY_FAILED" = "false" ] && VERIFIED=true
   fi
 
   # ── Write addresses to 1Password ──

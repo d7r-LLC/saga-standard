@@ -47,12 +47,11 @@ describe('deploy-docker', () => {
   })
 
   describe('buildDockerNetworkCreateArgs', () => {
-    it('generates network create with internal flag', () => {
+    it('generates network create command', () => {
       const args = buildDockerNetworkCreateArgs('saga-deploy-net')
       expect(args).toContain('network')
       expect(args).toContain('create')
       expect(args).toContain('saga-deploy-net')
-      expect(args).toContain('--internal')
     })
   })
 
@@ -133,7 +132,7 @@ describe('deploy-docker', () => {
       expect(decoded.op.vault).toBe('SAGA Deploys')
     })
 
-    it('does NOT include OP_SERVICE_ACCOUNT_TOKEN in args (passed at runtime)', () => {
+    it('passes OP_SERVICE_ACCOUNT_TOKEN as env name only (resolved from host env)', () => {
       const args = buildDockerRunArgs({
         resolved: MOCK_RESOLVED,
         networkName: 'saga-deploy-net',
@@ -141,10 +140,10 @@ describe('deploy-docker', () => {
       })
 
       const opEnvIdx = args.findIndex(
-        (a, i) => a === '-e' && args[i + 1]?.startsWith('OP_SERVICE_ACCOUNT_TOKEN=')
+        (a, i) => a === '-e' && args[i + 1] === 'OP_SERVICE_ACCOUNT_TOKEN'
       )
       expect(opEnvIdx).toBeGreaterThan(-1)
-      expect(args[opEnvIdx + 1]).toBe('OP_SERVICE_ACCOUNT_TOKEN=${OP_SERVICE_ACCOUNT_TOKEN}')
+      expect(args[opEnvIdx + 1]).toBe('OP_SERVICE_ACCOUNT_TOKEN')
     })
 
     it('ends with image name', () => {

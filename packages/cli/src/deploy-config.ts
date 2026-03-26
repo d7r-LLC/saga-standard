@@ -86,6 +86,19 @@ export function resolveChainConfig(
     throw new Error(`Chain "${chain}" not found in config`)
   }
 
+  // Validate required non-empty fields
+  if (!chainConfig.safe) {
+    throw new Error(`Chain "${chain}" has empty "safe" address — populate before deploying`)
+  }
+  if (!chainConfig.rpc) {
+    throw new Error(`Chain "${chain}" has empty "rpc" URL`)
+  }
+  if (!chainConfig.op?.vault || !chainConfig.op?.signerItem) {
+    throw new Error(
+      `Chain "${chain}" has incomplete 1Password config (op.vault and op.signerItem required)`
+    )
+  }
+
   return {
     ...chainConfig,
     chain,

@@ -15,7 +15,10 @@ export function buildDockerBuildArgs(contractsDir: string): string[] {
 }
 
 export function buildDockerNetworkCreateArgs(networkName: string): string[] {
-  return ['network', 'create', networkName, '--internal']
+  // Note: --internal omitted because it blocks ALL outbound traffic.
+  // The container needs outbound access to RPC, Safe TX Service, 1Password, and explorer APIs.
+  // Container hardening is enforced via --read-only, --cap-drop ALL, --security-opt no-new-privileges.
+  return ['network', 'create', networkName]
 }
 
 export function buildDockerNetworkRmArgs(networkName: string): string[] {
@@ -61,7 +64,7 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
     '--network',
     networkName,
     '-e',
-    `OP_SERVICE_ACCOUNT_TOKEN=\${OP_SERVICE_ACCOUNT_TOKEN}`,
+    'OP_SERVICE_ACCOUNT_TOKEN',
     '-e',
     `DEPLOY_CONFIG=${configBase64}`,
     '-e',

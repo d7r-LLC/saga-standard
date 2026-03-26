@@ -2,7 +2,7 @@
 # See: docs/superpowers/specs/2026-03-26-secure-deploy-design.md
 
 # Stage 1: Pull Foundry binaries
-FROM ghcr.io/foundry-rs/foundry:latest AS foundry
+FROM ghcr.io/foundry-rs/foundry:stable AS foundry
 
 # Stage 2: Slim runtime with Foundry + 1Password CLI
 FROM debian:bookworm-slim

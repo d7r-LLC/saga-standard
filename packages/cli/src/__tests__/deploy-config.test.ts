@@ -133,6 +133,18 @@ describe('deploy-config', () => {
       expect(() => resolveChainConfig(config, 'polygon', {})).toThrow('not found in config')
     })
 
+    it('throws on empty safe address', () => {
+      const configPath = join(TEST_DIR, 'deploy.config.yaml')
+      const yaml = VALID_CONFIG_YAML.replace(
+        'safe: "0x1234567890abcdef1234567890abcdef12345678"',
+        "safe: ''"
+      )
+      writeFileSync(configPath, yaml)
+      const config = loadDeployConfig(configPath)
+
+      expect(() => resolveChainConfig(config, 'base-sepolia', {})).toThrow('empty "safe" address')
+    })
+
     it('flags production chains', () => {
       const configPath = join(TEST_DIR, 'deploy.config.yaml')
       writeFileSync(configPath, VALID_CONFIG_YAML)

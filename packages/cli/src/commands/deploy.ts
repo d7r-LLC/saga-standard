@@ -168,22 +168,16 @@ export const deployCommand = new Command('deploy')
       try {
         const runArgs = buildDockerRunArgs({ resolved, networkName, mode })
 
-        // Replace the OP token placeholder with the actual env var
-        const opToken = process.env.OP_SERVICE_ACCOUNT_TOKEN
-        if (!opToken) {
+        // Verify OP token is available (Docker will resolve it from the env)
+        if (!process.env.OP_SERVICE_ACCOUNT_TOKEN) {
           runSpinner.fail('OP_SERVICE_ACCOUNT_TOKEN environment variable is not set.')
           process.exit(1)
         }
 
-        const cmdArgs = runArgs.map(a =>
-          a === 'OP_SERVICE_ACCOUNT_TOKEN=${OP_SERVICE_ACCOUNT_TOKEN}'
-            ? `OP_SERVICE_ACCOUNT_TOKEN=${opToken}`
-            : a
-        )
-
-        containerOutput = execFileSync('docker', cmdArgs, {
+        containerOutput = execFileSync('docker', runArgs, {
           encoding: 'utf-8',
           timeout: 300_000, // 5 minute timeout
+          env: process.env, // Docker resolves OP_SERVICE_ACCOUNT_TOKEN from this env
         }).trim()
 
         runSpinner.succeed(
