@@ -391,3 +391,146 @@ describe('createSagaClient', () => {
     )
   })
 })
+
+describe('sync-on-activation', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    // Reset mock store data
+    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('sends sync-request after connection with epoch checkpoint when no checkpoint stored', async () => {
+    const { config, getWs } = createTestConfig()
+    const { ws } = await connectClient(config, getWs)
+
+    // Wait for any async operations to settle
+    await vi.waitFor(() => {
+      const sent = ws.allSent<Record<string, unknown>>()
+      const hasSyncRequest = sent.some(m => m.type === 'sync-request')
+      if (!hasSyncRequest) throw new Error('Waiting for sync-request')
+    })
+
+    const sent = ws.allSent<Record<string, unknown>>()
+    const syncRequest = sent.find(m => m.type === 'sync-request')
+    expect(syncRequest).toBeDefined()
+    expect(syncRequest!.since).toBe('1970-01-01T00:00:00.000Z')
+  })
+
+  it('sends sync-request with persisted checkpoint on reconnect', async () => {
+    const { config, getWs } = createTestConfig()
+    const { client, ws } = await connectClient(config, getWs)
+
+    // Wait for first sync-request
+    await vi.waitFor(() => {
+      const sent = ws.allSent<Record<string, unknown>>()
+      if (!sent.some(m => m.type === 'sync-request')) throw new Error('Waiting for sync-request')
+    })
+
+    // Simulate sync-response to set checkpoint
+    const savedCheckpoint = '2026-03-01T12:00:00.000Z'
+    ws.simulateMessage({
+      type: 'sync-response',
+      envelopes: [],
+      checkpoint: savedCheckpoint,
+      hasMore: false,
+    })
+
+    // Wait for store.put to be called with the checkpoint
+    const cryptoModule = vi.mocked(await import('@epicdm/saga-crypto'))
+    const mockStoreRef = (
+      cryptoModule as unknown as { _mockStore: { _data: Map<string, unknown> } }
+    )._mockStore
+    await vi.waitFor(() => {
+      if (!mockStoreRef._data.has('checkpoint:sync'))
+        throw new Error('Waiting for checkpoint to be stored')
+    })
+
+    // Disconnect and reconnect
+    await client.disconnect()
+    const connectPromise2 = client.connect()
+    const ws2 = getWs()
+    await simulateAuthFlow(ws2, 'alice')
+    ws2.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+    await connectPromise2
+
+    // Wait for second sync-request with the saved checkpoint
+    await vi.waitFor(() => {
+      const sent = ws2.allSent<Record<string, unknown>>()
+      const hasSyncRequest = sent.some(m => m.type === 'sync-request')
+      if (!hasSyncRequest) throw new Error('Waiting for sync-request on reconnect')
+    })
+
+    const sent2 = ws2.allSent<Record<string, unknown>>()
+    const syncRequest2 = sent2.find(m => m.type === 'sync-request')
+    expect(syncRequest2).toBeDefined()
+    expect(syncRequest2!.since).toBe(savedCheckpoint)
+  })
+
+  it('requests more when hasMore is true', async () => {
+    const { config, getWs } = createTestConfig()
+    const { ws } = await connectClient(config, getWs)
+
+    // Wait for first sync-request
+    await vi.waitFor(() => {
+      if (!ws.allSent<Record<string, unknown>>().some(m => m.type === 'sync-request'))
+        throw new Error('Waiting for sync-request')
+    })
+
+    // Clear sent messages so we can check for new ones
+    ws.sent.length = 0
+
+    const nextCheckpoint = '2026-02-15T00:00:00.000Z'
+    ws.simulateMessage({
+      type: 'sync-response',
+      envelopes: [],
+      checkpoint: nextCheckpoint,
+      hasMore: true,
+    })
+
+    // Wait for a follow-up sync-request with the new checkpoint
+    await vi.waitFor(() => {
+      const sent = ws.allSent<Record<string, unknown>>()
+      const hasSyncRequest = sent.some(m => m.type === 'sync-request')
+      if (!hasSyncRequest) throw new Error('Waiting for follow-up sync-request')
+    })
+
+    const sent = ws.allSent<Record<string, unknown>>()
+    const syncRequest = sent.find(m => m.type === 'sync-request')
+    expect(syncRequest).toBeDefined()
+    expect(syncRequest!.since).toBe(nextCheckpoint)
+  })
+
+  it('stops requesting when hasMore is false', async () => {
+    const { config, getWs } = createTestConfig()
+    const { ws } = await connectClient(config, getWs)
+
+    // Wait for first sync-request
+    await vi.waitFor(() => {
+      if (!ws.allSent<Record<string, unknown>>().some(m => m.type === 'sync-request'))
+        throw new Error('Waiting for sync-request')
+    })
+
+    // Clear sent messages
+    ws.sent.length = 0
+
+    ws.simulateMessage({
+      type: 'sync-response',
+      envelopes: [],
+      checkpoint: '2026-03-01T00:00:00.000Z',
+      hasMore: false,
+    })
+
+    // Give time for any async operations
+    await vi.advanceTimersByTimeAsync(100)
+
+    const sent = ws.allSent<Record<string, unknown>>()
+    const extraSyncRequests = sent.filter(m => m.type === 'sync-request')
+    expect(extraSyncRequests).toHaveLength(0)
+  })
+})

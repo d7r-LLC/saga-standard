@@ -16,6 +16,8 @@ import { createRelayConnection } from './relay-connection'
 import { createMessageRouter } from './message-router'
 import { createDedup } from './dedup'
 
+const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
+
 export function createSagaClient(config: SagaClientConfig): SagaClient {
   const handle = config.identity.split('@')[0]
   const peerKeys = new Map<string, Uint8Array>()
@@ -68,6 +70,9 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       },
       onConnectionChange(connected) {
         for (const handler of connectionHandlers) handler(connected)
+        if (connected) {
+          loadCheckpointAndSync()
+        }
       },
       onRelayAck() {
         // Placeholder for ack tracking (future enhancement)
@@ -78,12 +83,40 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       onError() {
         // Placeholder for error surfacing (future enhancement)
       },
-      onSyncResponse() {
-        // Will be implemented in sync-on-activation task (Task 7)
+      async onSyncResponse(envelopes, checkpoint, hasMore) {
+        // Decrypt and store each envelope via the router
+        for (const envelope of envelopes) {
+          try {
+            await router.handleEnvelope(envelope)
+          } catch {
+            // Skip envelopes we can't decrypt
+          }
+        }
+
+        // Persist the new checkpoint
+        await store.put(SYNC_CHECKPOINT_KEY, { checkpoint })
+
+        // If more envelopes remain, request the next batch
+        if (hasMore) {
+          connection.sendSyncRequest(checkpoint)
+        }
       },
     },
     createWebSocket: config.createWebSocket,
   })
+
+  async function loadCheckpointAndSync(): Promise<void> {
+    let since = '1970-01-01T00:00:00.000Z'
+    try {
+      const saved = (await store.get(SYNC_CHECKPOINT_KEY)) as { checkpoint: string } | undefined
+      if (saved?.checkpoint) {
+        since = saved.checkpoint
+      }
+    } catch {
+      // No checkpoint yet — sync from beginning
+    }
+    connection.sendSyncRequest(since)
+  }
 
   // Periodically clean up dedup tracker
   const dedupCleanupInterval = setInterval(() => dedup.cleanup(), 10 * 60 * 1000)
