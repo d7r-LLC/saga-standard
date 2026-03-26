@@ -234,4 +234,110 @@ describe('SagaClient integration', () => {
     await client.disconnect()
     expect(states).toEqual([true, false])
   })
+
+  describe('sync-on-activation', () => {
+    it('sends sync-request after connecting with default checkpoint', async () => {
+      const keyRing = await setupKeyRing(ALICE_WALLET_KEY)
+      let ws!: MockWebSocket
+
+      const client = createSagaClient({
+        hubUrl: 'wss://hub.example.com/v1/relay',
+        identity: 'alice@epicflow',
+        keyRing,
+        signer: createMockSigner(),
+        storageBackend: new MemoryBackend(),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = client.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      // Wait for the async loadCheckpointAndSync to send sync-request
+      await vi.waitFor(() => {
+        const msgs = ws.allSent<Record<string, unknown>>()
+        const syncReq = msgs.find(m => m.type === 'sync-request')
+        if (!syncReq) throw new Error('Waiting for sync-request')
+      })
+
+      const msgs = ws.allSent<Record<string, unknown>>()
+      const syncReq = msgs.find(m => m.type === 'sync-request')
+      expect(syncReq).toBeDefined()
+      expect(syncReq!.since).toBe('1970-01-01T00:00:00.000Z')
+    })
+
+    it('processes sync-response and stores memories locally', async () => {
+      const keyRing = await setupKeyRing(ALICE_WALLET_KEY)
+      const identity = 'alice@epicflow'
+      let ws!: MockWebSocket
+
+      const client = createSagaClient({
+        hubUrl: 'wss://hub.example.com/v1/relay',
+        identity,
+        keyRing,
+        signer: createMockSigner(),
+        storageBackend: new MemoryBackend(),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = client.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      // Wait for sync-request to be sent
+      await vi.waitFor(() => {
+        const msgs = ws.allSent<Record<string, unknown>>()
+        if (!msgs.find(m => m.type === 'sync-request')) throw new Error('Waiting for sync-request')
+      })
+
+      // Create a real encrypted memory envelope using seal
+      const { seal } = await import('@epicdm/saga-crypto')
+
+      const memory: SagaMemory = {
+        id: 'sync-mem-001',
+        type: 'episodic',
+        content: { learned: 'sync protocol works' },
+        createdAt: '2026-03-26T00:00:00Z',
+        updatedAt: '2026-03-26T00:00:00Z',
+      }
+
+      const plaintext = new TextEncoder().encode(JSON.stringify(memory))
+      const envelope = await seal(
+        {
+          type: 'memory-sync',
+          scope: 'private',
+          from: identity,
+          to: identity,
+          plaintext,
+        },
+        keyRing
+      )
+
+      // Simulate server sending sync-response
+      ws.simulateMessage({
+        type: 'sync-response',
+        envelopes: [envelope],
+        checkpoint: new Date().toISOString(),
+        hasMore: false,
+      })
+
+      // Wait for async processing to complete
+      await vi.waitFor(async () => {
+        const results = await client.queryMemory({})
+        if (results.length === 0) throw new Error('Waiting for memory to be stored')
+      })
+
+      const results = await client.queryMemory({})
+      expect(results).toHaveLength(1)
+      expect(results[0].id).toBe('sync-mem-001')
+    })
+  })
 })

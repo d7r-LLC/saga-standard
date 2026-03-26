@@ -247,6 +247,253 @@ describe('RelayRoom', () => {
     })
   })
 
+  describe('multi-connection support', () => {
+    it('allows two connections for the same handle', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+
+      // Neither should be closed
+      expect(ws1._closed).toBe(false)
+      expect(ws2._closed).toBe(false)
+    })
+
+    it('delivers relay message to all connections for a handle', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+      const sender = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+      await authenticateWs(sender, 'bob', '0xbob')
+
+      // Bob sends to alice
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'bob@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-payload',
+        ts: new Date().toISOString(),
+        id: 'msg-multi-1',
+      }
+      await room.webSocketMessage(sender, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Both ws1 and ws2 should receive the delivery
+      const ws1Messages = ws1._sent.map((m: string) => JSON.parse(m))
+      const ws2Messages = ws2._sent.map((m: string) => JSON.parse(m))
+      const ws1Delivers = ws1Messages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      const ws2Delivers = ws2Messages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(ws1Delivers).toHaveLength(1)
+      expect(ws2Delivers).toHaveLength(1)
+    })
+
+    it('removes only the disconnected connection, keeps others', async () => {
+      const ws1 = createMockWebSocket()
+      const ws2 = createMockWebSocket()
+
+      await authenticateWs(ws1, 'alice', '0xalice')
+      await authenticateWs(ws2, 'alice', '0xalice')
+
+      // Disconnect ws1
+      await room.webSocketClose(ws1, 1000, 'bye', true)
+
+      // Send to alice — only ws2 should receive
+      const sender = createMockWebSocket()
+      await authenticateWs(sender, 'bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'bob@epicflow',
+        to: 'alice@epicflow',
+        ct: 'x',
+        ts: new Date().toISOString(),
+        id: 'msg-multi-2',
+      }
+      await room.webSocketMessage(sender, JSON.stringify({ type: 'relay:send', envelope }))
+
+      const ws2Delivers = ws2._sent
+        .map((m: string) => JSON.parse(m))
+        .filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(ws2Delivers).toHaveLength(1)
+    })
+  })
+
+  describe('memory-sync interception', () => {
+    it('stores memory-sync envelope in canonical store', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: new Date().toISOString(),
+        id: 'mem-001',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice should get an ack
+      const ack = getLastMessage(aliceWs)
+      expect(ack.type).toBe('relay:ack')
+      expect(ack.messageId).toBe('mem-001')
+    })
+
+    it('forwards memory-sync to other connections for same handle', async () => {
+      const derpA = createMockWebSocket()
+      const derpB = createMockWebSocket()
+      await authenticateWs(derpA, 'alice', '0xalice')
+      await authenticateWs(derpB, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: new Date().toISOString(),
+        id: 'mem-002',
+      }
+
+      await room.webSocketMessage(derpA, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // derpB should receive relay:deliver
+      const derpBMessages = derpB._sent.map((m: string) => JSON.parse(m))
+      const derpBDelivers = derpBMessages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(derpBDelivers).toHaveLength(1)
+      expect((derpBDelivers[0].envelope as Record<string, unknown>).id).toBe('mem-002')
+
+      // derpA should only get the ack, NOT a relay:deliver echo
+      const derpAMessages = derpA._sent.map((m: string) => JSON.parse(m))
+      const derpADelivers = derpAMessages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(derpADelivers).toHaveLength(0)
+
+      const derpAAck = derpAMessages.find((m: Record<string, unknown>) => m.type === 'relay:ack')
+      expect(derpAAck).toBeDefined()
+      expect(derpAAck?.messageId).toBe('mem-002')
+    })
+
+    it('does not intercept non-memory-sync envelopes', async () => {
+      const aliceWs = createMockWebSocket()
+      const bobWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+      await authenticateWs(bobWs, 'bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'alice@epicflow',
+        to: 'bob@epicflow',
+        ct: 'encrypted-payload',
+        ts: new Date().toISOString(),
+        id: 'dm-003',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Normal routing: bob gets relay:deliver
+      const bobDelivers = bobWs._sent
+        .map((m: string) => JSON.parse(m))
+        .filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(bobDelivers).toHaveLength(1)
+      expect((bobDelivers[0].envelope as Record<string, unknown>).id).toBe('dm-003')
+
+      // Alice gets ack
+      const ack = getLastMessage(aliceWs)
+      expect(ack.type).toBe('relay:ack')
+      expect(ack.messageId).toBe('dm-003')
+    })
+  })
+
+  describe('sync-request handler', () => {
+    it('responds with envelopes since checkpoint', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: '2026-01-02T00:00:00.000Z',
+        id: 'mem-sync-001',
+      }
+
+      // Store a memory-sync envelope via relay:send
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Now send a sync-request from another connection for the same handle
+      const aliceWs2 = createMockWebSocket()
+      await authenticateWs(aliceWs2, 'alice', '0xalice')
+
+      await room.webSocketMessage(
+        aliceWs2,
+        JSON.stringify({ type: 'sync-request', since: '2026-01-01T00:00:00.000Z' })
+      )
+
+      const response = getLastMessage(aliceWs2)
+      expect(response.type).toBe('sync-response')
+      expect((response.envelopes as unknown[]).length).toBeGreaterThanOrEqual(1)
+      const envelopes = response.envelopes as Record<string, unknown>[]
+      const found = envelopes.find(e => e.id === 'mem-sync-001')
+      expect(found).toBeDefined()
+      expect(response.hasMore).toBe(false)
+      expect(typeof response.checkpoint).toBe('string')
+    })
+
+    it('returns empty response for no envelopes since checkpoint', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      // Use a future checkpoint so no envelopes match
+      await room.webSocketMessage(
+        aliceWs,
+        JSON.stringify({ type: 'sync-request', since: '2099-12-31T23:59:59.999Z' })
+      )
+
+      const response = getLastMessage(aliceWs)
+      expect(response.type).toBe('sync-response')
+      expect((response.envelopes as unknown[]).length).toBe(0)
+      expect(response.hasMore).toBe(false)
+    })
+
+    it('rejects sync-request from unauthenticated connection', async () => {
+      const ws = createMockWebSocket()
+      ws.serializeAttachment({ authenticated: false, challenge: 'c', expiresAt: 'e' })
+      ctx._websockets.push(ws)
+
+      await room.webSocketMessage(
+        ws,
+        JSON.stringify({ type: 'sync-request', since: '2026-01-01T00:00:00.000Z' })
+      )
+
+      const response = getLastMessage(ws)
+      expect(response.type).toBe('error')
+      expect(response.error).toContain('Not authenticated')
+    })
+  })
+
   describe('connection lifecycle', () => {
     it('handles pong message', async () => {
       const ws = createMockWebSocket()

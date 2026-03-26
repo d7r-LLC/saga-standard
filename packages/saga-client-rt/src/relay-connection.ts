@@ -16,6 +16,7 @@ export interface RelayConnection {
   drainMailbox(): void
   ackMailbox(messageIds: string[]): void
   isConnected(): boolean
+  sendSyncRequest(since: string, collections?: string[]): void
 }
 
 export function createRelayConnection(config: RelayConnectionConfig): RelayConnection {
@@ -143,6 +144,14 @@ export function createRelayConnection(config: RelayConnectionConfig): RelayConne
       case 'error':
         config.callbacks.onError(msg.error)
         break
+
+      case 'sync-response':
+        config.callbacks.onSyncResponse(
+          msg.envelopes as SagaEncryptedEnvelope[],
+          msg.checkpoint,
+          msg.hasMore
+        )
+        break
     }
   }
 
@@ -225,6 +234,14 @@ export function createRelayConnection(config: RelayConnectionConfig): RelayConne
 
     isConnected(): boolean {
       return connected
+    },
+
+    sendSyncRequest(since: string, collections?: string[]): void {
+      if (connected) {
+        const msg: Record<string, unknown> = { type: 'sync-request', since }
+        if (collections) msg.collections = collections
+        sendJson(msg)
+      }
     },
   }
 }

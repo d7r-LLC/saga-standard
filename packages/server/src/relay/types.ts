@@ -48,12 +48,19 @@ export interface MailboxAckMessage {
   messageIds: string[]
 }
 
+export interface SyncRequestMessage {
+  type: 'sync-request'
+  since: string // ISO 8601 checkpoint timestamp
+  collections?: string[] // reserved — currently ignored by hub (cannot filter encrypted blobs)
+}
+
 export type ClientMessage =
   | AuthVerifyMessage
   | RelaySendMessage
   | ControlPongMessage
   | MailboxDrainMessage
   | MailboxAckMessage
+  | SyncRequestMessage
 
 // ── Server → Client messages ────────────────────────────────────
 
@@ -104,6 +111,13 @@ export interface ErrorMessage {
   error: string
 }
 
+export interface SyncResponseMessage {
+  type: 'sync-response'
+  envelopes: RelayEnvelope[]
+  checkpoint: string // new checkpoint timestamp (ISO 8601)
+  hasMore: boolean // pagination flag
+}
+
 export type ServerMessage =
   | AuthChallengeMessage
   | AuthSuccessMessage
@@ -114,6 +128,7 @@ export type ServerMessage =
   | ControlPingMessage
   | MailboxBatchMessage
   | ErrorMessage
+  | SyncResponseMessage
 
 // ── WebSocket attachment (survives DO hibernation) ──────────────
 
@@ -147,6 +162,7 @@ const CLIENT_MESSAGE_TYPES = new Set([
   'control:pong',
   'mailbox:drain',
   'mailbox:ack',
+  'sync-request',
 ])
 
 const SERVER_MESSAGE_TYPES = new Set([
@@ -159,6 +175,7 @@ const SERVER_MESSAGE_TYPES = new Set([
   'control:ping',
   'mailbox:batch',
   'error',
+  'sync-response',
 ])
 
 export function isClientMessage(msg: unknown): msg is ClientMessage {
@@ -183,6 +200,13 @@ export function isClientMessage(msg: unknown): msg is ClientMessage {
       return (
         Array.isArray(obj.messageIds) &&
         obj.messageIds.every((id: unknown) => typeof id === 'string')
+      )
+    case 'sync-request':
+      return (
+        typeof obj.since === 'string' &&
+        (obj.collections === undefined ||
+          (Array.isArray(obj.collections) &&
+            obj.collections.every((c: unknown) => typeof c === 'string')))
       )
     case 'control:pong':
     case 'mailbox:drain':

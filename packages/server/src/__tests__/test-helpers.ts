@@ -30,8 +30,9 @@ export function createMockD1(): D1Database {
   }
 
   function executeInsert(sql: string, params: unknown[]): void {
-    const tableM = sql.match(/insert\s+into\s+"?(\w+)"?/i)
+    const tableM = sql.match(/insert\s+(?:or\s+ignore\s+)?into\s+"?(\w+)"?/i)
     if (!tableM) return
+    const isOrIgnore = /insert\s+or\s+ignore\s+into/i.test(sql)
     const table = getTable(tableM[1])
 
     // Extract column list
@@ -62,6 +63,16 @@ export function createMockD1(): D1Database {
         row[col] = token
       }
     })
+
+    // INSERT OR IGNORE: skip if a row with the same primary key already exists
+    if (isOrIgnore && table.columns.length > 0) {
+      const pkCol = table.columns[0]
+      const pkVal = row[pkCol]
+      if (table.rows.some(r => r[pkCol] === pkVal)) {
+        return
+      }
+    }
+
     table.rows.push(row)
   }
 
@@ -216,6 +227,15 @@ export function createMockD1(): D1Database {
         const pattern = String(params[pi++])
         const regex = new RegExp(`^${pattern.replace(/%/g, '.*').replace(/_/g, '.')}$`, 'i')
         if (!regex.test(String(row[col] ?? ''))) return false
+        continue
+      }
+
+      // col > ?
+      const gtM = t.match(/"?(\w+)"?\s*>\s*\?/)
+      if (gtM) {
+        const col = gtM[1]
+        const val = params[pi++]
+        if (String(row[col] ?? '') <= String(val)) return false
         continue
       }
     }
@@ -502,6 +522,13 @@ export async function runMigrations(db: D1Database): Promise<void> {
       challenge TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       used INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS memory_envelopes (
+      id TEXT PRIMARY KEY,
+      agent_handle TEXT NOT NULL,
+      envelope_json TEXT NOT NULL,
+      stored_at TEXT NOT NULL,
+      envelope_ts TEXT NOT NULL
     );
   `)
 }

@@ -70,3 +70,11 @@ export const authChallenges = sqliteTable('auth_challenges', {
   expiresAt: text('expires_at').notNull(),
   used: integer('used').default(0),
 })
+
+export const memoryEnvelopes = sqliteTable('memory_envelopes', {
+  id: text('id').primaryKey(),
+  agentHandle: text('agent_handle').notNull(),
+  envelopeJson: text('envelope_json').notNull(),
+  storedAt: text('stored_at').notNull(),
+  envelopeTs: text('envelope_ts').notNull(),
+})
