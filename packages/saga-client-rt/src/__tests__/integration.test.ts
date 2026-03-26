@@ -235,6 +235,62 @@ describe('SagaClient integration', () => {
     expect(states).toEqual([true, false])
   })
 
+  describe('auto key discovery', () => {
+    it('sendMessage auto-fetches recipient public key', async () => {
+      const aliceKeyRing = await setupKeyRing(ALICE_WALLET_KEY)
+      const bobKeyRing = await setupKeyRing(BOB_WALLET_KEY)
+
+      // Encode Bob's public key as base64 for the mock response
+      const bobPublicKeyBytes = bobKeyRing.getPublicKey()
+      const bobPublicKeyB64 = btoa(String.fromCharCode(...bobPublicKeyBytes))
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ publicKey: bobPublicKeyB64 }),
+      } as unknown as Response)
+
+      let ws!: MockWebSocket
+      const client = createSagaClient({
+        hubUrl: 'wss://hub.example.com/v1/relay',
+        identity: 'alice@epicflow',
+        keyRing: aliceKeyRing,
+        signer: createMockSigner(),
+        storageBackend: new MemoryBackend(),
+        fetchFn: mockFetch,
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+      })
+
+      const connectPromise = client.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      // Send message to bob without registering his key manually
+      const messageId = await client.sendMessage('bob@epicflow', {
+        messageType: 'task-request',
+        payload: { task: 'auto-key-discovery' },
+      })
+
+      expect(messageId).toBeTruthy()
+
+      // Verify mockFetch was called to look up Bob's key
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/keys/bob')
+      )
+
+      // Verify a relay:send message was sent
+      const allSent = ws.allSent<Record<string, unknown>>()
+      const relaySend = allSent.find(m => m.type === 'relay:send')
+      expect(relaySend).toBeDefined()
+      const envelope = relaySend!.envelope as Record<string, unknown>
+      expect(envelope.to).toBe('bob@epicflow')
+      expect(envelope.type).toBe('direct-message')
+    })
+  })
+
   describe('sync-on-activation', () => {
     it('sends sync-request after connecting with default checkpoint', async () => {
       const keyRing = await setupKeyRing(ALICE_WALLET_KEY)
