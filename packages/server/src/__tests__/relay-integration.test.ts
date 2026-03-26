@@ -259,4 +259,158 @@ describe('Relay Integration', () => {
     expect(ws1Delivers).toHaveLength(1)
     expect(ws2Delivers).toHaveLength(1)
   })
+
+  describe('memory sync protocol', () => {
+    it('full sync flow: store memory, sync-request retrieves it', async () => {
+      const derpA = await connectAndAuth('alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-data',
+        ts: new Date().toISOString(),
+        id: 'sync-flow-001',
+      }
+
+      await room.webSocketMessage(derpA, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Connect a second DERP for alice
+      const derpB = await connectAndAuth('alice', '0xalice')
+      derpB._sent.length = 0
+
+      // Request sync from the beginning of time
+      await room.webSocketMessage(
+        derpB,
+        JSON.stringify({ type: 'sync-request', since: '1970-01-01T00:00:00.000Z' })
+      )
+
+      const messages = parseSent(derpB)
+      const syncResponse = messages.find(m => m.type === 'sync-response')
+      expect(syncResponse).toBeDefined()
+      const envelopes = syncResponse!.envelopes as Record<string, unknown>[]
+      expect(envelopes).toHaveLength(1)
+      expect(envelopes[0].id).toBe('sync-flow-001')
+      expect(syncResponse!.hasMore).toBe(false)
+    })
+
+    it('multi-DERP real-time: memory created on derpA delivered live to derpB', async () => {
+      const derpA = await connectAndAuth('alice', '0xalice')
+      const derpB = await connectAndAuth('alice', '0xalice')
+      derpB._sent.length = 0
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'realtime-encrypted-data',
+        ts: new Date().toISOString(),
+        id: 'realtime-sync-001',
+      }
+
+      await room.webSocketMessage(derpA, JSON.stringify({ type: 'relay:send', envelope }))
+
+      const messages = parseSent(derpB)
+      const delivers = messages.filter(m => m.type === 'relay:deliver')
+      expect(delivers).toHaveLength(1)
+      const delivered = delivers[0].envelope as Record<string, unknown>
+      expect(delivered.id).toBe('realtime-sync-001')
+    })
+
+    it('checkpoint-based sync: only returns envelopes after checkpoint', async () => {
+      const ws = await connectAndAuth('alice', '0xalice')
+
+      // Store first envelope with an explicit early timestamp
+      const env1 = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'first-memory',
+        ts: '2026-01-01T00:00:00.000Z',
+        id: 'checkpoint-env1',
+      }
+
+      await room.webSocketMessage(ws, JSON.stringify({ type: 'relay:send', envelope: env1 }))
+
+      // Sync from epoch to get the checkpoint
+      ws._sent.length = 0
+      await room.webSocketMessage(
+        ws,
+        JSON.stringify({ type: 'sync-request', since: '1970-01-01T00:00:00.000Z' })
+      )
+
+      const firstSync = parseSent(ws).find(m => m.type === 'sync-response') as Record<
+        string,
+        unknown
+      >
+      expect(firstSync).toBeDefined()
+      const checkpoint = firstSync.checkpoint as string
+
+      // Store second envelope with a strictly later timestamp
+      const env2 = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'second-memory',
+        ts: '2026-06-01T00:00:00.000Z',
+        id: 'checkpoint-env2',
+      }
+
+      await room.webSocketMessage(ws, JSON.stringify({ type: 'relay:send', envelope: env2 }))
+
+      // Sync using the checkpoint — should only return env2
+      ws._sent.length = 0
+      await room.webSocketMessage(ws, JSON.stringify({ type: 'sync-request', since: checkpoint }))
+
+      const secondSync = parseSent(ws).find(m => m.type === 'sync-response') as Record<
+        string,
+        unknown
+      >
+      expect(secondSync).toBeDefined()
+      const envelopes = secondSync.envelopes as Record<string, unknown>[]
+      expect(envelopes).toHaveLength(1)
+      expect(envelopes[0].id).toBe('checkpoint-env2')
+    })
+
+    it('hub cannot read memory content — envelopes are opaque blobs', async () => {
+      const ws = await connectAndAuth('alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'totally-opaque-encrypted-content',
+        ts: new Date().toISOString(),
+        id: 'opaque-blob-001',
+      }
+
+      await room.webSocketMessage(ws, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Sync and verify ciphertext is preserved exactly
+      ws._sent.length = 0
+      await room.webSocketMessage(
+        ws,
+        JSON.stringify({ type: 'sync-request', since: '1970-01-01T00:00:00.000Z' })
+      )
+
+      const syncResponse = parseSent(ws).find(m => m.type === 'sync-response') as Record<
+        string,
+        unknown
+      >
+      expect(syncResponse).toBeDefined()
+      const envelopes = syncResponse.envelopes as Record<string, unknown>[]
+      expect(envelopes).toHaveLength(1)
+      expect(envelopes[0].ct).toBe('totally-opaque-encrypted-content')
+    })
+  })
 })
