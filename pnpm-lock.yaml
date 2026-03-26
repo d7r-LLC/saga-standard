@@ -215,6 +215,25 @@ importers:
         specifier: ^4.71.0
         version: 4.76.0(@cloudflare/workers-types@4.20260317.1)(bufferutil@4.1.0)(utf-8-validate@6.0.6)
 
+  packages/saga-client-rt:
+    dependencies:
+      '@epicdm/saga-crypto':
+        specifier: workspace:*
+        version: link:../saga-crypto
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.4(@types/node@22.19.15)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.8.3)
+
   packages/saga-crypto:
     dependencies:
       '@epicdm/flowstate-crypto':
