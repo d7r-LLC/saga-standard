@@ -153,4 +153,66 @@ describe('SagaKeyRing', () => {
       await expect(otherKr.decryptStorage(encrypted)).rejects.toThrow()
     })
   })
+
+  describe('group scope', () => {
+    let aliceKr: ReturnType<typeof createSagaKeyRing>
+    let bobKr: ReturnType<typeof createSagaKeyRing>
+    const groupKeyId = 'org-acme-key-1'
+
+    beforeEach(async () => {
+      aliceKr = createSagaKeyRing()
+      await aliceKr.unlockWallet(walletKey)
+      bobKr = createSagaKeyRing()
+      await bobKr.unlockWallet(walletKey2)
+
+      // Alice creates a group key
+      const rawGroupKey = nacl.randomBytes(32)
+      aliceKr.injectGroupKey(groupKeyId, rawGroupKey)
+      // Alice wraps group key for Bob
+      const wrappedForBob = aliceKr.wrapGroupKeyFor(groupKeyId, bobKr.getPublicKey())
+      // Bob unwraps it
+      bobKr.addGroupKey(groupKeyId, wrappedForBob, aliceKr.getPublicKey())
+      // Zero the raw key since KeyRing owns it now
+      rawGroupKey.fill(0)
+    })
+
+    it('Alice encrypts, Bob decrypts', async () => {
+      const plaintext = new TextEncoder().encode('org broadcast')
+      const encrypted = await aliceKr.encryptGroup(plaintext, groupKeyId)
+      const decrypted = await bobKr.decryptGroup(encrypted, groupKeyId)
+      expect(decrypted).toEqual(plaintext)
+    })
+
+    it('Bob encrypts, Alice decrypts', async () => {
+      const plaintext = new TextEncoder().encode('Bob reply')
+      const encrypted = await bobKr.encryptGroup(plaintext, groupKeyId)
+      const decrypted = await aliceKr.decryptGroup(encrypted, groupKeyId)
+      expect(decrypted).toEqual(plaintext)
+    })
+
+    it('non-member cannot decrypt', async () => {
+      const eveKr = createSagaKeyRing()
+      await eveKr.unlockWallet(nacl.randomBytes(32))
+
+      const plaintext = new TextEncoder().encode('confidential')
+      const encrypted = await aliceKr.encryptGroup(plaintext, groupKeyId)
+      await expect(eveKr.decryptGroup(encrypted, groupKeyId)).rejects.toThrow('No group key')
+    })
+
+    it('hasGroupKey returns true after injection', () => {
+      expect(aliceKr.hasGroupKey(groupKeyId)).toBe(true)
+      expect(aliceKr.hasGroupKey('nonexistent')).toBe(false)
+    })
+
+    it('encryptGroup throws for unknown groupKeyId', async () => {
+      await expect(aliceKr.encryptGroup(new Uint8Array(1), 'unknown')).rejects.toThrow(
+        'No group key'
+      )
+    })
+
+    it('lock clears group keys', async () => {
+      aliceKr.lock()
+      expect(aliceKr.hasGroupKey(groupKeyId)).toBe(false)
+    })
+  })
 })
