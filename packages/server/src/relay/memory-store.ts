@@ -38,15 +38,15 @@ export function createCanonicalMemoryStore(db: D1Database): CanonicalMemoryStore
         .select()
         .from(memoryEnvelopes)
         .where(
-          and(eq(memoryEnvelopes.agentHandle, agentHandle), gt(memoryEnvelopes.envelopeTs, since))
+          and(eq(memoryEnvelopes.agentHandle, agentHandle), gt(memoryEnvelopes.storedAt, since))
         )
-        .orderBy(asc(memoryEnvelopes.envelopeTs))
+        .orderBy(asc(memoryEnvelopes.storedAt))
         .limit(limit + 1)
 
       const hasMore = rows.length > limit
       const batch = hasMore ? rows.slice(0, limit) : rows
       const envelopes = batch.map(row => JSON.parse(row.envelopeJson) as RelayEnvelope)
-      const checkpoint = batch.length > 0 ? batch[batch.length - 1].envelopeTs : since
+      const checkpoint = batch.length > 0 ? batch[batch.length - 1].storedAt : since
 
       return { envelopes, checkpoint, hasMore }
     },

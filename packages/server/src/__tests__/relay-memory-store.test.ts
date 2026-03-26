@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCanonicalMemoryStore } from '../relay/memory-store'
 import { createMockD1, runMigrations } from './test-helpers'
 import type { RelayEnvelope } from '../relay/types'
@@ -25,9 +25,14 @@ describe('CanonicalMemoryStore', () => {
   let store: ReturnType<typeof createCanonicalMemoryStore>
 
   beforeEach(async () => {
+    vi.useFakeTimers({ now: new Date('2026-03-26T00:00:00.000Z') })
     db = createMockD1()
     await runMigrations(db)
     store = createCanonicalMemoryStore(db)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('stores and retrieves an envelope', async () => {
@@ -39,9 +44,12 @@ describe('CanonicalMemoryStore', () => {
   })
 
   it('returns envelopes only after checkpoint', async () => {
-    const old = makeEnvelope({ ts: '2026-01-01T00:00:00.000Z' })
-    const recent = makeEnvelope({ ts: '2026-03-01T00:00:00.000Z' })
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const old = makeEnvelope()
     await store.store('alice', old)
+
+    vi.setSystemTime(new Date('2026-03-01T00:00:00.000Z'))
+    const recent = makeEnvelope()
     await store.store('alice', recent)
 
     const result = await store.querySince('alice', '2026-02-01T00:00:00.000Z', 50)
@@ -59,12 +67,8 @@ describe('CanonicalMemoryStore', () => {
 
   it('paginates with hasMore flag', async () => {
     for (let i = 0; i < 5; i++) {
-      await store.store(
-        'alice',
-        makeEnvelope({
-          ts: `2026-03-0${i + 1}T00:00:00.000Z`,
-        })
-      )
+      vi.setSystemTime(new Date(`2026-03-0${i + 1}T00:00:00.000Z`))
+      await store.store('alice', makeEnvelope())
     }
 
     const result = await store.querySince('alice', '1970-01-01T00:00:00.000Z', 3)

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { drizzle } from 'drizzle-orm/d1'
 import { agents, organizations } from '../db/schema'
 import { RelayRoom } from '../relay/relay-room'
@@ -261,6 +261,14 @@ describe('Relay Integration', () => {
   })
 
   describe('memory sync protocol', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: new Date('2026-03-26T10:00:00.000Z') })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
     it('full sync flow: store memory, sync-request retrieves it', async () => {
       const derpA = await connectAndAuth('alice', '0xalice')
 
@@ -352,7 +360,9 @@ describe('Relay Integration', () => {
       expect(firstSync).toBeDefined()
       const checkpoint = firstSync.checkpoint as string
 
-      // Store second envelope with a strictly later timestamp
+      // Advance time so env2 gets a strictly later stored_at
+      vi.advanceTimersByTime(2000)
+
       const env2 = {
         v: 1,
         type: 'memory-sync',
