@@ -17,6 +17,11 @@ export type {
   SagaKeyRing,
   SagaEncryptedEnvelope,
   StorageBackend,
+  MemoryScope,
+  CompanyReplicationPolicy,
+  PolicyClassification,
+  PolicyAuditEntry,
+  GovernanceConfig,
 } from './types'
 
 // ── Client factory ──

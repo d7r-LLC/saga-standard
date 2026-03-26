@@ -183,18 +183,18 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async queryMemory(filter: MemoryFilter): Promise<SagaMemory[]> {
       const entries = await store.query({ prefix: 'memory:' })
-      let results = entries.map(e => e.value as SagaMemory)
+      let results = entries.map((e: { value: unknown }) => e.value as SagaMemory)
 
       if (filter.type) {
-        results = results.filter(m => m.type === filter.type)
+        results = results.filter((m: SagaMemory) => m.type === filter.type)
       }
       if (filter.since) {
         const since = filter.since
-        results = results.filter(m => m.createdAt >= since)
+        results = results.filter((m: SagaMemory) => m.createdAt >= since)
       }
       if (filter.prefix) {
         const prefix = filter.prefix
-        results = results.filter(m => m.id.startsWith(prefix))
+        results = results.filter((m: SagaMemory) => m.id.startsWith(prefix))
       }
       if (filter.limit !== undefined) {
         results = results.slice(0, filter.limit)
