@@ -14,6 +14,8 @@ import { generateWsChallenge, reVerifyNft, verifyWsAuth } from './ws-auth'
 import { validateEnvelope } from './envelope-validator'
 import { createMailbox } from './mailbox'
 import type { RelayMailbox } from './mailbox'
+import { createCanonicalMemoryStore } from './memory-store'
+import type { CanonicalMemoryStore } from './memory-store'
 
 /**
  * RelayRoom Durable Object — manages WebSocket connections for the SAGA relay.
@@ -28,6 +30,7 @@ export class RelayRoom {
   private ctx: DurableObjectState
   private env: Env
   private mailbox: RelayMailbox
+  private memoryStore: CanonicalMemoryStore
 
   /** Lazy cache: handle → Set<WebSocket>. Reconstructed from attachments on demand. */
   private handleMap: Map<string, Set<WebSocket>> | null = null
@@ -36,6 +39,7 @@ export class RelayRoom {
     this.ctx = ctx
     this.env = env
     this.mailbox = createMailbox(this.env.RELAY_MAILBOX)
+    this.memoryStore = createCanonicalMemoryStore(this.env.DB)
   }
 
   // ── WebSocket upgrade ─────────────────────────────────────────
@@ -262,6 +266,29 @@ export class RelayRoom {
         error: 'Sender identity mismatch',
       })
       return
+    }
+
+    // Memory-sync interception: store canonically and forward to sender's other DERPs
+    if (envelope.type === 'memory-sync') {
+      await this.memoryStore.store(senderHandle, envelope)
+
+      // Forward to all other connections for the same handle (multi-DERP sync)
+      const senderConnections = this.getHandleMap().get(senderHandle)
+      if (senderConnections) {
+        for (const otherWs of senderConnections) {
+          if (otherWs !== ws) {
+            try {
+              this.sendJson(otherWs, { type: 'relay:deliver', envelope })
+            } catch {
+              // Individual connection failed
+            }
+          }
+        }
+      }
+
+      // Ack the sender
+      this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
+      return // Memory-sync routing is handled above — don't fall through to normal routing
     }
 
     // Route to recipients

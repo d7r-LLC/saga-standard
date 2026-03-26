@@ -328,6 +328,102 @@ describe('RelayRoom', () => {
     })
   })
 
+  describe('memory-sync interception', () => {
+    it('stores memory-sync envelope in canonical store', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: new Date().toISOString(),
+        id: 'mem-001',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Alice should get an ack
+      const ack = getLastMessage(aliceWs)
+      expect(ack.type).toBe('relay:ack')
+      expect(ack.messageId).toBe('mem-001')
+    })
+
+    it('forwards memory-sync to other connections for same handle', async () => {
+      const derpA = createMockWebSocket()
+      const derpB = createMockWebSocket()
+      await authenticateWs(derpA, 'alice', '0xalice')
+      await authenticateWs(derpB, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: new Date().toISOString(),
+        id: 'mem-002',
+      }
+
+      await room.webSocketMessage(derpA, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // derpB should receive relay:deliver
+      const derpBMessages = derpB._sent.map((m: string) => JSON.parse(m))
+      const derpBDelivers = derpBMessages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(derpBDelivers).toHaveLength(1)
+      expect((derpBDelivers[0].envelope as Record<string, unknown>).id).toBe('mem-002')
+
+      // derpA should only get the ack, NOT a relay:deliver echo
+      const derpAMessages = derpA._sent.map((m: string) => JSON.parse(m))
+      const derpADelivers = derpAMessages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
+      expect(derpADelivers).toHaveLength(0)
+
+      const derpAAck = derpAMessages.find((m: Record<string, unknown>) => m.type === 'relay:ack')
+      expect(derpAAck).toBeDefined()
+      expect(derpAAck?.messageId).toBe('mem-002')
+    })
+
+    it('does not intercept non-memory-sync envelopes', async () => {
+      const aliceWs = createMockWebSocket()
+      const bobWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+      await authenticateWs(bobWs, 'bob', '0xbob')
+
+      const envelope = {
+        v: 1,
+        type: 'direct-message',
+        scope: 'mutual',
+        from: 'alice@epicflow',
+        to: 'bob@epicflow',
+        ct: 'encrypted-payload',
+        ts: new Date().toISOString(),
+        id: 'dm-003',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Normal routing: bob gets relay:deliver
+      const bobDelivers = bobWs._sent
+        .map((m: string) => JSON.parse(m))
+        .filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      expect(bobDelivers).toHaveLength(1)
+      expect((bobDelivers[0].envelope as Record<string, unknown>).id).toBe('dm-003')
+
+      // Alice gets ack
+      const ack = getLastMessage(aliceWs)
+      expect(ack.type).toBe('relay:ack')
+      expect(ack.messageId).toBe('dm-003')
+    })
+  })
+
   describe('connection lifecycle', () => {
     it('handles pong message', async () => {
       const ws = createMockWebSocket()

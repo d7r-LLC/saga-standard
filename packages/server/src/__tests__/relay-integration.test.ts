@@ -120,8 +120,9 @@ describe('Relay Integration', () => {
     expect(bobDelivery.envelope).toEqual(envelope)
   })
 
-  it('hub cannot read message content — passes through opaque ciphertext', async () => {
-    const aliceWs = await connectAndAuth('alice', '0xalice')
+  it('hub cannot read message content — memory-sync stored canonically and forwarded to own DERPs', async () => {
+    const aliceWs1 = await connectAndAuth('alice', '0xalice')
+    const aliceWs2 = await connectAndAuth('alice', '0xalice')
     const bobWs = await connectAndAuth('bob', '0xbob')
 
     // Content is random bytes (base64) — hub has no way to decrypt
@@ -129,9 +130,9 @@ describe('Relay Integration', () => {
     const envelope = {
       v: 1,
       type: 'memory-sync',
-      scope: 'private',
+      scope: 'self',
       from: 'alice@epicflow',
-      to: 'bob@epicflow',
+      to: 'alice@epicflow',
       ct: opaquePayload,
       iv: 'cmFuZG9taXY=',
       authTag: 'cmFuZG9tdGFn',
@@ -140,16 +141,29 @@ describe('Relay Integration', () => {
       id: 'opacity-test-001',
     }
 
-    await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+    await room.webSocketMessage(aliceWs1, JSON.stringify({ type: 'relay:send', envelope }))
 
-    // Verify envelope is delivered EXACTLY as sent — no modification
-    const delivery = lastMessage(bobWs)
-    expect(delivery.type).toBe('relay:deliver')
-    const delivered = delivery.envelope as Record<string, unknown>
+    // Sender (aliceWs1) gets ack — not a relay:deliver echo
+    const ack = lastMessage(aliceWs1)
+    expect(ack.type).toBe('relay:ack')
+    expect(ack.messageId).toBe('opacity-test-001')
+
+    // aliceWs1 should NOT receive a relay:deliver (no echo back to sender)
+    const ws1Delivers = parseSent(aliceWs1).filter(m => m.type === 'relay:deliver')
+    expect(ws1Delivers).toHaveLength(0)
+
+    // aliceWs2 (same handle, other DERP) should receive relay:deliver with exact ciphertext
+    const ws2Delivers = parseSent(aliceWs2).filter(m => m.type === 'relay:deliver')
+    expect(ws2Delivers).toHaveLength(1)
+    const delivered = ws2Delivers[0].envelope as Record<string, unknown>
     expect(delivered.ct).toBe(opaquePayload)
     expect(delivered.iv).toBe('cmFuZG9taXY=')
     expect(delivered.authTag).toBe('cmFuZG9tdGFn')
     expect(delivered.wrappedDek).toBe('cmFuZG9tZGVr')
+
+    // bob should NOT receive the memory-sync (it's a self-directed envelope)
+    const bobDelivers = parseSent(bobWs).filter(m => m.type === 'relay:deliver')
+    expect(bobDelivers).toHaveLength(0)
   })
 
   it('offline message delivery via mailbox', async () => {
