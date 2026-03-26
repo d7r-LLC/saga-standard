@@ -123,14 +123,11 @@ export async function createRelayMockEnv(): Promise<Env> {
   await runMigrations(db)
   return {
     DB: db,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    STORAGE: {} as any,
+    STORAGE: {} as unknown as R2Bucket,
     SESSIONS: createMockKV(),
     INDEXER_STATE: createMockKV(),
-    // RELAY_MAILBOX and RELAY_ROOM added to Env in Task 6
     RELAY_MAILBOX: createMockKV(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    RELAY_ROOM: {} as any,
+    RELAY_ROOM: {} as unknown as DurableObjectNamespace,
     SERVER_NAME: 'Test SAGA Server',
-  } as Env
+  }
 }

@@ -31,6 +31,19 @@ id = "saga-sessions-dev"
 binding = "INDEXER_STATE"
 id = "saga-indexer-dev"
 
+[[kv_namespaces]]
+binding = "RELAY_MAILBOX"
+id = "saga-relay-mailbox-dev"
+
+[durable_objects]
+bindings = [
+  { name = "RELAY_ROOM", class_name = "RelayRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RelayRoom"]
+
 [dev]
 port = 8787
 local_protocol = "http"
@@ -65,6 +78,10 @@ id = "bc4475e0858f422590dfb9f1d096ebe5"
 binding = "INDEXER_STATE"
 id = "8557943d39f74dc9a6198e6dee6a19f8"
 
+[[env.staging.kv_namespaces]]
+binding = "RELAY_MAILBOX"
+id = "saga-relay-mailbox-staging"
+
 # ── Production ───────────────────────────────────────────────────────
 
 [env.production]
@@ -97,3 +114,7 @@ id = "5983236e52ad4f1c973cf059c52a2611"
 [[env.production.kv_namespaces]]
 binding = "INDEXER_STATE"
 id = "saga-indexer-production"
+
+[[env.production.kv_namespaces]]
+binding = "RELAY_MAILBOX"
+id = "saga-relay-mailbox-production"

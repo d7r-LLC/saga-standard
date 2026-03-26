@@ -35,9 +35,7 @@ export class RelayRoom {
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx
     this.env = env
-    // RELAY_MAILBOX is added to Env in Task 6; cast required until then
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.mailbox = createMailbox((this.env as any).RELAY_MAILBOX)
+    this.mailbox = createMailbox(this.env.RELAY_MAILBOX)
   }
 
   // ── WebSocket upgrade ─────────────────────────────────────────

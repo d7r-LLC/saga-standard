@@ -436,6 +436,8 @@ export function createMockEnv(): Env {
     STORAGE: createMockR2(),
     SESSIONS: createMockKV(),
     INDEXER_STATE: createMockKV(),
+    RELAY_MAILBOX: createMockKV(),
+    RELAY_ROOM: {} as unknown as DurableObjectNamespace,
     SERVER_NAME: 'Test SAGA Server',
   }
 }
