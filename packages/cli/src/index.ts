@@ -11,6 +11,7 @@ import { vaultCommand } from './commands/vault'
 import { registerCommand } from './commands/register'
 import { resolveCommand } from './commands/resolve'
 import { registerOrgCommand } from './commands/register-org'
+import { deployCommand } from './commands/deploy'
 
 const program = new Command()
 
@@ -29,5 +30,6 @@ program.addCommand(exportCommand)
 program.addCommand(inspectCommand)
 program.addCommand(verifyCommand)
 program.addCommand(vaultCommand)
+program.addCommand(deployCommand)
 
 program.parse()
