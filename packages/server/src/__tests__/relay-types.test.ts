@@ -65,6 +65,32 @@ describe('isClientMessage', () => {
     expect(isClientMessage({ type: 'mailbox:ack', messageIds: 'not-array' })).toBe(false)
     expect(isClientMessage({ type: 'mailbox:ack', messageIds: [123] })).toBe(false)
   })
+
+  describe('sync-request', () => {
+    it('accepts valid sync-request', () => {
+      const msg = { type: 'sync-request', since: '2026-01-01T00:00:00.000Z' }
+      expect(isClientMessage(msg)).toBe(true)
+    })
+
+    it('accepts sync-request with collections filter', () => {
+      const msg = {
+        type: 'sync-request',
+        since: '2026-01-01T00:00:00.000Z',
+        collections: ['episodic', 'semantic'],
+      }
+      expect(isClientMessage(msg)).toBe(true)
+    })
+
+    it('rejects sync-request without since', () => {
+      const msg = { type: 'sync-request' }
+      expect(isClientMessage(msg)).toBe(false)
+    })
+
+    it('rejects sync-request with non-string since', () => {
+      const msg = { type: 'sync-request', since: 12345 }
+      expect(isClientMessage(msg)).toBe(false)
+    })
+  })
 })
 
 describe('isServerMessage', () => {
@@ -79,6 +105,7 @@ describe('isServerMessage', () => {
       'control:ping',
       'mailbox:batch',
       'error',
+      'sync-response',
     ]
     for (const type of types) {
       expect(isServerMessage({ type })).toBe(true)
