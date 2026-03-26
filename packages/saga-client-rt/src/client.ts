@@ -16,6 +16,7 @@ import { createRelayConnection } from './relay-connection'
 import { createMessageRouter } from './message-router'
 import { createDedup } from './dedup'
 import { createKeyResolver } from './key-resolver'
+import { classifyMemory } from './policy-engine'
 
 const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
@@ -30,6 +31,15 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   const dedup = createDedup()
   const backend = config.storageBackend ?? new MemoryBackend()
   const store = createEncryptedStore(config.keyRing, backend)
+
+  // Phase 6: Company governance store (org-internal memories)
+  const companyBackend =
+    config.governance?.companyStorageBackend ??
+    (config.governance ? new MemoryBackend() : undefined)
+  const companyStore =
+    config.governance && companyBackend
+      ? createEncryptedStore(config.governance.companyKeyRing, companyBackend)
+      : undefined
 
   // Decrypt function wired to KeyRing + key resolver
   async function decrypt(envelope: SagaEncryptedEnvelope): Promise<Uint8Array> {
@@ -164,9 +174,53 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
     },
 
     async storeMemory(memory: SagaMemory): Promise<void> {
-      await store.put(`memory:${memory.id}`, memory)
+      // Phase 6: Policy engine classification
+      if (config.governance && companyStore) {
+        const classification = classifyMemory(memory, config.governance.policy)
+        const classified = { ...memory, scope: classification.scope }
 
-      // Push through relay as memory-sync envelope
+        // Log audit entry
+        const auditEntry = {
+          memoryId: memory.id,
+          memoryType: memory.type,
+          originalScope: (memory.scope ?? 'unclassified') as string,
+          appliedScope: classification.scope,
+          reason: classification.reason,
+          timestamp: new Date().toISOString(),
+        }
+        await store.put(`audit:${memory.id}`, auditEntry)
+
+        if (classification.scope === 'org-internal') {
+          // Org-internal: company store only, no sync
+          await companyStore.put(`memory:${memory.id}`, classified)
+          return
+        }
+
+        // mutual or agent-portable: agent store + sync
+        await store.put(`memory:${memory.id}`, classified)
+
+        const plaintext = new TextEncoder().encode(JSON.stringify(classified))
+        const sealScope = classification.scope === 'mutual' ? 'mutual' : 'private'
+        const sealPayload: Record<string, unknown> = {
+          type: 'memory-sync',
+          scope: sealScope,
+          from: config.identity,
+          to: config.identity,
+          plaintext,
+        }
+        if (sealScope === 'mutual') {
+          sealPayload.recipientPublicKey = config.governance.companyKeyRing.getPublicKey()
+        }
+        const envelope = await seal(
+          sealPayload as unknown as Parameters<typeof seal>[0],
+          config.keyRing
+        )
+        connection.send(envelope as SagaEncryptedEnvelope)
+        return
+      }
+
+      // No governance — original behavior
+      await store.put(`memory:${memory.id}`, memory)
       const plaintext = new TextEncoder().encode(JSON.stringify(memory))
       const envelope = await seal(
         {
@@ -184,6 +238,13 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
     async queryMemory(filter: MemoryFilter): Promise<SagaMemory[]> {
       const entries = await store.query({ prefix: 'memory:' })
       let results = entries.map((e: { value: unknown }) => e.value as SagaMemory)
+
+      // Phase 6: Merge org-internal memories from company store
+      if (companyStore) {
+        const companyEntries = await companyStore.query({ prefix: 'memory:' })
+        const companyMemories = companyEntries.map((e: { value: unknown }) => e.value as SagaMemory)
+        results = [...results, ...companyMemories]
+      }
 
       if (filter.type) {
         results = results.filter((m: SagaMemory) => m.type === filter.type)
