@@ -15,9 +15,13 @@ export function WalletAddress({ address }: { address: string }) {
   const [copied, setCopied] = useState(false)
 
   async function copyToClipboard() {
-    await navigator.clipboard.writeText(address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API unavailable (insecure context or permission denied)
+    }
   }
 
   return (

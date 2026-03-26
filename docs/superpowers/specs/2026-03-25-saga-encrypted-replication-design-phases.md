@@ -47,7 +47,7 @@ Phase 7: Directory NFT & Cross-Directory Federation
 
 **Prerequisite**: None — standalone crypto library.
 
-**Package**: `@saga-standard/saga-crypto` (new package in `saga-standard/packages/saga-crypto`)
+**Package**: `@epicdm/saga-crypto` (new package in `saga-standard/packages/saga-crypto`)
 
 ### Deliverables
 
@@ -519,7 +519,7 @@ The encrypted replication system builds on Sync Protocol Phases 1-3 and supersed
 
 | Phase                | New Packages                    | Key Files                                        | Test Surface                                                  |
 | -------------------- | ------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
-| 1: Crypto Foundation | `@saga-standard/saga-crypto`    | KeyRing, envelope, encrypted store               | Unit: key derivation, encrypt/decrypt round-trips, store CRUD |
+| 1: Crypto Foundation | `@epicdm/saga-crypto`           | KeyRing, envelope, encrypted store               | Unit: key derivation, encrypt/decrypt round-trips, store CRUD |
 | 2: Hub Relay         | — (extends server)              | WSS handler, NFT auth, mailbox, router           | Integration: connect/auth, route, mailbox drain               |
 | 3: DERP Client       | `@saga-standard/saga-client-rt` | SagaClient, relay connection, message router     | Integration: connect, send/receive, reconnect                 |
 | 4: Memory Sync       | — (extends client-rt + server)  | Sync protocol, pull-on-activation, multi-DERP    | E2E: memory push, pull, multi-DERP propagation                |

@@ -67,6 +67,7 @@ export function createSagaKeyRing(): SagaKeyRing {
     },
 
     async unlockWallet(walletPrivateKey: Uint8Array): Promise<void> {
+      clearKeys()
       const kp = await deriveX25519KeyPair(walletPrivateKey)
       _x25519SecretKey = kp.secretKey
       _x25519PublicKey = kp.publicKey

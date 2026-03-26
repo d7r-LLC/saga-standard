@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import type { RegisterAgentRequest } from '@epicdm/saga-client'
 import { getSession } from '@/lib/session/server'
 import {
   createAuthenticatedSagaClient,
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const agent = await client.registerAgent({
       handle,
       walletAddress: session.walletAddress,
-      chain: session.chain as any,
+      chain: session.chain as RegisterAgentRequest['chain'],
     })
     return NextResponse.json(agent, { status: 201 })
   } catch (err: any) {

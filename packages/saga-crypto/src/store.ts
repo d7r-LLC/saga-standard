@@ -99,6 +99,9 @@ export function createEncryptedStore(
   return {
     async put(key: string, value: unknown): Promise<void> {
       const json = JSON.stringify(value)
+      if (json === undefined) {
+        throw new Error('Value is not JSON-serializable')
+      }
       const plaintext = new TextEncoder().encode(json)
       const encrypted = await keyRing.encryptStorage(plaintext)
       const packed = packEncrypted(encrypted)
