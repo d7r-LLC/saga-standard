@@ -132,7 +132,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
         const prefix = filter.prefix
         results = results.filter(m => m.id.startsWith(prefix))
       }
-      if (filter.limit) {
+      if (filter.limit !== undefined) {
         results = results.slice(0, filter.limit)
       }
 

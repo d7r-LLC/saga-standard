@@ -22,18 +22,22 @@ export function createMessageRouter(
   return {
     async handleEnvelope(envelope: SagaEncryptedEnvelope): Promise<void> {
       if (dedup.has(envelope.id)) return
-      dedup.add(envelope.id)
 
       const plaintext = await decrypt(envelope)
       const decoded = JSON.parse(new TextDecoder().decode(plaintext))
+
+      // Mark as seen only after successful decrypt+decode
+      dedup.add(envelope.id)
 
       switch (envelope.type) {
         case 'direct-message':
           callbacks.onDirectMessage(envelope.from, decoded)
           break
         case 'group-message': {
-          const groupId = envelope.groupKeyId ?? ''
-          callbacks.onGroupMessage(groupId, envelope.from, decoded)
+          if (!envelope.groupKeyId) {
+            throw new Error(`Missing groupKeyId for group-message envelope ${envelope.id}`)
+          }
+          callbacks.onGroupMessage(envelope.groupKeyId, envelope.from, decoded)
           break
         }
         case 'memory-sync':

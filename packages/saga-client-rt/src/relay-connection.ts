@@ -114,8 +114,10 @@ export function createRelayConnection(config: RelayConnectionConfig): RelayConne
 
       case 'auth:error':
         config.callbacks.onError(msg.error)
+        disconnecting = true // Prevent reconnect — auth failure is terminal
         connectPromise?.reject(new Error(msg.error))
         connectPromise = null
+        ws?.close(4001, 'Auth failed')
         break
 
       case 'relay:deliver':
@@ -156,6 +158,22 @@ export function createRelayConnection(config: RelayConnectionConfig): RelayConne
 
   return {
     connect(): Promise<void> {
+      if (connected) return Promise.resolve()
+      if (connectPromise) {
+        return new Promise<void>((resolve, reject) => {
+          const existing = connectPromise!
+          connectPromise = {
+            resolve: () => {
+              existing.resolve()
+              resolve()
+            },
+            reject: (err: Error) => {
+              existing.reject(err)
+              reject(err)
+            },
+          }
+        })
+      }
       disconnecting = false
       reconnectAttempts = 0
       return new Promise<void>((resolve, reject) => {
