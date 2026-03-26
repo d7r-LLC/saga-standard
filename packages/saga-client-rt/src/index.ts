@@ -19,5 +19,5 @@ export type {
   StorageBackend,
 } from './types'
 
-// ── Client factory — added in Task 5 ──
-// export { createSagaClient } from './client'
+// ── Client factory ──
+export { createSagaClient } from './client'
