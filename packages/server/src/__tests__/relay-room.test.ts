@@ -424,6 +424,76 @@ describe('RelayRoom', () => {
     })
   })
 
+  describe('sync-request handler', () => {
+    it('responds with envelopes since checkpoint', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'memory-sync',
+        scope: 'self',
+        from: 'alice@epicflow',
+        to: 'alice@epicflow',
+        ct: 'encrypted-memory-payload',
+        ts: '2026-01-02T00:00:00.000Z',
+        id: 'mem-sync-001',
+      }
+
+      // Store a memory-sync envelope via relay:send
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      // Now send a sync-request from another connection for the same handle
+      const aliceWs2 = createMockWebSocket()
+      await authenticateWs(aliceWs2, 'alice', '0xalice')
+
+      await room.webSocketMessage(
+        aliceWs2,
+        JSON.stringify({ type: 'sync-request', since: '2026-01-01T00:00:00.000Z' })
+      )
+
+      const response = getLastMessage(aliceWs2)
+      expect(response.type).toBe('sync-response')
+      expect((response.envelopes as unknown[]).length).toBeGreaterThanOrEqual(1)
+      const envelopes = response.envelopes as Record<string, unknown>[]
+      const found = envelopes.find(e => e.id === 'mem-sync-001')
+      expect(found).toBeDefined()
+      expect(response.hasMore).toBe(false)
+      expect(typeof response.checkpoint).toBe('string')
+    })
+
+    it('returns empty response for no envelopes since checkpoint', async () => {
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      // Use a future checkpoint so no envelopes match
+      await room.webSocketMessage(
+        aliceWs,
+        JSON.stringify({ type: 'sync-request', since: '2099-12-31T23:59:59.999Z' })
+      )
+
+      const response = getLastMessage(aliceWs)
+      expect(response.type).toBe('sync-response')
+      expect((response.envelopes as unknown[]).length).toBe(0)
+      expect(response.hasMore).toBe(false)
+    })
+
+    it('rejects sync-request from unauthenticated connection', async () => {
+      const ws = createMockWebSocket()
+      ws.serializeAttachment({ authenticated: false, challenge: 'c', expiresAt: 'e' })
+      ctx._websockets.push(ws)
+
+      await room.webSocketMessage(
+        ws,
+        JSON.stringify({ type: 'sync-request', since: '2026-01-01T00:00:00.000Z' })
+      )
+
+      const response = getLastMessage(ws)
+      expect(response.type).toBe('error')
+      expect(response.error).toContain('Not authenticated')
+    })
+  })
+
   describe('connection lifecycle', () => {
     it('handles pong message', async () => {
       const ws = createMockWebSocket()

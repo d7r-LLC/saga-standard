@@ -104,6 +104,9 @@ export class RelayRoom {
       case 'mailbox:ack':
         await this.handleMailboxAck(ws, msg)
         break
+      case 'sync-request':
+        await this.handleSyncRequest(ws, msg)
+        break
     }
   }
 
@@ -341,6 +344,27 @@ export class RelayRoom {
     }
 
     await this.mailbox.ack(state.handle, msg.messageIds)
+  }
+
+  private async handleSyncRequest(
+    ws: WebSocket,
+    msg: { since: string; collections?: string[] }
+  ): Promise<void> {
+    const state = this.getAuthenticatedState(ws)
+    if (!state) {
+      this.sendJson(ws, { type: 'error', error: 'Not authenticated' })
+      return
+    }
+
+    const SYNC_BATCH_SIZE = 50
+    const result = await this.memoryStore.querySince(state.handle, msg.since, SYNC_BATCH_SIZE)
+
+    this.sendJson(ws, {
+      type: 'sync-response',
+      envelopes: result.envelopes,
+      checkpoint: result.checkpoint,
+      hasMore: result.hasMore,
+    })
   }
 
   // ── Helpers ───────────────────────────────────────────────────
