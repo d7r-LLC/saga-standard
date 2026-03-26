@@ -6,11 +6,11 @@
 
 ALTER TABLE organizations ADD COLUMN public_key TEXT;
 
-CREATE TABLE group_members (
+CREATE TABLE IF NOT EXISTS group_members (
   group_id TEXT NOT NULL,
   handle TEXT NOT NULL,
   added_at TEXT NOT NULL,
   PRIMARY KEY (group_id, handle)
 );
 
-CREATE INDEX idx_group_members_handle ON group_members (handle);
+CREATE INDEX IF NOT EXISTS idx_group_members_handle ON group_members (handle);

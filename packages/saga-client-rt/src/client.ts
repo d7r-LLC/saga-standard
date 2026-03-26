@@ -48,22 +48,23 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       if (message.messageType === 'key-distribution') {
         const payload = message.payload as {
           groupId: string
-          wrappedKey: { ct: string; nonce: string }
+          wrappedKey: { ciphertext: string; nonce: string }
         }
-        try {
-          const wrappedKey = {
-            ct: Uint8Array.from(atob(payload.wrappedKey.ct), c => c.charCodeAt(0)),
-            nonce: Uint8Array.from(atob(payload.wrappedKey.nonce), c => c.charCodeAt(0)),
+        // Resolve sender key asynchronously for group key unwrapping
+        void (async () => {
+          try {
+            const senderPublicKey = await keyResolver.resolve(from)
+            const wrappedKey = {
+              ciphertext: Uint8Array.from(atob(payload.wrappedKey.ciphertext), c =>
+                c.charCodeAt(0)
+              ),
+              nonce: Uint8Array.from(atob(payload.wrappedKey.nonce), c => c.charCodeAt(0)),
+            }
+            config.keyRing.addGroupKey(payload.groupId, wrappedKey, senderPublicKey)
+          } catch {
+            // Key distribution failed — ignore silently
           }
-          // Sender key not needed for unwrapping — keyRing uses its own private key
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(config.keyRing.addGroupKey as unknown as (id: string, key: unknown) => void)(
-            payload.groupId,
-            wrappedKey
-          )
-        } catch {
-          // Key distribution failed — ignore silently
-        }
+        })()
         return
       }
       peers.set(from, { handle: from, lastSeen: new Date().toISOString() })
@@ -271,17 +272,14 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
         if (member === config.identity) continue // Skip self
 
         const recipientKey = await keyResolver.resolve(member)
-        const wrappedKey = config.keyRing.wrapGroupKeyFor(groupId, recipientKey) as unknown as {
-          ct: Uint8Array
-          nonce: Uint8Array
-        }
+        const wrappedKey = config.keyRing.wrapGroupKeyFor(groupId, recipientKey)
 
         await sagaClient.sendMessage(member, {
           messageType: 'key-distribution',
           payload: {
             groupId,
             wrappedKey: {
-              ct: btoa(String.fromCharCode(...wrappedKey.ct)),
+              ciphertext: btoa(String.fromCharCode(...wrappedKey.ciphertext)),
               nonce: btoa(String.fromCharCode(...wrappedKey.nonce)),
             },
           },

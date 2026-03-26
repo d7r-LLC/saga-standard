@@ -18,6 +18,12 @@ function createTestEnv(db: D1Database): Env {
   }
 }
 
+const TEST_TOKEN = 'test-session-token'
+
+function authHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${TEST_TOKEN}` }
+}
+
 describe('Group management API', () => {
   let db: D1Database
   let env: Env
@@ -26,6 +32,15 @@ describe('Group management API', () => {
     db = createMockD1()
     await runMigrations(db)
     env = createTestEnv(db)
+    // Seed a valid session token
+    await (env.SESSIONS as KVNamespace).put(
+      TEST_TOKEN,
+      JSON.stringify({
+        walletAddress: '0xtest',
+        chain: 'eip155:8453',
+        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      })
+    )
   })
 
   it('POST /v1/groups creates a group with members', async () => {
@@ -37,7 +52,7 @@ describe('Group management API', () => {
           groupId: 'team-alpha',
           members: ['alice', 'bob'],
         }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )
@@ -47,6 +62,19 @@ describe('Group management API', () => {
     expect(body.members).toEqual(['alice', 'bob'])
   })
 
+  it('POST /v1/groups rejects unauthenticated requests', async () => {
+    const res = await app.request(
+      '/v1/groups',
+      {
+        method: 'POST',
+        body: JSON.stringify({ groupId: 'team-alpha', members: ['alice'] }),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      env
+    )
+    expect(res.status).toBe(401)
+  })
+
   it('GET /v1/groups/:groupId/members returns member list', async () => {
     // Create group first
     await app.request(
@@ -54,11 +82,12 @@ describe('Group management API', () => {
       {
         method: 'POST',
         body: JSON.stringify({ groupId: 'team-alpha', members: ['alice', 'bob'] }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )
 
+    // GET does not require auth
     const res = await app.request('/v1/groups/team-alpha/members', {}, env)
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -72,7 +101,7 @@ describe('Group management API', () => {
       {
         method: 'POST',
         body: JSON.stringify({ groupId: 'team-alpha', members: ['alice'] }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )
@@ -82,7 +111,7 @@ describe('Group management API', () => {
       {
         method: 'PUT',
         body: JSON.stringify({ add: ['bob', 'carol'] }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )
@@ -97,7 +126,7 @@ describe('Group management API', () => {
       {
         method: 'POST',
         body: JSON.stringify({ groupId: 'team-alpha', members: ['alice', 'bob', 'carol'] }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )
@@ -107,7 +136,7 @@ describe('Group management API', () => {
       {
         method: 'DELETE',
         body: JSON.stringify({ remove: ['bob'] }),
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
       },
       env
     )

@@ -7,6 +7,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { and, eq } from 'drizzle-orm'
 import type { Env } from '../bindings'
 import { groupMembers } from '../db/schema'
+import { requireAuth } from '../middleware/auth'
 
 export const groupRoutes = new Hono<{ Bindings: Env }>()
 
@@ -22,15 +23,13 @@ async function upsertGroupMember(
   addedAt: string
 ): Promise<void> {
   await db
-    .prepare(
-      `INSERT OR IGNORE INTO group_members (group_id, handle, added_at) VALUES (?, ?, ?)`
-    )
+    .prepare(`INSERT OR IGNORE INTO group_members (group_id, handle, added_at) VALUES (?, ?, ?)`)
     .bind(groupId, handle, addedAt)
     .run()
 }
 
 /** POST /v1/groups — Create a group with initial members */
-groupRoutes.post('/', async c => {
+groupRoutes.post('/', requireAuth, async c => {
   const body = await c.req.json<{ groupId: string; members: string[] }>()
   if (!body.groupId || !Array.isArray(body.members) || body.members.length === 0) {
     return c.json({ error: 'groupId and members[] are required', code: 'INVALID_REQUEST' }, 400)
@@ -62,7 +61,7 @@ groupRoutes.get('/:groupId/members', async c => {
 })
 
 /** PUT /v1/groups/:groupId/members — Add members to a group */
-groupRoutes.put('/:groupId/members', async c => {
+groupRoutes.put('/:groupId/members', requireAuth, async c => {
   const groupId = c.req.param('groupId') as string
   const body = await c.req.json<{ add: string[] }>()
   if (!Array.isArray(body.add) || body.add.length === 0) {
@@ -84,7 +83,7 @@ groupRoutes.put('/:groupId/members', async c => {
 })
 
 /** DELETE /v1/groups/:groupId/members — Remove members from a group */
-groupRoutes.delete('/:groupId/members', async c => {
+groupRoutes.delete('/:groupId/members', requireAuth, async c => {
   const groupId = c.req.param('groupId') as string
   const body = await c.req.json<{ remove: string[] }>()
   if (!Array.isArray(body.remove) || body.remove.length === 0) {

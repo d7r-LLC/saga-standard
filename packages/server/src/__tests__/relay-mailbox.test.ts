@@ -125,6 +125,14 @@ describe('createMailbox', () => {
     expect(puts[puts.length - 1].ttl).toBe(DM_TTL_SECONDS)
   })
 
+  it('uses 7-day TTL for group-message envelopes', async () => {
+    const { kv: spiedKv, puts } = createSpiedKV()
+    const box = createMailbox(spiedKv)
+    const envelope = makeEnvelope({ type: 'group-message' })
+    await box.store('alice', envelope)
+    expect(puts[puts.length - 1].ttl).toBe(DM_TTL_SECONDS)
+  })
+
   it('uses 30-day TTL for memory-sync envelopes', async () => {
     const { kv: spiedKv, puts } = createSpiedKV()
     const box = createMailbox(spiedKv)

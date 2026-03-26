@@ -215,9 +215,11 @@ describe('createSagaClient', () => {
   })
 
   it('sendMessage() attempts key discovery and throws when key not found', async () => {
-    const mockFetchFn = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Handle not found' }), { status: 404 })
-    )
+    const mockFetchFn = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Handle not found' }), { status: 404 })
+      )
     const { config, getWs } = createTestConfig({ fetchFn: mockFetchFn })
     const { client } = await connectClient(config, getWs)
 
@@ -552,7 +554,7 @@ describe('group key distribution', () => {
 
   it('distributeGroupKey sends key-distribution DM to each member', async () => {
     const mockWrapGroupKeyFor = vi.fn().mockReturnValue({
-      ct: new Uint8Array([1, 2, 3]),
+      ciphertext: new Uint8Array([1, 2, 3]),
       nonce: new Uint8Array([4, 5, 6]),
     })
 
@@ -606,6 +608,9 @@ describe('group key distribution', () => {
 
     const { client: _client, ws } = await connectClient(config, getWs)
 
+    // Register sender's public key so key resolver can find it
+    _client.registerPeerKey('bob@epicflow', new Uint8Array(32).fill(1))
+
     // Override the open mock to return key-distribution payload
     const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
     crypto.open.mockImplementationOnce(async () => {
@@ -615,7 +620,7 @@ describe('group key distribution', () => {
           payload: {
             groupId: 'team-alpha',
             wrappedKey: {
-              ct: btoa(String.fromCharCode(1, 2, 3)),
+              ciphertext: btoa(String.fromCharCode(1, 2, 3)),
               nonce: btoa(String.fromCharCode(4, 5, 6)),
             },
           },
@@ -645,9 +650,10 @@ describe('group key distribution', () => {
     expect(mockAddGroupKey).toHaveBeenCalledWith(
       'team-alpha',
       expect.objectContaining({
-        ct: expect.any(Uint8Array),
+        ciphertext: expect.any(Uint8Array),
         nonce: expect.any(Uint8Array),
-      })
+      }),
+      expect.any(Uint8Array) // senderPublicKey
     )
   })
 })

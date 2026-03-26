@@ -299,6 +299,16 @@ export class RelayRoom {
       const groupId = envelope.to.slice('group:'.length)
       const members = await this.getGroupMembers(groupId)
 
+      // Verify sender is a member of the group
+      if (!members.includes(senderHandle)) {
+        this.sendJson(ws, {
+          type: 'relay:error',
+          messageId: envelope.id,
+          error: 'Not a member of this group',
+        })
+        return
+      }
+
       for (const memberHandle of members) {
         if (memberHandle === senderHandle) continue // Don't echo to sender
 
@@ -465,8 +475,7 @@ export class RelayRoom {
 
   /** Look up group members from D1 */
   private async getGroupMembers(groupId: string): Promise<string[]> {
-    const result = await this.env.DB
-      .prepare('SELECT handle FROM group_members WHERE group_id = ?')
+    const result = await this.env.DB.prepare('SELECT handle FROM group_members WHERE group_id = ?')
       .bind(groupId)
       .all()
     return (result.results ?? []).map((r: Record<string, unknown>) => r.handle as string)

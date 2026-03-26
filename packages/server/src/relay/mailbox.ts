@@ -38,11 +38,12 @@ export function createMailbox(
       const key = mailboxKey(handle, envelope)
       // Per-envelope TTL: use envelope.ttl if present,
       // otherwise use type-based default
-      const envelopeTtl = typeof (envelope as Record<string, unknown>).ttl === 'number'
-        ? (envelope as Record<string, unknown>).ttl as number
-        : undefined
-      const effectiveTtl = envelopeTtl
-        ?? (envelope.type === 'direct-message' ? DM_TTL_SECONDS : ttlSeconds)
+      const envelopeTtl =
+        typeof (envelope as Record<string, unknown>).ttl === 'number'
+          ? ((envelope as Record<string, unknown>).ttl as number)
+          : undefined
+      const isShortLived = envelope.type === 'direct-message' || envelope.type === 'group-message'
+      const effectiveTtl = envelopeTtl ?? (isShortLived ? DM_TTL_SECONDS : ttlSeconds)
       await kv.put(key, JSON.stringify(envelope), { expirationTtl: effectiveTtl })
     },
 

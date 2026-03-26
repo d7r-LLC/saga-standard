@@ -530,7 +530,9 @@ describe('RelayRoom', () => {
 
       // Bob receives the group message
       const bobMessages = bobWs._sent.map((m: string) => JSON.parse(m))
-      const bobDelivers = bobMessages.filter((m: Record<string, unknown>) => m.type === 'relay:deliver')
+      const bobDelivers = bobMessages.filter(
+        (m: Record<string, unknown>) => m.type === 'relay:deliver'
+      )
       expect(bobDelivers).toHaveLength(1)
       expect((bobDelivers[0].envelope as Record<string, unknown>).id).toBe('group-msg-001')
     })
@@ -573,11 +575,40 @@ describe('RelayRoom', () => {
       expect((batch.envelopes as unknown[]).length).toBe(1)
     })
 
+    it('rejects group message from non-member', async () => {
+      // Create group with only bob as member (alice is NOT a member)
+      const orm = drizzle(env.DB)
+      await orm
+        .insert(groupMembers)
+        .values([{ groupId: 'team-alpha', handle: 'bob', addedAt: new Date().toISOString() }])
+
+      const aliceWs = createMockWebSocket()
+      await authenticateWs(aliceWs, 'alice', '0xalice')
+
+      const envelope = {
+        v: 1,
+        type: 'group-message',
+        scope: 'group',
+        from: 'alice@epicflow',
+        to: 'group:team-alpha',
+        ct: 'encrypted-group-data',
+        groupKeyId: 'team-alpha',
+        ts: new Date().toISOString(),
+        id: 'group-msg-unauth',
+      }
+
+      await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+
+      const err = getLastMessage(aliceWs)
+      expect(err.type).toBe('relay:error')
+      expect(err.error).toContain('Not a member')
+    })
+
     it('does not deliver group message back to sender', async () => {
       const orm = drizzle(env.DB)
-      await orm.insert(groupMembers).values([
-        { groupId: 'team-alpha', handle: 'alice', addedAt: new Date().toISOString() },
-      ])
+      await orm
+        .insert(groupMembers)
+        .values([{ groupId: 'team-alpha', handle: 'alice', addedAt: new Date().toISOString() }])
 
       const aliceWs = createMockWebSocket()
       await authenticateWs(aliceWs, 'alice', '0xalice')
