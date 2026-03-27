@@ -8,6 +8,7 @@ import {
   NFT_RECHECK_INTERVAL_MS,
   PING_INTERVAL_MS,
   STALE_TIMEOUT_MS,
+  isRegularClientAttachment,
   parseClientMessage,
 } from './types'
 import { generateWsChallenge, reVerifyNft, verifyWsAuth } from './ws-auth'
@@ -142,7 +143,10 @@ export class RelayRoom {
     for (const [, wsSet] of handleMap) {
       for (const ws of wsSet) {
         const attachment = ws.deserializeAttachment() as WebSocketAttachment
-        if (attachment.authenticated && now - attachment.state.lastPong > STALE_TIMEOUT_MS) {
+        if (
+          isRegularClientAttachment(attachment) &&
+          now - attachment.state.lastPong > STALE_TIMEOUT_MS
+        ) {
           try {
             ws.close(4001, 'Connection stale')
           } catch {
@@ -158,7 +162,7 @@ export class RelayRoom {
       for (const ws of wsSet) {
         const attachment = ws.deserializeAttachment() as WebSocketAttachment
         if (
-          attachment.authenticated &&
+          isRegularClientAttachment(attachment) &&
           now - attachment.state.lastNftCheck > NFT_RECHECK_INTERVAL_MS
         ) {
           const valid = await reVerifyNft(handle, attachment.state.walletAddress, this.env.DB)
@@ -366,7 +370,7 @@ export class RelayRoom {
 
   private handlePong(ws: WebSocket): void {
     const attachment = ws.deserializeAttachment() as WebSocketAttachment
-    if (attachment?.authenticated) {
+    if (isRegularClientAttachment(attachment)) {
       attachment.state.lastPong = Date.now()
       ws.serializeAttachment(attachment)
     }
@@ -425,7 +429,7 @@ export class RelayRoom {
       this.handleMap = new Map()
       for (const ws of this.ctx.getWebSockets()) {
         const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
-        if (attachment?.authenticated) {
+        if (isRegularClientAttachment(attachment)) {
           const handle = attachment.state.handle
           if (!this.handleMap.has(handle)) {
             this.handleMap.set(handle, new Set())
@@ -445,7 +449,7 @@ export class RelayRoom {
   /** Remove a WebSocket from the registry */
   private removeConnection(ws: WebSocket): void {
     const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
-    if (attachment?.authenticated) {
+    if (isRegularClientAttachment(attachment)) {
       const set = this.handleMap?.get(attachment.state.handle)
       if (set) {
         set.delete(ws)
@@ -462,7 +466,7 @@ export class RelayRoom {
   /** Get the connection state for an authenticated WebSocket, or null */
   private getAuthenticatedState(ws: WebSocket): ConnectionState | null {
     const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
-    if (attachment?.authenticated) {
+    if (isRegularClientAttachment(attachment)) {
       return attachment.state
     }
     return null
