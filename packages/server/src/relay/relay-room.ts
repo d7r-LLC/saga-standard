@@ -19,6 +19,8 @@ import { createMailbox } from './mailbox'
 import type { RelayMailbox } from './mailbox'
 import { createCanonicalMemoryStore } from './memory-store'
 import type { CanonicalMemoryStore } from './memory-store'
+import { createFederationLinkManager } from './federation-link'
+import type { FederationLinkManager } from './federation-link'
 
 /**
  * RelayRoom Durable Object — manages WebSocket connections for the SAGA relay.
@@ -37,6 +39,9 @@ export class RelayRoom {
 
   /** Lazy cache: handle → Set<WebSocket>. Reconstructed from attachments on demand. */
   private handleMap: Map<string, Set<WebSocket>> | null = null
+
+  /** Lazy federation link manager for outbound cross-directory routing */
+  private federationLinks: FederationLinkManager | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx
@@ -364,9 +369,29 @@ export class RelayRoom {
 
     // Route to recipients
     const recipients = Array.isArray(envelope.to) ? envelope.to : [envelope.to]
+    const localDirectoryId = this.env.LOCAL_DIRECTORY_ID
 
     for (const recipient of recipients) {
-      const recipientHandle = recipient.split('@')[0]
+      const atIndex = recipient.indexOf('@')
+      const recipientHandle = atIndex >= 0 ? recipient.substring(0, atIndex) : recipient
+      const recipientDirectoryId = atIndex >= 0 ? recipient.substring(atIndex + 1) : null
+
+      // Cross-directory: forward via federation link
+      if (localDirectoryId && recipientDirectoryId && recipientDirectoryId !== localDirectoryId) {
+        try {
+          await this.getFederationLinks().forward(recipientDirectoryId, envelope)
+        } catch (err) {
+          this.sendJson(ws, {
+            type: 'relay:error',
+            messageId: envelope.id,
+            error: `Federation forward failed: ${err instanceof Error ? err.message : String(err)}`,
+          })
+          return
+        }
+        continue
+      }
+
+      // Local routing (existing logic)
       const recipientSet = this.getHandleMap().get(recipientHandle)
 
       if (recipientSet && recipientSet.size > 0) {
@@ -376,10 +401,9 @@ export class RelayRoom {
             this.sendJson(recipientWs, { type: 'relay:deliver', envelope })
             delivered = true
           } catch {
-            // Individual send failure — continue trying other connections
+            // Individual send failure
           }
         }
-        // Fall back to mailbox if all connections failed
         if (!delivered) {
           await this.mailbox.store(recipientHandle, envelope)
         }
@@ -600,6 +624,22 @@ export class RelayRoom {
       }
     }
     return this.handleMap
+  }
+
+  /** Lazily create FederationLinkManager for outbound cross-directory routing */
+  private getFederationLinks(): FederationLinkManager {
+    if (!this.federationLinks) {
+      this.federationLinks = createFederationLinkManager({
+        db: this.env.DB,
+        localDirectoryId: this.env.LOCAL_DIRECTORY_ID ?? '',
+        localOperatorWallet: '', // TODO: configure from env
+        signChallenge: async (challenge: string) => {
+          // TODO: Sign with operator wallet. Placeholder for now.
+          return `placeholder-sig-${challenge}`
+        },
+      })
+    }
+    return this.federationLinks
   }
 
   /** Invalidate the cached handle map (call after registration/removal) */
