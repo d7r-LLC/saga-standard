@@ -18,6 +18,10 @@ export type DirectoryStackParamList = {
 
 export type WalletStackParamList = {
   WalletOverview: undefined
+  WalletDetail: { walletId: string }
+  WalletSettings: { walletId: string }
+  SendFlow: { walletId: string }
+  ReceiveScreen: { walletId: string; address: string }
 }
 
 export type ProfileStackParamList = {

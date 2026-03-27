@@ -14,7 +14,18 @@ export const RealmStore = {
 
     const config: Realm.Configuration = {
       schema: ALL_SCHEMAS,
-      schemaVersion: 1,
+      schemaVersion: 2,
+      onMigration: (oldRealm: Realm, newRealm: Realm) => {
+        if (oldRealm.schemaVersion < 2) {
+          const wallets = newRealm.objects('Wallet')
+          for (let i = 0; i < wallets.length; i++) {
+            const wallet = wallets[i] as Record<string, unknown>
+            if (!wallet.derivationPath) {
+              wallet.derivationPath = ''
+            }
+          }
+        }
+      },
       ...(encryptionKey ? { encryptionKey: new Int8Array(encryptionKey) } : {}),
     }
 

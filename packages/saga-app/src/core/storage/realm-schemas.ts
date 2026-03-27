@@ -11,6 +11,7 @@ export class WalletRecord extends Realm.Object<WalletRecord> {
   chain!: string
   balance!: string
   lastSync!: number
+  derivationPath!: string
 
   static schema: Realm.ObjectSchema = {
     name: 'Wallet',
@@ -23,6 +24,7 @@ export class WalletRecord extends Realm.Object<WalletRecord> {
       chain: 'string',
       balance: { type: 'string', default: '0' },
       lastSync: { type: 'int', default: 0 },
+      derivationPath: { type: 'string', default: '' },
     },
   }
 }

@@ -14,19 +14,24 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-navigation/bottom-tabs": "^7.15.8",
     "@react-navigation/drawer": "^7.9.7",
     "@react-navigation/native": "^7.2.1",
     "@react-navigation/native-stack": "^7.14.9",
+    "@scure/bip39": "^2.0.1",
     "react": "19.2.3",
     "react-native": "0.84.1",
     "react-native-biometrics": "^3.0.1",
     "react-native-gesture-handler": "^2.30.0",
     "react-native-keychain": "^10.0.0",
+    "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "^4.3.0",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.24.0",
-    "realm": "^20.2.0"
+    "react-native-svg": "^15.15.4",
+    "realm": "^20.2.0",
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
