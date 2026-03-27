@@ -17,7 +17,15 @@ export type {
   SagaKeyRing,
   SagaEncryptedEnvelope,
   StorageBackend,
+  MemoryScope,
+  CompanyReplicationPolicy,
+  PolicyClassification,
+  PolicyAuditEntry,
+  GovernanceConfig,
 } from './types'
 
 // ── Client factory ──
 export { createSagaClient } from './client'
+
+// ── Policy engine ──
+export { classifyMemory } from './policy-engine'

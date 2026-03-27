@@ -33,9 +33,10 @@ export function createMockD1(): D1Database {
   }
 
   function executeInsert(sql: string, params: unknown[]): void {
-    const tableM = sql.match(/insert\s+(?:or\s+ignore\s+)?into\s+"?(\w+)"?/i)
+    const tableM = sql.match(/insert\s+(?:or\s+(?:ignore|replace)\s+)?into\s+"?(\w+)"?/i)
     if (!tableM) return
     const isOrIgnore = /insert\s+or\s+ignore\s+into/i.test(sql)
+    const isOrReplace = /insert\s+or\s+replace\s+into/i.test(sql)
     const table = getTable(tableM[1])
 
     // Extract column list
@@ -85,6 +86,14 @@ export function createMockD1(): D1Database {
         if (isDuplicate) {
           continue
         }
+      }
+
+      // INSERT OR REPLACE: remove existing row with same primary key, then insert new row
+      if (isOrReplace && table.columns.length > 0) {
+        const pkCols = table.primaryKey.length > 0 ? table.primaryKey : [table.columns[0]]
+        table.rows = table.rows.filter(
+          r => !pkCols.every(col => r[col] !== undefined && r[col] === row[col])
+        )
       }
 
       table.rows.push(row)
@@ -556,6 +565,11 @@ export async function runMigrations(db: D1Database): Promise<void> {
       handle TEXT NOT NULL,
       added_at TEXT NOT NULL,
       PRIMARY KEY (group_id, handle)
+    );
+    CREATE TABLE IF NOT EXISTS replication_policies (
+      org_id TEXT PRIMARY KEY,
+      policy_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   `)
 }

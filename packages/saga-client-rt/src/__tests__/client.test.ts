@@ -657,3 +657,162 @@ describe('group key distribution', () => {
     )
   })
 })
+
+describe('governance — storeMemory', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('stores org-internal memory in company store only and does not sync', async () => {
+    const mockCompanyKeyRing = {
+      isUnlocked: true,
+      getPublicKey: () => new Uint8Array(32).fill(99),
+      hasGroupKey: vi.fn().mockReturnValue(false),
+    } as unknown as SagaClientConfig['keyRing']
+
+    const { config, getWs } = createTestConfig({
+      governance: {
+        orgId: 'acme-corp',
+        policy: {
+          orgId: 'acme-corp',
+          defaultScope: 'agent-portable',
+          restricted: { memoryTypes: ['procedural'] },
+          retention: {},
+        },
+        companyKeyRing: mockCompanyKeyRing,
+      },
+    })
+
+    const { client, ws } = await connectClient(config, getWs)
+
+    const memory: SagaMemory = {
+      id: 'mem-restricted',
+      type: 'procedural',
+      content: { steps: ['do this'] },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    await client.storeMemory(memory)
+
+    // Should NOT have sent a relay:send for this memory (no sync)
+    const sent = ws.allSent<Record<string, unknown>>()
+    const relaySends = sent.filter(m => m.type === 'relay:send')
+    const memorySyncs = relaySends.filter(m => {
+      const env = m.envelope as Record<string, unknown> | undefined
+      return env?.type === 'memory-sync'
+    })
+    expect(memorySyncs).toHaveLength(0)
+  })
+
+  it('stores agent-portable memory in agent store and syncs to hub', async () => {
+    const { config, getWs } = createTestConfig({
+      governance: {
+        orgId: 'acme-corp',
+        policy: {
+          orgId: 'acme-corp',
+          defaultScope: 'agent-portable',
+          restricted: { memoryTypes: ['procedural'] },
+          retention: {},
+        },
+        companyKeyRing: {
+          isUnlocked: true,
+          getPublicKey: () => new Uint8Array(32).fill(99),
+          hasGroupKey: vi.fn().mockReturnValue(false),
+        } as unknown as SagaClientConfig['keyRing'],
+      },
+    })
+
+    const { client, ws } = await connectClient(config, getWs)
+
+    const memory: SagaMemory = {
+      id: 'mem-portable',
+      type: 'episodic',
+      content: { text: 'general learning' },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    await client.storeMemory(memory)
+
+    // Should have synced (relay:send with memory-sync)
+    const sent = ws.allSent<Record<string, unknown>>()
+    const relaySends = sent.filter(m => m.type === 'relay:send')
+    const memorySyncs = relaySends.filter(m => {
+      const env = m.envelope as Record<string, unknown> | undefined
+      return env?.type === 'memory-sync'
+    })
+    expect(memorySyncs.length).toBeGreaterThan(0)
+  })
+
+  it('behaves normally without governance config', async () => {
+    const { config, getWs } = createTestConfig() // no governance
+    const { client, ws } = await connectClient(config, getWs)
+
+    const memory: SagaMemory = {
+      id: 'mem-normal',
+      type: 'procedural',
+      content: { steps: ['do this'] },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }
+
+    await client.storeMemory(memory)
+
+    // Should sync as before
+    const sent = ws.allSent<Record<string, unknown>>()
+    const relaySends = sent.filter(m => m.type === 'relay:send')
+    expect(relaySends.length).toBeGreaterThan(0)
+  })
+
+  it('logs audit entries for classified memories', async () => {
+    const { config, getWs } = createTestConfig({
+      governance: {
+        orgId: 'acme-corp',
+        policy: {
+          orgId: 'acme-corp',
+          defaultScope: 'agent-portable',
+          restricted: { memoryTypes: ['procedural'] },
+          retention: {},
+        },
+        companyKeyRing: {
+          isUnlocked: true,
+          getPublicKey: () => new Uint8Array(32).fill(99),
+          hasGroupKey: vi.fn().mockReturnValue(false),
+        } as unknown as SagaClientConfig['keyRing'],
+      },
+    })
+
+    const { client } = await connectClient(config, getWs)
+
+    await client.storeMemory({
+      id: 'mem-audited',
+      type: 'procedural',
+      content: { steps: ['step 1'] },
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    })
+
+    const auditLog = await client.queryAuditLog()
+    expect(auditLog.length).toBeGreaterThanOrEqual(1)
+    const entry = auditLog.find(e => e.memoryId === 'mem-audited')
+    expect(entry).toBeDefined()
+    expect(entry!.appliedScope).toBe('org-internal')
+    expect(entry!.reason).toContain('memoryType')
+  })
+
+  it('queryAuditLog returns empty array without governance', async () => {
+    const { config, getWs } = createTestConfig()
+    const { client } = await connectClient(config, getWs)
+
+    const auditLog = await client.queryAuditLog()
+    expect(auditLog).toEqual([])
+  })
+})

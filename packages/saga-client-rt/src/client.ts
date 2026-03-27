@@ -5,6 +5,7 @@ import { MemoryBackend, createEncryptedStore, open, seal } from '@epicdm/saga-cr
 import type {
   ConnectedPeer,
   MemoryFilter,
+  PolicyAuditEntry,
   SagaClient,
   SagaClientConfig,
   SagaDirectMessage,
@@ -16,6 +17,8 @@ import { createRelayConnection } from './relay-connection'
 import { createMessageRouter } from './message-router'
 import { createDedup } from './dedup'
 import { createKeyResolver } from './key-resolver'
+import { classifyMemory } from './policy-engine'
+import { runRetention } from './retention-engine'
 
 const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
@@ -30,6 +33,15 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   const dedup = createDedup()
   const backend = config.storageBackend ?? new MemoryBackend()
   const store = createEncryptedStore(config.keyRing, backend)
+
+  // Phase 6: Company governance store (org-internal memories)
+  const companyBackend =
+    config.governance?.companyStorageBackend ??
+    (config.governance ? new MemoryBackend() : undefined)
+  const companyStore =
+    config.governance && companyBackend
+      ? createEncryptedStore(config.governance.companyKeyRing, companyBackend)
+      : undefined
 
   // Decrypt function wired to KeyRing + key resolver
   async function decrypt(envelope: SagaEncryptedEnvelope): Promise<Uint8Array> {
@@ -149,6 +161,28 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   // Periodically clean up dedup tracker
   const dedupCleanupInterval = setInterval(() => dedup.cleanup(), 10 * 60 * 1000)
 
+  // Phase 6: Retention enforcement timer (runs hourly when governance is active)
+  let retentionRunning = false
+  const retentionInterval =
+    config.governance && companyStore
+      ? setInterval(
+          async () => {
+            if (retentionRunning) return // Prevent overlapping runs
+            retentionRunning = true
+            try {
+              await runRetention(store, companyStore, config.governance!.policy, entry => {
+                store.put(`audit:${entry.memoryId}:retention`, entry).catch(() => {})
+              })
+            } catch {
+              // Retention run failed — will retry next interval
+            } finally {
+              retentionRunning = false
+            }
+          },
+          60 * 60 * 1000
+        )
+      : undefined
+
   const sagaClient: SagaClient = {
     connect(): Promise<void> {
       return connection.connect()
@@ -156,6 +190,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async disconnect(): Promise<void> {
       clearInterval(dedupCleanupInterval)
+      if (retentionInterval) clearInterval(retentionInterval)
       connection.disconnect()
     },
 
@@ -164,9 +199,54 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
     },
 
     async storeMemory(memory: SagaMemory): Promise<void> {
-      await store.put(`memory:${memory.id}`, memory)
+      // Phase 6: Policy engine classification
+      if (config.governance && companyStore) {
+        const classification = classifyMemory(memory, config.governance.policy)
+        const classified = { ...memory, scope: classification.scope }
 
-      // Push through relay as memory-sync envelope
+        // Log audit entry
+        const auditEntry = {
+          memoryId: memory.id,
+          memoryType: memory.type,
+          originalScope: memory.scope ?? 'unclassified',
+          appliedScope: classification.scope,
+          reason: classification.reason,
+          timestamp: new Date().toISOString(),
+        }
+        await store.put(`audit:${memory.id}`, auditEntry)
+
+        if (classification.scope === 'org-internal') {
+          // Org-internal: company store only, no sync
+          // Clear any stale copy from agent store (reclassification)
+          await store.delete(`memory:${memory.id}`)
+          await companyStore.put(`memory:${memory.id}`, classified)
+          return
+        }
+
+        // mutual or agent-portable: agent store + sync
+        // Clear any stale copy from company store (reclassification)
+        await companyStore.delete(`memory:${memory.id}`)
+        await store.put(`memory:${memory.id}`, classified)
+
+        // Always use private scope for self-addressed memory-sync so the agent
+        // can decrypt it on future sync-response replays
+        const plaintext = new TextEncoder().encode(JSON.stringify(classified))
+        const envelope = await seal(
+          {
+            type: 'memory-sync',
+            scope: 'private',
+            from: config.identity,
+            to: config.identity,
+            plaintext,
+          },
+          config.keyRing
+        )
+        connection.send(envelope as SagaEncryptedEnvelope)
+        return
+      }
+
+      // No governance — original behavior
+      await store.put(`memory:${memory.id}`, memory)
       const plaintext = new TextEncoder().encode(JSON.stringify(memory))
       const envelope = await seal(
         {
@@ -183,18 +263,29 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async queryMemory(filter: MemoryFilter): Promise<SagaMemory[]> {
       const entries = await store.query({ prefix: 'memory:' })
-      let results = entries.map(e => e.value as SagaMemory)
+      let results = entries.map((e: { value: unknown }) => e.value as SagaMemory)
+
+      // Phase 6: Merge org-internal memories from company store, dedup by id
+      if (companyStore) {
+        const companyEntries = await companyStore.query({ prefix: 'memory:' })
+        const companyMemories = companyEntries.map((e: { value: unknown }) => e.value as SagaMemory)
+        results = [...results, ...companyMemories]
+
+        const dedupById = new Map<string, SagaMemory>()
+        for (const m of results) dedupById.set(m.id, m)
+        results = Array.from(dedupById.values())
+      }
 
       if (filter.type) {
-        results = results.filter(m => m.type === filter.type)
+        results = results.filter((m: SagaMemory) => m.type === filter.type)
       }
       if (filter.since) {
         const since = filter.since
-        results = results.filter(m => m.createdAt >= since)
+        results = results.filter((m: SagaMemory) => m.createdAt >= since)
       }
       if (filter.prefix) {
         const prefix = filter.prefix
-        results = results.filter(m => m.id.startsWith(prefix))
+        results = results.filter((m: SagaMemory) => m.id.startsWith(prefix))
       }
       if (filter.limit !== undefined) {
         results = results.slice(0, filter.limit)
@@ -205,6 +296,29 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
 
     async deleteMemory(memoryId: string): Promise<void> {
       await store.delete(`memory:${memoryId}`)
+      if (companyStore) {
+        await companyStore.delete(`memory:${memoryId}`)
+      }
+    },
+
+    async queryAuditLog(filter?: { since?: string; limit?: number }): Promise<PolicyAuditEntry[]> {
+      if (!config.governance) return []
+
+      const entries = await store.query({ prefix: 'audit:' })
+      let results = entries.map((e: { value: unknown }) => e.value as PolicyAuditEntry)
+
+      // Sort by timestamp descending so limit returns most recent entries
+      results.sort((a, b) => (b.timestamp > a.timestamp ? 1 : b.timestamp < a.timestamp ? -1 : 0))
+
+      if (filter?.since) {
+        const since = filter.since
+        results = results.filter(e => e.timestamp >= since)
+      }
+      if (filter?.limit !== undefined) {
+        results = results.slice(0, filter.limit)
+      }
+
+      return results
     },
 
     async sendMessage(to: string, message: SagaDirectMessage): Promise<string> {

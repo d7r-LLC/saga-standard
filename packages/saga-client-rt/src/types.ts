@@ -22,6 +22,9 @@ export interface WalletSigner {
 /** Agent memory type classification */
 export type SagaMemoryType = 'episodic' | 'semantic' | 'procedural'
 
+/** Memory encryption/replication scope (Phase 6) */
+export type MemoryScope = 'org-internal' | 'mutual' | 'agent-portable'
+
 /** Agent memory record */
 export interface SagaMemory {
   id: string
@@ -30,6 +33,8 @@ export interface SagaMemory {
   metadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string
+  /** Encryption/replication scope assigned by policy engine (Phase 6) */
+  scope?: MemoryScope
 }
 
 /** Query filter for local memory store */
@@ -38,6 +43,37 @@ export interface MemoryFilter {
   type?: SagaMemoryType
   since?: string
   limit?: number
+}
+
+/** Company data governance policy (Phase 6) */
+export interface CompanyReplicationPolicy {
+  orgId: string
+  defaultScope: MemoryScope
+  restricted: {
+    contentPatterns?: string[]
+    memoryTypes?: SagaMemoryType[]
+    domains?: string[]
+  }
+  retention: {
+    mutualTtlDays?: number
+    portableLimit?: number
+  }
+}
+
+/** Result of classifying a memory through the policy engine */
+export interface PolicyClassification {
+  scope: MemoryScope
+  reason: string
+}
+
+/** Audit log entry for a policy classification decision */
+export interface PolicyAuditEntry {
+  memoryId: string
+  memoryType: SagaMemoryType
+  originalScope: MemoryScope | 'unclassified'
+  appliedScope: MemoryScope
+  reason: string
+  timestamp: string
 }
 
 /** Direct message type classification */
@@ -82,6 +118,16 @@ export interface ResolvedKey {
   entityType: 'agent' | 'organization'
 }
 
+/** Governance configuration for company DERPs (Phase 6) */
+export interface GovernanceConfig {
+  orgId: string
+  policy: CompanyReplicationPolicy
+  /** Company's unlocked KeyRing for org-internal encryption */
+  companyKeyRing: SagaKeyRing
+  /** Storage backend for org-internal memories (defaults to MemoryBackend) */
+  companyStorageBackend?: StorageBackend
+}
+
 /** Configuration for createSagaClient */
 export interface SagaClientConfig {
   /** WSS URL for the hub relay (e.g. "wss://api.saga-standard.dev/v1/relay") */
@@ -98,6 +144,8 @@ export interface SagaClientConfig {
   createWebSocket?: (url: string) => WebSocketLike
   /** Optional: custom fetch function for key discovery (defaults to global fetch) */
   fetchFn?: typeof fetch
+  /** Company data governance config (Phase 6 — only on company DERPs) */
+  governance?: GovernanceConfig
 }
 
 /** The SAGA client interface exposed to agent runtimes */
@@ -132,6 +180,10 @@ export interface SagaClient {
   // ── Status ──
   getPeers(): ConnectedPeer[]
   onConnectionChange(handler: (connected: boolean) => void): Unsubscribe
+
+  // ── Governance ──
+  /** Query policy audit trail entries (Phase 6 — governance only) */
+  queryAuditLog(filter?: { since?: string; limit?: number }): Promise<PolicyAuditEntry[]>
 }
 
 // ── Internal types — relay protocol messages ─────────────────────

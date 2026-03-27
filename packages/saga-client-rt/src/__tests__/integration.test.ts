@@ -277,9 +277,7 @@ describe('SagaClient integration', () => {
       expect(messageId).toBeTruthy()
 
       // Verify mockFetch was called to look up Bob's key
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/v1/keys/bob')
-      )
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/v1/keys/bob'))
 
       // Verify a relay:send message was sent
       const allSent = ws.allSent<Record<string, unknown>>()
@@ -288,6 +286,109 @@ describe('SagaClient integration', () => {
       const envelope = relaySend!.envelope as Record<string, unknown>
       expect(envelope.to).toBe('bob@epicflow')
       expect(envelope.type).toBe('direct-message')
+    })
+  })
+
+  describe('governance integration', () => {
+    beforeEach(async () => {
+      vi.useFakeTimers()
+      vi.clearAllMocks()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('full governance flow: classify, store, audit, retain', async () => {
+      const agentKeyRing = await setupKeyRing(ALICE_WALLET_KEY)
+      const companyKeyRing = await setupKeyRing(new Uint8Array(32).fill(99))
+
+      let ws!: MockWebSocket
+      const client = createSagaClient({
+        hubUrl: 'wss://hub.example.com/v1/relay',
+        identity: 'alice@epicflow',
+        keyRing: agentKeyRing,
+        signer: createMockSigner(),
+        storageBackend: new MemoryBackend(),
+        createWebSocket: () => {
+          ws = new MockWebSocket()
+          return ws
+        },
+        governance: {
+          orgId: 'acme-corp',
+          policy: {
+            orgId: 'acme-corp',
+            defaultScope: 'agent-portable',
+            restricted: {
+              memoryTypes: ['procedural'],
+              contentPatterns: ['secret'],
+            },
+            retention: { portableLimit: 2 },
+          },
+          companyKeyRing,
+          companyStorageBackend: new MemoryBackend(),
+        },
+      })
+
+      const connectPromise = client.connect()
+      await simulateAuthFlow(ws, 'alice')
+      ws.simulateMessage({ type: 'mailbox:batch', envelopes: [], remaining: 0 })
+      await connectPromise
+
+      // Store a restricted memory (procedural → org-internal)
+      await client.storeMemory({
+        id: 'mem-restricted',
+        type: 'procedural',
+        content: { steps: ['internal process'] },
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      })
+
+      // Store a content-pattern-matching memory (secret → org-internal)
+      await client.storeMemory({
+        id: 'mem-secret',
+        type: 'episodic',
+        content: { text: 'secret project details' },
+        createdAt: '2026-01-02T00:00:00Z',
+        updatedAt: '2026-01-02T00:00:00Z',
+      })
+
+      // Store 3 portable memories
+      for (let i = 1; i <= 3; i++) {
+        await client.storeMemory({
+          id: `mem-portable-${i}`,
+          type: 'episodic',
+          content: { text: `learning ${i}` },
+          createdAt: `2026-01-0${i}T00:00:00Z`,
+          updatedAt: `2026-01-0${i}T00:00:00Z`,
+        })
+      }
+
+      // Verify: no relay:send for org-internal memories
+      const sent = ws.allSent<Record<string, unknown>>()
+      const relaySends = sent.filter(m => m.type === 'relay:send')
+      const syncEnvelopes = relaySends
+        .map(m => m.envelope as Record<string, unknown>)
+        .filter(e => e?.type === 'memory-sync')
+
+      // Only 3 portable memories should have synced (not the 2 org-internal ones)
+      expect(syncEnvelopes).toHaveLength(3)
+
+      // Verify: audit log has entries for all 5 memories
+      const auditLog = await client.queryAuditLog()
+      expect(auditLog.length).toBeGreaterThanOrEqual(5)
+
+      const restrictedAudit = auditLog.find(e => e.memoryId === 'mem-restricted')
+      expect(restrictedAudit?.appliedScope).toBe('org-internal')
+
+      const secretAudit = auditLog.find(e => e.memoryId === 'mem-secret')
+      expect(secretAudit?.appliedScope).toBe('org-internal')
+
+      // queryMemory should return all accessible memories (agent store + company store)
+      const allMemories = await client.queryMemory({})
+      expect(allMemories.length).toBeGreaterThanOrEqual(5)
+
+      await client.disconnect()
     })
   })
 
