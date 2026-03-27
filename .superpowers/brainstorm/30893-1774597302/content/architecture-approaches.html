@@ -1,0 +1,195 @@
+<h2>Architecture Approaches</h2>
+<p class="subtitle">How should the SAGA App be structured internally?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Feature-Module Architecture (Recommended)</h3>
+      <p>Organize by domain feature modules, each self-contained with screens, hooks, state, and services. Inspired by BlueWallet's class hierarchy but with modern Expo patterns.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-header">Project Structure</div>
+        <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+<pre style="margin:0; color: #ccc;">
+saga-app/
+├── app/                    # Expo Router (file-based routing)
+│   ├── (tabs)/             # Tab navigator
+│   │   ├── wallet/         # Wallet tab screens
+│   │   ├── directory/      # Directory browse/search
+│   │   ├── messages/       # DMs, groups, sync
+│   │   ├── documents/      # SAGA document explorer
+│   │   └── settings/       # Profile, security, chain ops
+│   ├── (auth)/             # Auth flow (onboarding wizard)
+│   └── (modals)/           # Full-screen modals (send, mint, etc.)
+│
+├── features/               # Domain feature modules
+│   ├── wallet/             # Wallet management
+│   │   ├── hooks/          # useWallet, useBalance, useTx
+│   │   ├── services/       # WalletService, KeychainService
+│   │   ├── components/     # WalletCard, TxList, FundingFlow
+│   │   └── types.ts
+│   ├── identity/           # On-chain identity (NFTs, handles, TBAs)
+│   │   ├── hooks/          # useIdentity, useHandle, useMint
+│   │   ├── services/       # ChainService, RegistryService
+│   │   ├── components/     # IdentityCard, MintWizard
+│   │   └── types.ts
+│   ├── messaging/          # Relay, DMs, groups
+│   │   ├── hooks/          # useRelay, useMessages, useGroups
+│   │   ├── services/       # RelayService, EnvelopeService
+│   │   ├── components/     # ChatView, GroupList, MessageBubble
+│   │   └── types.ts
+│   ├── documents/          # SAGA document management
+│   │   ├── hooks/          # useDocuments, useTransfer
+│   │   ├── services/       # DocumentService, ExportService
+│   │   ├── components/     # DocExplorer, LayerViewer
+│   │   └── types.ts
+│   ├── directory/          # Agent/org browsing & search
+│   │   ├── hooks/          # useSearch, useResolve
+│   │   ├── services/       # DirectoryService
+│   │   └── components/     # AgentCard, OrgCard, SearchBar
+│   ├── payments/           # x402 payment client
+│   │   ├── hooks/          # usePayment, useSubscription
+│   │   ├── services/       # X402Client, SubscriptionService
+│   │   └── components/     # PaymentSheet, PlanSelector
+│   └── governance/         # Org policies & audit
+│       ├── hooks/          # usePolicy, useAuditLog
+│       └── components/     # PolicyEditor, AuditTrail
+│
+├── core/                   # Shared infrastructure
+│   ├── providers/          # StorageProvider, AuthProvider, ChainProvider
+│   ├── crypto/             # saga-crypto integration
+│   ├── chain/              # viem client, contract configs
+│   ├── storage/            # Encrypted local storage (Realm/MMKV)
+│   └── theme/              # Design system, colors, typography
+│
+└── packages/ (existing)    # @epicdm/saga-sdk, saga-crypto, saga-client-rt
+</pre>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Each feature is independently testable</li>
+          <li>Clear ownership boundaries for parallel development</li>
+          <li>Features can lazy-load for performance</li>
+          <li>Follows Expo Router conventions</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>More boilerplate upfront</li>
+          <li>Cross-feature coordination needs careful design</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>BlueWallet Clone Architecture</h3>
+      <p>Mirror BlueWallet's structure directly — class-based domain models, Context providers for state, screen-organized navigation. Proven pattern from a production crypto app.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-header">Project Structure</div>
+        <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+<pre style="margin:0; color: #ccc;">
+saga-app/
+├── class/                  # Domain model classes
+│   ├── wallets/            # AbstractWallet → ManagedWallet, SelfCustodyWallet
+│   ├── identities/         # AbstractIdentity → AgentIdentity, OrgIdentity
+│   ├── saga-app.ts         # Singleton app state manager
+│   └── relay-client.ts     # WebSocket relay connection
+│
+├── components/             # All UI components (flat)
+│   ├── Context/            # StorageProvider, IdentityProvider, RelayProvider
+│   ├── themes/             # Theme definitions
+│   └── *.tsx               # Reusable UI components
+│
+├── screen/                 # All screens organized by feature
+│   ├── wallets/            # Wallet screens
+│   ├── identity/           # Identity management screens
+│   ├── messages/           # Messaging screens
+│   ├── documents/          # Document screens
+│   ├── directory/          # Directory browse screens
+│   └── settings/           # Settings screens
+│
+├── navigation/             # React Navigation setup
+│   ├── index.tsx           # Root navigator
+│   ├── DrawerRoot.tsx      # Drawer navigation
+│   └── *Stack.tsx          # Feature stacks
+│
+├── hooks/                  # Custom hooks (flat)
+├── models/                 # Data types
+├── blue_modules/           # Utility modules (API clients, encryption)
+└── loc/                    # Localization
+</pre>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Battle-tested in production crypto app</li>
+          <li>Class-based models are easy to reason about</li>
+          <li>Direct reference for patterns &amp; solutions</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Singleton pattern limits testability</li>
+          <li>Flat component/hook dirs don't scale well</li>
+          <li>Not idiomatic Expo Router (uses React Navigation directly)</li>
+          <li>Older patterns — no file-based routing</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>SDK-Driven Thin Shell</h3>
+      <p>Maximize reuse of existing SAGA packages. The app is a thin UI shell that wires up saga-client-rt, saga-sdk, and saga-crypto. Minimal custom business logic — the SDK IS the app logic.</p>
+      <div class="mockup" style="margin-top: 12px;">
+        <div class="mockup-header">Project Structure</div>
+        <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6;">
+<pre style="margin:0; color: #ccc;">
+saga-app/
+├── app/                    # Expo Router screens (thin)
+│   ├── (tabs)/
+│   └── (modals)/
+│
+├── ui/                     # Pure UI components
+│   ├── chat/               # Message rendering
+│   ├── wallet/             # Balance, tx display
+│   ├── forms/              # Input components
+│   └── shared/             # Design system
+│
+├── providers/              # Wiring SDK → React
+│   ├── SagaProvider.tsx    # Creates & manages SagaClient instance
+│   ├── WalletProvider.tsx  # Wallet abstraction
+│   ├── ChainProvider.tsx   # viem/wagmi chain connection
+│   └── PaymentProvider.tsx # x402 payment state
+│
+├── hooks/                  # Thin hooks wrapping SDK methods
+│   ├── useSagaClient.ts    # Access SagaClient from context
+│   ├── useMessages.ts      # client.onMessage() → React state
+│   └── useDocuments.ts     # client.storeMemory() wrappers
+│
+└── @epicdm/ packages       # ALL business logic lives here
+    ├── saga-client-rt       # Relay, messaging, memory
+    ├── saga-sdk             # Documents, validation, encryption
+    ├── saga-crypto          # Keys, envelopes, key ring
+    └── saga-client          # REST API + chain ops
+</pre>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Maximum code reuse from existing packages</li>
+          <li>App stays lightweight and focused on UX</li>
+          <li>SDK improvements automatically benefit app</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>SDK APIs may not map cleanly to mobile UX needs</li>
+          <li>App-specific state (navigation, UI state) still needs a home</li>
+          <li>SDK changes can break app unexpectedly</li>
+          <li>May need SDK extensions that don't belong in the SDK</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>

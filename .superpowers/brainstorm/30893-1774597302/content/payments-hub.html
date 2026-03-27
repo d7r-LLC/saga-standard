@@ -1,0 +1,183 @@
+<h2>Section 4: x402 Payments & Hub Connectivity</h2>
+<p class="subtitle">How the app pays for hub services and manages multi-hub connections</p>
+
+<div class="mockup">
+  <div class="mockup-header">x402 Payment Flow</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌──────────┐        ┌──────────┐        ┌──────────────┐       ┌──────────┐
+│ SAGA App │        │ Hub API  │        │ x402         │       │ Base L2  │
+│          │        │ (worker) │        │ Facilitator  │       │ Chain    │
+└────┬─────┘        └────┬─────┘        └──────┬───────┘       └────┬─────┘
+     │                   │                     │                    │
+     │  POST /v1/provision/pro                 │                    │
+     │  Authorization: Bearer &lt;jwt&gt;            │                    │
+     │──────────────────►│                     │                    │
+     │                   │                     │                    │
+     │  HTTP 402 Payment Required              │                    │
+     │  PAYMENT-REQUIRED: true                 │                    │
+     │  Body: [{                               │                    │
+     │    scheme: 'exact',                     │                    │
+     │    network: 'eip155:8453',              │                    │
+     │    payTo: '0xHub...',                   │                    │
+     │    asset: 'USDC',                       │                    │
+     │    maxAmountRequired: '50000000'        │                    │
+     │  }]                                     │                    │
+     │◄──────────────────│                     │                    │
+     │                   │                     │                    │
+     │  ┌─────────────────────────────────┐    │                    │
+     │  │ APP: PaymentSheet appears       │    │                    │
+     │  │ "Pro Plan — $50 USDC on Base"   │    │                    │
+     │  │ [Confirm Payment]               │    │                    │
+     │  │ User confirms + biometric       │    │                    │
+     │  └─────────────────────────────────┘    │                    │
+     │                   │                     │                    │
+     │  Sign USDC transfer tx                  │                    │
+     │─────────────────────────────────────────────────────────────►│
+     │                   │                     │                    │
+     │  tx hash: 0xabc...                      │                    │
+     │◄─────────────────────────────────────────────────────────────│
+     │                   │                     │                    │
+     │  Verify settlement                      │                    │
+     │────────────────────────────────────────►│                    │
+     │                   │                     │  Check on-chain    │
+     │                   │                     │───────────────────►│
+     │                   │                     │  Confirmed ✓       │
+     │                   │                     │◄───────────────────│
+     │  Settlement proof                       │                    │
+     │◄────────────────────────────────────────│                    │
+     │                   │                     │                    │
+     │  RETRY: POST /v1/provision/pro          │                    │
+     │  Authorization: Bearer &lt;jwt&gt;            │                    │
+     │  PAYMENT-RESPONSE: &lt;proof&gt;              │                    │
+     │──────────────────►│                     │                    │
+     │                   │  Verify proof       │                    │
+     │                   │────────────────────►│                    │
+     │                   │  Valid ✓            │                    │
+     │                   │◄────────────────────│                    │
+     │  HTTP 200 OK      │                     │                    │
+     │  { tenantId, subscription, ... }        │                    │
+     │◄──────────────────│                     │                    │
+     │                   │                     │                    │
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Multi-Hub Architecture</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Users can connect to multiple SAGA directory hubs</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────────────────────────────────────┐
+│                       SAGA APP                               │
+│                                                              │
+│  ┌─ HubManager ───────────────────────────────────────────┐ │
+│  │                                                         │ │
+│  │  connections: HubConnection[]                           │ │
+│  │  activeHubId: string                                    │ │
+│  │                                                         │ │
+│  │  ┌─ HubConnection ──────────────────────────────────┐  │ │
+│  │  │  hubUrl: "https://api.saga-standard.dev"         │  │ │
+│  │  │  directoryId: "epic-flowstate"                   │  │ │
+│  │  │  status: 'connected' | 'disconnected' | 'error'  │  │ │
+│  │  │  subscription: { plan: 'pro', periodEnd: ... }   │  │ │
+│  │  │  relayClient: SagaClient                         │  │ │
+│  │  │  serverClient: SagaServerClient                  │  │ │
+│  │  │  identity: handle@directoryId                    │  │ │
+│  │  └──────────────────────────────────────────────────┘  │ │
+│  │                                                         │ │
+│  │  ┌─ HubConnection ──────────────────────────────────┐  │ │
+│  │  │  hubUrl: "https://hub.another-directory.com"     │  │ │
+│  │  │  directoryId: "another-dir"                      │  │ │
+│  │  │  status: 'connected'                             │  │ │
+│  │  │  subscription: { plan: 'free' }                  │  │ │
+│  │  │  relayClient: SagaClient                         │  │ │
+│  │  │  ...                                             │  │ │
+│  │  └──────────────────────────────────────────────────┘  │ │
+│  │                                                         │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  Drawer sidebar shows hub list with status indicators.       │
+│  Switch active hub to change context for messaging,          │
+│  directory browsing, and document management.                │
+│                                                              │
+│  Messages from ALL hubs appear in Messages tab               │
+│  (prefixed with hub/directory badge).                        │
+│  Documents are per-hub.                                      │
+│  Directory search queries the active hub.                    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>X402Client Service</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Payment client that wraps all hub API calls</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────────────────────────────────────┐
+│  class X402Client                                            │
+│                                                              │
+│  constructor(wallet: AbstractWallet, facilitatorUrl: string) │
+│                                                              │
+│  // Core method — wraps any fetch call with x402 handling    │
+│  async fetchWithPayment(url, options): Response              │
+│    1. Make initial request                                   │
+│    2. If 402 → parse payment options                         │
+│    3. Emit 'payment-required' event → triggers PaymentSheet  │
+│    4. Wait for user confirmation                             │
+│    5. Sign USDC transfer with wallet                         │
+│    6. Submit to facilitator for settlement proof             │
+│    7. Retry request with PAYMENT-RESPONSE header             │
+│    8. Return final response                                  │
+│                                                              │
+│  // Convenience methods                                      │
+│  async provision(hubUrl, plan, name): ProvisionResult        │
+│  async renew(hubUrl, tenantId, plan): RenewResult            │
+│  async checkStatus(hubUrl, tenantId): StatusResult           │
+│  async listPlans(hubUrl): Plan[]                             │
+│                                                              │
+│  // Payment history (local)                                  │
+│  getPaymentHistory(): PaymentEvent[]                         │
+│  getActiveSubscriptions(): Subscription[]                    │
+│                                                              │
+│  // Events                                                   │
+│  on('payment-required', handler)  → show PaymentSheet        │
+│  on('payment-settled', handler)   → update UI                │
+│  on('payment-failed', handler)    → show error               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+  Supported networks: Base (EVM) + Solana
+  Settlement asset: USDC
+  Facilitator: https://x402.org/facilitator
+
+  PaymentSheet UI shows:
+  ┌─────────────────────────────────┐
+  │  ┌───────────────────────────┐  │
+  │  │ 🔒 Payment Required      │  │
+  │  │                           │  │
+  │  │ Pro Plan Provisioning     │  │
+  │  │ Epic FlowState Hub       │  │
+  │  │                           │  │
+  │  │ Amount: $50.00 USDC      │  │
+  │  │ Network: Base             │  │
+  │  │ From: 0x1a2b...3c4d      │  │
+  │  │ To:   0xHub...Wallet     │  │
+  │  │                           │  │
+  │  │ Balance: $142.50 USDC    │  │
+  │  │                           │  │
+  │  │ [Confirm & Pay]          │  │
+  │  │ [Cancel]                 │  │
+  │  └───────────────────────────┘  │
+  └─────────────────────────────────┘
+</pre>
+  </div>
+</div>

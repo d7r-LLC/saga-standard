@@ -1,0 +1,261 @@
+<h2>Section 3: Wallet Management Model</h2>
+<p class="subtitle">Dual-track wallet system — self-custody and managed wallets as equal citizens</p>
+
+<div class="mockup">
+  <div class="mockup-header">Wallet Class Hierarchy (inspired by BlueWallet's AbstractWallet)</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+                    ┌─────────────────────┐
+                    │   AbstractWallet     │
+                    │─────────────────────│
+                    │ id: string           │
+                    │ label: string        │
+                    │ chain: Chain         │
+                    │ address: string      │
+                    │ balance: bigint      │
+                    │ type: WalletType     │
+                    │─────────────────────│
+                    │ getBalance()         │
+                    │ getAddress()         │
+                    │ getTransactions()    │
+                    │ signMessage(msg)     │
+                    │ signTransaction(tx)  │
+                    │ toJSON() / fromJSON()│
+                    └─────────┬───────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              │                               │
+  ┌───────────▼──────────┐      ┌─────────────▼────────────┐
+  │  SelfCustodyWallet   │      │    ManagedWallet         │
+  │──────────────────────│      │──────────────────────────│
+  │ mnemonic: encrypted  │      │ managedId: string        │
+  │ derivationPath: str  │      │ hubUrl: string           │
+  │ passphrase?: enc     │      │ authToken: string        │
+  │ hdNode: cached       │      │ provider: 'saga-hub'     │
+  │──────────────────────│      │──────────────────────────│
+  │ generateMnemonic()   │      │ signMessage(msg)         │
+  │ importMnemonic(m)    │      │   → API call to hub      │
+  │ exportMnemonic()     │      │ signTransaction(tx)      │
+  │ deriveAddress(idx)   │      │   → API call to hub      │
+  │ signMessage(msg)     │      │ requestExport()          │
+  │   → local signing    │      │   → convert to           │
+  │ signTransaction(tx)  │      │     self-custody         │
+  │   → local signing    │      │                          │
+  │ backup() → QR/file   │      │                          │
+  └──────────────────────┘      └──────────────────────────┘
+
+  User holds private keys          Hub holds keys on behalf
+  Full sovereignty                 Lower friction onboarding
+  Backup responsibility            Hub manages backup
+  Signs locally                    Signs via authenticated API
+  Works offline (signing)          Requires hub connection
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Onboarding Flows</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Self-Custody Path</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────┐
+│  1. WELCOME                 │
+│  "Own your identity"        │
+│  [Create Wallet]            │
+│  [Import Existing]          │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  2a. CREATE                 │
+│  Generate 12/24-word        │
+│  mnemonic (BIP-39)          │
+│  Show words, confirm backup │
+│  Optional passphrase        │
+└──────────┬──────────────────┘
+           │  ── OR ──
+┌──────────▼──────────────────┐
+│  2b. IMPORT                 │
+│  Enter mnemonic words       │
+│  Scan QR (bc-ur format)     │
+│  Import from file           │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  3. SECURE                  │
+│  Enable biometric unlock    │
+│  Set backup PIN             │
+│  Encrypt keychain           │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  4. FUND                    │
+│  Show wallet address + QR   │
+│  "Send ETH + USDC on Base"  │
+│  Detect incoming funds      │
+│  [Skip for now]             │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  5. MINT IDENTITY           │
+│  Choose: Agent or Org       │
+│  Enter handle               │
+│  Check availability         │
+│  Sign mint transaction      │
+│  Wait for confirmation      │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  6. CONNECT HUB             │
+│  Enter hub URL or scan QR   │
+│  Auth via wallet signature  │
+│  Relay connection test      │
+│  "You're ready!"            │
+└─────────────────────────────┘
+</pre>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Managed Wallet Path</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────┐
+│  1. WELCOME                 │
+│  "Get started quickly"      │
+│  [Managed Wallet]           │
+│  (keys hosted by your hub)  │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  2. SELECT HUB              │
+│  Browse directory hubs      │
+│  e.g. "Epic FlowState"     │
+│  View plans & pricing       │
+│  [Connect]                  │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  3. PROVISION               │
+│  Select plan (free/pro/ent) │
+│  x402 payment if paid plan  │
+│  Hub creates wallet + keys  │
+│  Returns wallet address     │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  4. SECURE                  │
+│  Enable biometric unlock    │
+│  Set app PIN                │
+│  (hub manages key backup)   │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  5. IDENTITY                │
+│  Hub mints identity NFT     │
+│  on your behalf             │
+│  Choose handle              │
+│  Hub signs tx with          │
+│  managed wallet             │
+└──────────┬──────────────────┘
+           │
+┌──────────▼──────────────────┐
+│  6. READY                   │
+│  Relay auto-connected       │
+│  "You're ready!"            │
+│                             │
+│  ┌───────────────────────┐  │
+│  │ Upgrade to self-      │  │
+│  │ custody anytime →     │  │
+│  │ Export keys            │  │
+│  └───────────────────────┘  │
+└─────────────────────────────┘
+</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Wallet Operations Matrix</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">What each wallet type can do</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌────────────────────────┬──────────────┬──────────────┐
+│ Operation              │ Self-Custody │ Managed      │
+├────────────────────────┼──────────────┼──────────────┤
+│ View balance           │     ✓        │     ✓        │
+│ View transactions      │     ✓        │     ✓        │
+│ Send tokens            │  Local sign  │  Hub API     │
+│ Receive tokens         │     ✓        │     ✓        │
+│ Sign messages          │  Local sign  │  Hub API     │
+│ Mint identity NFT      │  Local sign  │  Hub API     │
+│ Register handle        │  Local sign  │  Hub API     │
+│ x402 payments          │  Local sign  │  Hub API     │
+│ Relay authentication   │  Local sign  │  Hub API     │
+│ Export mnemonic        │     ✓        │  Request*    │
+│ Backup to file/QR      │     ✓        │     ✗        │
+│ Works offline          │  Signing ✓   │     ✗        │
+│ Multiple addresses     │  HD derive   │  Hub-managed │
+│ Cross-hub portability  │  Full        │  Via export  │
+│ Key rotation           │  Manual      │  Hub-managed │
+├────────────────────────┼──────────────┼──────────────┤
+│ Upgrade path           │     —        │  → Self-     │
+│                        │              │  Custody     │
+└────────────────────────┴──────────────┴──────────────┘
+
+* Export from managed → self-custody is a one-way
+  sovereignty upgrade. Hub releases keys to user.
+
+  Both wallet types implement the same AbstractWallet
+  interface, so all app features work identically
+  regardless of custody model.
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Key Security Model</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Encryption & Key Storage</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌────────────────────────────────────────────────────────────┐
+│                    KEY HIERARCHY                            │
+│                                                            │
+│  Master Key (derived from user PIN + device key)           │
+│    │                                                       │
+│    ├── Wallet Keys                                         │
+│    │   ├── Self-custody: BIP-39 mnemonic → HD derivation   │
+│    │   │   └── Stored: AES-encrypted in Keychain           │
+│    │   └── Managed: auth token for hub signing API         │
+│    │       └── Stored: Keychain (refreshable)              │
+│    │                                                       │
+│    ├── SagaKeyRing (from saga-crypto)                      │
+│    │   ├── Agent X25519 keypair (DM encryption)            │
+│    │   ├── Group keys (per group)                          │
+│    │   └── Org keys (company DERP encryption)              │
+│    │   └── Stored: AES-encrypted in Realm                  │
+│    │                                                       │
+│    └── App Encryption Key                                  │
+│        └── Encrypts Realm database at rest                 │
+│                                                            │
+│  Biometric Unlock:                                         │
+│    Device biometric → unlocks master key → unlocks all     │
+│    Fallback: PIN entry                                     │
+│                                                            │
+│  Managed Wallet Note:                                      │
+│    SagaKeyRing is ALWAYS local, even with managed wallet.  │
+│    Hub never sees encryption keys — only signing keys.     │
+│    This preserves message privacy regardless of custody.   │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>

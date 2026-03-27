@@ -7,8 +7,7 @@
 
 | ID     | Time     | T   | Title                                                         | Read |
 | ------ | -------- | --- | ------------------------------------------------------------- | ---- |
-| #31907 | 12:38 AM | 🔵  | SAGA Client Factory - Complete Client Implementation          | ~571 |
-| #31904 | 12:37 AM | 🔵  | SAGA Client Runtime Type System - Comprehensive SDK Interface | ~714 |
-| #31901 | "        | 🔵  | SAGA Client Runtime Public API - Exported Types and Factory   | ~355 |
+| #32283 | 1:42 AM  | 🔵  | Saga-Standard Monorepo Configuration and Build System Details | ~889 |
+| #31897 | 12:37 AM | 🔵  | SAGA Client Runtime Package - Client-Side SDK                 | ~258 |
 
 </claude-mem-context>

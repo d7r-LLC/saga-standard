@@ -1,0 +1,333 @@
+<h2>Section 5: Project Structure & Feature Modules</h2>
+<p class="subtitle">React Native CLI app with feature-module architecture — native iOS &amp; Android like BlueWallet</p>
+
+<div class="mockup">
+  <div class="mockup-header">Complete Project Layout</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+packages/saga-app/                    # New package in monorepo
+├── android/                          # Native Android project
+│   ├── app/
+│   │   ├── src/main/java/...         # Native modules (biometrics, keychain)
+│   │   └── build.gradle
+│   ├── build.gradle
+│   └── settings.gradle
+│
+├── ios/                              # Native iOS project
+│   ├── SagaApp/
+│   │   ├── AppDelegate.mm
+│   │   ├── Info.plist
+│   │   └── LaunchScreen.storyboard
+│   ├── Podfile
+│   └── SagaApp.xcworkspace
+│
+├── src/
+│   ├── App.tsx                       # Root component (providers + navigation)
+│   │
+│   ├── navigation/                   # React Navigation setup
+│   │   ├── index.tsx                 # Root navigator (unlock → onboard → main)
+│   │   ├── DrawerNavigator.tsx       # Drawer with hub list
+│   │   ├── TabNavigator.tsx          # 5-tab bottom tabs
+│   │   ├── OnboardingStack.tsx       # Onboarding wizard flow
+│   │   ├── types.ts                  # Typed navigation param lists
+│   │   └── stacks/
+│   │       ├── MessagesStack.tsx     # Messages tab stack
+│   │       ├── DocumentsStack.tsx    # Documents tab stack
+│   │       ├── DirectoryStack.tsx    # Directory tab stack
+│   │       ├── WalletStack.tsx       # Wallet tab stack
+│   │       └── ProfileStack.tsx      # Profile tab stack
+│   │
+│   ├── features/                     # Domain feature modules
+│   │   ├── wallet/
+│   │   │   ├── class/
+│   │   │   │   ├── AbstractWallet.ts
+│   │   │   │   ├── SelfCustodyWallet.ts
+│   │   │   │   └── ManagedWallet.ts
+│   │   │   ├── hooks/
+│   │   │   │   ├── useWallet.ts          # Active wallet access
+│   │   │   │   ├── useBalance.ts         # Balance polling
+│   │   │   │   ├── useTransactions.ts    # Tx history
+│   │   │   │   └── useFunding.ts         # Send/receive flows
+│   │   │   ├── screens/
+│   │   │   │   ├── WalletOverview.tsx
+│   │   │   │   ├── WalletDetail.tsx
+│   │   │   │   ├── SendFlow.tsx
+│   │   │   │   ├── ReceiveScreen.tsx
+│   │   │   │   └── WalletSettings.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── WalletCard.tsx
+│   │   │   │   ├── TransactionList.tsx
+│   │   │   │   ├── BalanceDisplay.tsx
+│   │   │   │   └── QRAddress.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── identity/
+│   │   │   ├── hooks/
+│   │   │   │   ├── useIdentity.ts        # Current identity
+│   │   │   │   ├── useMint.ts            # Mint NFT flow
+│   │   │   │   ├── useHandle.ts          # Handle ops
+│   │   │   │   └── useTBA.ts             # Token-bound accounts
+│   │   │   ├── screens/
+│   │   │   │   ├── IdentityManager.tsx
+│   │   │   │   ├── MintWizard.tsx
+│   │   │   │   ├── HandleManager.tsx
+│   │   │   │   └── TBADetail.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── IdentityCard.tsx
+│   │   │   │   ├── NFTBadge.tsx
+│   │   │   │   └── HandleChecker.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── messaging/
+│   │   │   ├── hooks/
+│   │   │   │   ├── useRelay.ts           # Relay connection
+│   │   │   │   ├── useMessages.ts        # DM state
+│   │   │   │   ├── useGroups.ts          # Group state
+│   │   │   │   └── useMemorySync.ts      # Envelope sync
+│   │   │   ├── screens/
+│   │   │   │   ├── MessagesList.tsx
+│   │   │   │   ├── ConversationView.tsx
+│   │   │   │   ├── GroupList.tsx
+│   │   │   │   ├── GroupConversation.tsx
+│   │   │   │   ├── GroupInfo.tsx
+│   │   │   │   └── ComposeMessage.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── MessageBubble.tsx
+│   │   │   │   ├── ConversationItem.tsx
+│   │   │   │   ├── EncryptionBadge.tsx
+│   │   │   │   ├── SyncStatus.tsx
+│   │   │   │   └── HubBadge.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── documents/
+│   │   │   ├── hooks/
+│   │   │   │   ├── useDocuments.ts       # Doc listing/CRUD
+│   │   │   │   ├── useTransfer.ts        # Hub-to-hub transfer
+│   │   │   │   └── useContainer.ts       # Pack/extract
+│   │   │   ├── screens/
+│   │   │   │   ├── DocumentExplorer.tsx
+│   │   │   │   ├── DocumentDetail.tsx
+│   │   │   │   ├── LayerViewer.tsx
+│   │   │   │   ├── ExportFlow.tsx
+│   │   │   │   ├── ImportFlow.tsx
+│   │   │   │   └── TransfersList.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── DocumentCard.tsx
+│   │   │   │   ├── LayerBadge.tsx
+│   │   │   │   └── TransferStatus.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── directory/
+│   │   │   ├── hooks/
+│   │   │   │   ├── useSearch.ts          # Directory search
+│   │   │   │   └── useResolve.ts         # Handle resolution
+│   │   │   ├── screens/
+│   │   │   │   ├── DirectorySearch.tsx
+│   │   │   │   ├── AgentProfile.tsx
+│   │   │   │   ├── OrgProfile.tsx
+│   │   │   │   └── DirectoryProfile.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── AgentCard.tsx
+│   │   │   │   ├── OrgCard.tsx
+│   │   │   │   ├── SearchBar.tsx
+│   │   │   │   └── EntityBadge.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── payments/
+│   │   │   ├── class/
+│   │   │   │   └── X402Client.ts         # x402 payment handler
+│   │   │   ├── hooks/
+│   │   │   │   ├── usePayment.ts         # Payment flow state
+│   │   │   │   └── useSubscriptions.ts   # Active plans
+│   │   │   ├── screens/
+│   │   │   │   ├── SubscriptionManager.tsx
+│   │   │   │   ├── PaymentHistory.tsx
+│   │   │   │   └── PlanSelector.tsx
+│   │   │   ├── components/
+│   │   │   │   ├── PaymentSheet.tsx       # Native modal
+│   │   │   │   ├── PlanCard.tsx
+│   │   │   │   └── PaymentBadge.tsx
+│   │   │   └── types.ts
+│   │   │
+│   │   └── governance/
+│   │       ├── hooks/
+│   │       │   ├── usePolicy.ts          # Org policy CRUD
+│   │       │   └── useAuditLog.ts        # Audit trail
+│   │       ├── screens/
+│   │       │   ├── PolicyEditor.tsx
+│   │       │   ├── AuditLog.tsx
+│   │       │   └── MemberManager.tsx
+│   │       ├── components/
+│   │       │   ├── PolicyRule.tsx
+│   │       │   └── AuditEntry.tsx
+│   │       └── types.ts
+│   │
+│   ├── core/                         # Shared infrastructure
+│   │   ├── providers/
+│   │   │   ├── StorageProvider.tsx    # Wallet + identity persistence
+│   │   │   ├── AuthProvider.tsx       # Biometric/PIN unlock
+│   │   │   ├── ChainProvider.tsx      # viem clients + contract configs
+│   │   │   ├── RelayProvider.tsx      # Multi-hub relay connections
+│   │   │   └── PaymentProvider.tsx    # x402 payment state
+│   │   ├── storage/
+│   │   │   ├── realm-schemas.ts      # Realm object schemas
+│   │   │   ├── keychain.ts           # Secure keychain wrapper
+│   │   │   ├── encrypted-store.ts    # saga-crypto EncryptedStore adapter
+│   │   │   └── async-storage.ts      # Non-sensitive KV
+│   │   ├── chain/
+│   │   │   ├── clients.ts            # viem public + wallet clients
+│   │   │   ├── contracts.ts          # Contract config from @epicdm/saga
+│   │   │   └── gas.ts                # Gas estimation helpers
+│   │   ├── hub/
+│   │   │   ├── HubManager.ts         # Multi-hub connection manager
+│   │   │   ├── HubConnection.ts      # Single hub state
+│   │   │   └── hub-discovery.ts      # Find hubs from directory NFTs
+│   │   ├── crypto/
+│   │   │   ├── keyring-adapter.ts    # saga-crypto KeyRing → RN bridge
+│   │   │   └── biometrics.ts         # Biometric unlock wrapper
+│   │   └── theme/
+│   │       ├── colors.ts
+│   │       ├── typography.ts
+│   │       ├── spacing.ts
+│   │       └── index.ts
+│   │
+│   └── components/                   # Shared UI components
+│       ├── Button.tsx
+│       ├── Card.tsx
+│       ├── Header.tsx
+│       ├── ListItem.tsx
+│       ├── TextInput.tsx
+│       ├── QRCode.tsx
+│       ├── QRScanner.tsx
+│       ├── Badge.tsx
+│       ├── StatusIndicator.tsx
+│       ├── SafeArea.tsx
+│       └── LoadingSpinner.tsx
+│
+├── __tests__/                        # Test suites
+│   ├── unit/
+│   │   ├── wallet/
+│   │   ├── identity/
+│   │   ├── payments/
+│   │   └── ...
+│   ├── integration/
+│   │   ├── onboarding.test.ts
+│   │   ├── messaging.test.ts
+│   │   └── x402-payment.test.ts
+│   └── e2e/                          # Detox tests
+│       ├── onboarding.e2e.ts
+│       ├── wallet-send.e2e.ts
+│       └── messaging.e2e.ts
+│
+├── package.json
+├── tsconfig.json
+├── metro.config.js
+├── babel.config.js
+├── react-native.config.js
+├── Gemfile                           # Ruby deps for iOS (CocoaPods)
+├── .env.example                      # RPC URLs, facilitator URL
+└── index.js                          # RN entry point
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Key Dependencies</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">React Native & Navigation</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+react-native             # CLI (not Expo)
+@react-navigation/native
+@react-navigation/native-stack
+@react-navigation/bottom-tabs
+@react-navigation/drawer
+react-native-screens
+react-native-safe-area-context
+react-native-gesture-handler
+react-native-reanimated   # Animations
+</pre>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Crypto & Chain</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+viem                      # Chain client
+@x402/core                # x402 protocol
+@epicdm/saga-sdk          # Documents
+@epicdm/saga-crypto       # Encryption
+@epicdm/saga-client-rt    # Relay client
+@epicdm/saga-client       # REST + chain
+@epicdm/saga (contracts)  # ABIs + types
+</pre>
+    </div>
+  </div>
+</div>
+
+<div class="split" style="margin-top: 12px;">
+  <div class="mockup">
+    <div class="mockup-header">Storage & Security</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+realm                     # Encrypted DB
+react-native-keychain     # Secure key store
+react-native-biometrics   # Face ID / Touch ID
+@react-native-async-storage
+react-native-quick-crypto # Native crypto
+</pre>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">UI & Utilities</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+react-native-qrcode-svg   # QR generation
+react-native-camera-kit   # QR scanning
+@react-native-clipboard
+react-native-share         # Export files
+react-native-fs            # Container I/O
+react-native-notifications # Push
+</pre>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Monorepo Integration</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">How saga-app fits into the existing monorepo</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+saga-standard/
+├── packages/
+│   ├── saga-app/           # NEW — React Native iOS/Android app
+│   │   └── depends on ↓
+│   ├── saga-client-rt/     # Relay + messaging SDK
+│   ├── saga-client/        # REST API + chain client (renamed from client)
+│   ├── saga-sdk/           # Document validation + encryption (renamed from sdk)
+│   ├── saga-crypto/        # Key management + envelope encryption
+│   ├── contracts/          # Solidity + ABIs + TS bindings
+│   ├── directory/          # STAYS — Next.js web + Electron
+│   ├── server/             # Cloudflare Workers hub
+│   └── cli/                # CLI tool
+│
+│  saga-app consumes:
+│    @epicdm/saga-client-rt  → messaging, relay, memory sync
+│    @epicdm/saga-client     → REST API, chain ops, auth
+│    @epicdm/saga-sdk        → document assembly, validation
+│    @epicdm/saga-crypto     → key ring, envelope encryption
+│    @epicdm/saga (contracts) → ABIs, types, addresses
+│
+│  saga-app does NOT depend on:
+│    packages/server         → runs independently
+│    packages/directory      → separate web client
+│    packages/cli            → separate CLI client
+</pre>
+  </div>
+</div>

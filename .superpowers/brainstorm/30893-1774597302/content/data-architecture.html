@@ -1,0 +1,221 @@
+<h2>Section 2: Data Architecture & State Management</h2>
+<p class="subtitle">How data flows through the app — storage, providers, and SDK integration</p>
+
+<div class="mockup">
+  <div class="mockup-header">Data Flow Architecture</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────────────────────────────────────────────┐
+│                          REACT TREE                                 │
+│                                                                     │
+│  &lt;AppProvider&gt;                                                      │
+│    &lt;StorageProvider&gt;         ← Encrypted local DB (wallets, keys)   │
+│      &lt;AuthProvider&gt;          ← Biometric/PIN unlock state           │
+│        &lt;ChainProvider&gt;       ← viem clients, contract configs       │
+│          &lt;RelayProvider&gt;     ← saga-client-rt WebSocket connection  │
+│            &lt;PaymentProvider&gt;  ← x402 payment state & subscriptions  │
+│              &lt;Navigation/&gt;                                          │
+│            &lt;/PaymentProvider&gt;                                       │
+│          &lt;/RelayProvider&gt;                                           │
+│        &lt;/ChainProvider&gt;                                             │
+│      &lt;/AuthProvider&gt;                                                │
+│    &lt;/StorageProvider&gt;                                               │
+│  &lt;/AppProvider&gt;                                                     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                       STATE MANAGEMENT                              │
+│                                                                     │
+│  Pattern: React Context + Custom Hooks (BlueWallet model)           │
+│  No Redux/Zustand — contexts are sufficient for this domain         │
+│                                                                     │
+│  ┌─ StorageContext ──────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │  wallets: Wallet[]          ← Self-custody + managed wallets  │  │
+│  │  identities: Identity[]     ← Agent, Org, Directory NFTs     │  │
+│  │  activeWalletId: string     ← Currently selected wallet       │  │
+│  │  activeIdentityId: string   ← Currently active identity       │  │
+│  │                                                               │  │
+│  │  addWallet(w) / deleteWallet(id)                              │  │
+│  │  addIdentity(i) / updateIdentity(id, patch)                  │  │
+│  │  saveToDisk()               ← Debounced encrypted persist     │  │
+│  │  loadFromDisk()             ← Decrypt & hydrate on unlock     │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─ RelayContext ────────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │  client: SagaClient         ← From saga-client-rt             │  │
+│  │  connected: boolean                                           │  │
+│  │  messages: Message[]        ← DMs (decrypted in memory only)  │  │
+│  │  groups: Group[]            ← Group conversations              │  │
+│  │  unreadCounts: Map          ← Per-conversation unread          │  │
+│  │                                                               │  │
+│  │  sendMessage(to, msg)                                         │  │
+│  │  sendGroupMessage(groupId, msg)                               │  │
+│  │  syncMemory(checkpoint)     ← Envelope recovery                │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─ ChainContext ────────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │  publicClient: PublicClient   ← viem read-only client         │  │
+│  │  walletClient: WalletClient   ← viem signing client           │  │
+│  │  chain: base | baseSepolia                                    │  │
+│  │                                                               │  │
+│  │  mintAgent(handle, hubUrl)                                    │  │
+│  │  mintOrg(handle, name)                                        │  │
+│  │  mintDirectory(directoryId)                                   │  │
+│  │  registerHandle(handle, entityType, tokenId)                  │  │
+│  │  resolveHandle(handle) → entity                               │  │
+│  │  createTBA(tokenId, contractAddr)                             │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─ PaymentContext ──────────────────────────────────────────────┐  │
+│  │                                                               │  │
+│  │  subscriptions: Subscription[]                                │  │
+│  │  paymentHistory: PaymentEvent[]                               │  │
+│  │                                                               │  │
+│  │  handleX402(response) → PaymentResult                         │  │
+│  │    1. Parse 402 response → payment options                    │  │
+│  │    2. Present PaymentSheet to user                            │  │
+│  │    3. Sign tx with active wallet                              │  │
+│  │    4. Get settlement proof from facilitator                   │  │
+│  │    5. Retry original request with proof                       │  │
+│  │                                                               │  │
+│  │  refreshSubscriptions()                                       │  │
+│  │  renewSubscription(tenantId, plan)                            │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Local Storage Architecture</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Encrypted Storage Layers (following BlueWallet patterns)</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────────────────────────────────────┐
+│                    SECURE KEYCHAIN                           │
+│              (react-native-keychain)                         │
+│                                                              │
+│  • Master encryption key (AES-256)                           │
+│  • Wallet private keys / mnemonics                           │
+│  • saga-crypto KeyRing secrets                               │
+│  • Biometric-protected access                                │
+│  • WHEN_UNLOCKED_THIS_DEVICE_ONLY                            │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+                          │ encrypts
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   ENCRYPTED REALM DB                         │
+│              (realm with AES encryption)                     │
+│                                                              │
+│  Schemas:                                                    │
+│  ┌─ WalletRecord ──────────────────────────────────────┐    │
+│  │  id, type (self-custody|managed), label, address,    │    │
+│  │  chain, encryptedSecret, balance, lastSync           │    │
+│  └──────────────────────────────────────────────────────┘    │
+│  ┌─ IdentityRecord ───────────────────────────────────┐     │
+│  │  id, type (agent|org|directory), handle, tokenId,    │    │
+│  │  contractAddress, tbaAddress, hubUrl, metadata       │    │
+│  └──────────────────────────────────────────────────────┘    │
+│  ┌─ MessageRecord ────────────────────────────────────┐     │
+│  │  id, conversationId, from, to, scope, ciphertext,    │    │
+│  │  timestamp, status (sent|delivered|read)              │    │
+│  └──────────────────────────────────────────────────────┘    │
+│  ┌─ DocumentRecord ───────────────────────────────────┐     │
+│  │  id, agentHandle, exportType, sagaVersion,           │    │
+│  │  encryptedContent, layers[], sizeBytes, checksum     │    │
+│  └──────────────────────────────────────────────────────┘    │
+│  ┌─ SubscriptionRecord ──────────────────────────────┐      │
+│  │  id, tenantId, hubUrl, plan, status,                │     │
+│  │  periodEnd, paymentHistory[]                        │     │
+│  └──────────────────────────────────────────────────────┘    │
+│  ┌─ GroupRecord ──────────────────────────────────────┐     │
+│  │  id, name, members[], groupKeyId, lastActivity      │     │
+│  └──────────────────────────────────────────────────────┘    │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+                          │ caches
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   ASYNC STORAGE (KV)                         │
+│             (non-sensitive preferences)                       │
+│                                                              │
+│  • App settings (theme, language, notifications)             │
+│  • Last active wallet/identity IDs                           │
+│  • Directory search cache                                    │
+│  • Hub connection metadata                                   │
+│  • Onboarding completion flags                               │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>SDK Integration Model</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">How existing @epicdm packages map into the app</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌──────────────────────────────────────────────────────────────────┐
+│                        APP FEATURES                              │
+│                                                                  │
+│  Messaging ──────────► @epicdm/saga-client-rt                    │
+│  feature               • SagaClient (connect, sendMessage, etc.) │
+│                         • RelayConnection (WebSocket)            │
+│                         • MessageRouter (DM, group, memory)      │
+│                         • PolicyEngine (governance)              │
+│                                                                  │
+│  Documents ──────────► @epicdm/saga-sdk                          │
+│  feature               • assembleSagaDocument()                  │
+│                         • validateSagaDocument()                 │
+│                         • packSagaContainer() / extract()        │
+│                         • encryptLayer() / decryptLayer()        │
+│                                                                  │
+│  Identity  ──────────► @epicdm/saga-client                       │
+│  feature               • ChainClient (mint, register, resolve)   │
+│                         • AuthClient (challenge-response)        │
+│                         • ServerClient (REST API calls)          │
+│                                                                  │
+│  Wallet    ──────────► @epicdm/saga-crypto                       │
+│  feature               • SagaKeyRing (key management)            │
+│                         • seal() / open() (envelope encryption)  │
+│                         • deriveX25519KeyPair()                  │
+│                         • createEncryptedStore()                 │
+│                                                                  │
+│  Payments  ──────────► @x402/core + custom X402Client            │
+│  feature               • Parse 402 responses                     │
+│                         • Build payment proofs                   │
+│                         • Sign with wallet (viem)                │
+│                         • Retry with settlement proof            │
+│                                                                  │
+│  Directory ──────────► @epicdm/saga-client (ServerClient)        │
+│  feature               • GET /v1/agents, /v1/orgs               │
+│                         • GET /v1/resolve/:handle                │
+│                         • On-chain reads via viem publicClient   │
+│                                                                  │
+│  On-Chain  ──────────► viem + contract ABIs from @epicdm/saga    │
+│  ops                   • SAGAHandleRegistry ABI                  │
+│                         • SAGAAgentIdentity ABI                  │
+│                         • SAGAOrgIdentity ABI                    │
+│                         • SAGADirectoryIdentity ABI              │
+│                         • SAGATBAHelper ABI                      │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>

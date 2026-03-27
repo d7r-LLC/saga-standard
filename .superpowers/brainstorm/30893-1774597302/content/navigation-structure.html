@@ -1,0 +1,197 @@
+<h2>Section 1: Navigation & Screen Structure</h2>
+<p class="subtitle">React Native CLI app with React Navigation — tab-based primary navigation with modal stacks</p>
+
+<div class="section">
+  <h3>Tab Navigator</h3>
+  <p>Five primary tabs covering all personas (agent operator, identity holder, org admin)</p>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Navigation Architecture</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5;">
+<pre style="margin:0; color: #ccc;">
+┌─────────────────────────────────────────────────────────────────┐
+│                        ROOT NAVIGATOR                           │
+│                                                                 │
+│  ┌─── UnlockScreen (biometric/PIN gate) ───────────────────┐   │
+│  │    Shows on app launch if security enabled               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                          │                                      │
+│  ┌─── OnboardingWizard (first-time setup) ─────────────────┐   │
+│  │  1. Welcome / Connect or Create Wallet                   │   │
+│  │  2. Choose: Self-Custody or Managed Wallet               │   │
+│  │  3. Mint Identity NFT (Agent or Org)                     │   │
+│  │  4. Register Handle                                      │   │
+│  │  5. Connect to Hub                                       │   │
+│  │  6. Setup Complete → Main App                            │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                          │                                      │
+│  ┌─── DrawerNavigator ─────────────────────────────────────┐   │
+│  │                                                          │   │
+│  │  Drawer Menu:                                            │   │
+│  │  ┌──────────────┐    ┌──────────────────────────────┐   │   │
+│  │  │ • Wallets    │    │                              │   │   │
+│  │  │ • Identities │    │     TAB NAVIGATOR            │   │   │
+│  │  │ • Hub Status │    │                              │   │   │
+│  │  │ ─────────── │    │  ┌────┬────┬────┬────┬────┐ │   │   │
+│  │  │ • Settings   │    │  │ 💬 │ 📁 │ 🔍 │ 💰 │ 👤 │ │   │   │
+│  │  │ • Security   │    │  │Msgs│Docs│ Dir│Wallet│ Me │ │   │   │
+│  │  │ • About      │    │  └────┴────┴────┴────┴────┘ │   │   │
+│  │  └──────────────┘    └──────────────────────────────┘   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─── Modal Stacks (presented over tabs) ──────────────────┐   │
+│  │                                                          │   │
+│  │  SendMessageModal    → Compose DM / Group message        │   │
+│  │  MintIdentityModal   → Mint Agent/Org/Directory NFT      │   │
+│  │  TransferModal       → Initiate document transfer        │   │
+│  │  PaymentModal        → x402 payment flow (hub services)  │   │
+│  │  ExportModal         → Export SAGA container              │   │
+│  │  ImportModal         → Import SAGA container              │   │
+│  │  QRScannerModal      → Scan QR for addresses/handles     │   │
+│  │  WalletFundingModal  → Send/receive tokens               │   │
+│  │  PolicyEditorModal   → Edit org governance policy         │   │
+│  │                                                          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Tab Screens Detail</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">💬 Messages Tab</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.4;">
+<pre style="margin:0; color: #ccc;">
+MessagesList
+ ├── ConversationView (DM thread)
+ │    └── MessageDetails
+ ├── GroupList
+ │    └── GroupConversation
+ │         └── GroupInfo / Members
+ ├── MemorySyncStatus
+ └── NewMessage (compose)
+
+• Real-time via saga-client-rt relay
+• Encrypted envelopes (mutual/group scope)
+• Offline mailbox drain on reconnect
+• Memory envelope sync
+</pre>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">📁 Documents Tab</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.4;">
+<pre style="margin:0; color: #ccc;">
+DocumentExplorer
+ ├── DocumentDetail
+ │    ├── LayerViewer (9 layers)
+ │    ├── EncryptionStatus
+ │    └── TransferHistory
+ ├── ExportFlow
+ │    └── ContainerPreview
+ ├── ImportFlow
+ │    └── ValidationResults
+ └── TransfersList
+      └── TransferDetail
+
+• Browse stored SAGA documents
+• View encryption layers & status
+• Export/import ZIP containers
+• Initiate hub-to-hub transfers
+</pre>
+    </div>
+  </div>
+</div>
+
+<div class="split" style="margin-top: 16px;">
+  <div class="mockup">
+    <div class="mockup-header">🔍 Directory Tab</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.4;">
+<pre style="margin:0; color: #ccc;">
+DirectorySearch
+ ├── AgentProfile
+ │    ├── NFT Details
+ │    ├── TBA Address
+ │    ├── Hub Status
+ │    └── Send Message (→ modal)
+ ├── OrgProfile
+ │    ├── Members List
+ │    ├── Governance Policy
+ │    └── Join / Request Access
+ ├── DirectoryProfile (Phase 7)
+ │    └── Federation Status
+ └── HandleResolver
+
+• Search agents, orgs, directories
+• View on-chain identity details
+• Resolve handles → entities
+• Initiate contact from profile
+</pre>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">💰 Wallet Tab</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.4;">
+<pre style="margin:0; color: #ccc;">
+WalletOverview
+ ├── WalletDetail
+ │    ├── TransactionHistory
+ │    ├── TokenBalances (ETH, USDC)
+ │    └── TBA Assets
+ ├── SendFlow (→ modal)
+ ├── ReceiveFlow (QR + address)
+ ├── SubscriptionManager
+ │    ├── ActivePlans
+ │    ├── PaymentHistory
+ │    └── RenewFlow (→ x402)
+ └── WalletSettings
+      ├── ManagedWalletConfig
+      └── SelfCustodyBackup
+
+• Dual-track: self-custody + managed
+• Token balances & tx history
+• x402 subscription management
+• QR code receive addresses
+</pre>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top: 16px;">
+  <div class="mockup-header">👤 Profile / Me Tab</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 11px; line-height: 1.4;">
+<pre style="margin:0; color: #ccc;">
+MyProfile
+ ├── IdentityManager
+ │    ├── AgentIdentities (owned NFTs)
+ │    ├── OrgMemberships
+ │    ├── DirectoryMemberships
+ │    └── MintNew (→ modal)
+ ├── HandleManager
+ │    ├── Registered Handles
+ │    └── UpdateHomeHub
+ ├── SecuritySettings
+ │    ├── BiometricSetup
+ │    ├── PIN / Password
+ │    ├── Backup & Recovery
+ │    └── KeyManagement (KeyRing)
+ ├── HubConnections
+ │    ├── Connected Hubs
+ │    ├── Relay Status
+ │    └── AddHub (connect to new directory hub)
+ ├── GovernanceAdmin (org admins only)
+ │    ├── PolicyEditor
+ │    ├── AuditLog
+ │    └── MemberManagement
+ └── AppSettings
+      ├── Theme / Appearance
+      ├── Notifications
+      └── Network (chain selection)
+</pre>
+  </div>
+</div>

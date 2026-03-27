@@ -7,8 +7,8 @@
 
 | ID     | Time     | T   | Title                                                         | Read |
 | ------ | -------- | --- | ------------------------------------------------------------- | ---- |
-| #31907 | 12:38 AM | 🔵  | SAGA Client Factory - Complete Client Implementation          | ~571 |
-| #31904 | 12:37 AM | 🔵  | SAGA Client Runtime Type System - Comprehensive SDK Interface | ~714 |
-| #31901 | "        | 🔵  | SAGA Client Runtime Public API - Exported Types and Factory   | ~355 |
+| #32321 | 2:01 AM  | 🔵  | Directory Package Purpose and Tech Stack                      | ~298 |
+| #32283 | 1:42 AM  | 🔵  | Saga-Standard Monorepo Configuration and Build System Details | ~889 |
+| #31931 | 12:39 AM | 🔵  | SAGA Directory Package - Web UI for Agent Discovery           | ~335 |
 
 </claude-mem-context>

@@ -102,6 +102,18 @@ SAGA defines a common format at the layer beneath any individual platform: the a
 
 **Conformant Platform:** A platform that correctly implements SAGA at one or more conformance levels.
 
+**Runtime:** An environment that hosts a running agent instance. A Runtime loads a SAGA document, provides compute, and declares a capability profile describing what it offers (persistent state, tool access, memory sync, credential vault, network access, isolated execution). See the [SAGA Agent Execution Model](/docs/superpowers/specs/2026-03-27-saga-execution-model-design.md) for the full taxonomy.
+
+**Runtime Capability Profile:** The set of capabilities a Runtime provides, declared from a fixed vocabulary defined by this specification. Platforms and sessions operate within the bounds of the Runtime's declared profile.
+
+**DERP (Deterministic Environment Runtime Platform):** A full-capability Runtime that provides persistent state, tool access, encrypted memory sync, credential vault access, network access, and isolated execution. The reference Runtime type for SAGA agents. Defined in detail by the [DERP Spec](https://github.com/d7r-LLC/derp-spec/blob/main/spec/DERP-v1.0.md).
+
+**Hosted Session Runtime:** A lightweight Runtime instantiated on-demand when a user interacts with an agent through a directory or gateway, typically using a user-supplied LLM API token. Loads the agent's public SAGA layers (persona, skills, cognitive config) and constructs an LLM context. Minimal capability profile by default, extensible with tool access and memory sync if the agent owner authorizes it.
+
+**Session:** A bounded interaction between an external party and an agent running in a Runtime. Sessions have a type (conversational, programmatic, delegated), a persistence level (ephemeral, session-scoped, agent-persistent), and an initiator. A Session can only use capabilities that its backing Runtime provides.
+
+**Session Persistence:** The durability of context produced during a Session. Three levels: _ephemeral_ (nothing persists after close), _session-scoped_ (context persists within the session but is discarded on close), and _agent-persistent_ (memories are written back to the agent's SAGA memory layer). Agent-persistent sessions require authorization from the agent owner.
+
 ---
 
 ## 3. Document Structure
