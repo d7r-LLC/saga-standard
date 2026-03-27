@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import React from 'react'
+import React, { useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Button } from '../../../components/Button'
@@ -15,6 +15,8 @@ import { colors, spacing, typography } from '../../../core/theme'
 import { useMint } from '../hooks/useMint'
 import { useHandle } from '../hooks/useHandle'
 import { HandleChecker } from '../components/HandleChecker'
+import { useStorage } from '../../../core/providers/StorageProvider'
+import { useWalletSigner } from '../../wallet/hooks/useWalletSigner'
 import type { ProfileStackParamList } from '../../../navigation/types'
 import type { EntityType, MintEntityType } from '../types'
 
@@ -23,12 +25,25 @@ type Props = NativeStackScreenProps<ProfileStackParamList, 'MintWizard'>
 export function MintWizard({ navigation }: Props): React.JSX.Element {
   const mint = useMint()
   const handle = useHandle()
+  const { wallets, activeWalletId } = useStorage()
   const { state } = mint
+
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(activeWalletId)
+  const signer = useWalletSigner(selectedWalletId)
 
   const handleCancel = () => {
     mint.reset()
     handle.reset()
     navigation.goBack()
+  }
+
+  const handleMint = async () => {
+    try {
+      const walletClient = await signer.getWalletClient()
+      await mint.executeMint(walletClient)
+    } catch {
+      // Error is set in signer.error or useMint state.error
+    }
   }
 
   return (
@@ -54,7 +69,18 @@ export function MintWizard({ navigation }: Props): React.JSX.Element {
             }}
           />
         )}
-        {state.step === 'confirm' && <Confirmation state={state} onBack={() => mint.reset()} />}
+        {state.step === 'confirm' && (
+          <Confirmation
+            state={state}
+            wallets={wallets}
+            selectedWalletId={selectedWalletId}
+            onSelectWallet={setSelectedWalletId}
+            signerError={signer.error}
+            signing={signer.signing}
+            onMint={handleMint}
+            onBack={() => mint.reset()}
+          />
+        )}
         {state.step === 'minting' && (
           <View style={styles.center}>
             <LoadingSpinner />
@@ -176,11 +202,26 @@ function HandleEntry({
 
 function Confirmation({
   state,
+  wallets,
+  selectedWalletId,
+  onSelectWallet,
+  signerError,
+  signing,
+  onMint,
   onBack,
 }: {
   state: { entityType: EntityType | null; handle: string; hubUrl: string; orgName: string }
+  wallets: Array<{ id: string; label: string; address: string }>
+  selectedWalletId: string | null
+  onSelectWallet: (id: string) => void
+  signerError: string | null
+  signing: boolean
+  onMint: () => void
   onBack: () => void
 }) {
+  const hasWallets = wallets.length > 0
+  const canMint = hasWallets && selectedWalletId !== null && !signing
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Confirm Mint</Text>
@@ -198,14 +239,56 @@ function Confirmation({
           <Text style={styles.confirmNote}>
             This will send a transaction to mint your identity NFT. Network fees apply.
           </Text>
-          <Text style={styles.confirmNote}>
-            Wallet signing will be available in a future update.
-          </Text>
         </View>
       </Card>
+
+      {!hasWallets && (
+        <Card>
+          <View style={styles.confirmDetails}>
+            <Text style={styles.confirmDetail}>
+              Create a wallet first to sign the minting transaction.
+            </Text>
+          </View>
+        </Card>
+      )}
+
+      {hasWallets && (
+        <View style={styles.walletSection}>
+          <Text style={styles.walletLabel}>Signing Wallet</Text>
+          {wallets.map(w => (
+            <Card key={w.id} onPress={() => onSelectWallet(w.id)}>
+              <View style={styles.walletOption}>
+                <View style={styles.walletRadio}>
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      selectedWalletId === w.id && styles.radioOuterSelected,
+                    ]}
+                  >
+                    {selectedWalletId === w.id && <View style={styles.radioInner} />}
+                  </View>
+                </View>
+                <View style={styles.walletInfo}>
+                  <Text style={styles.walletName}>{w.label}</Text>
+                  <Text style={styles.walletAddress}>
+                    {w.address.slice(0, 6)}...{w.address.slice(-4)}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          ))}
+        </View>
+      )}
+
+      {signerError && <Text style={styles.errorText}>{signerError}</Text>}
+
       <View style={styles.buttonRow}>
         <Button title="Back" variant="secondary" onPress={onBack} />
-        <Button title="Mint Identity" disabled onPress={() => {}} />
+        <Button
+          title={signing ? 'Signing...' : 'Mint Identity'}
+          onPress={onMint}
+          disabled={!canMint}
+        />
       </View>
     </View>
   )
@@ -269,4 +352,27 @@ const styles = StyleSheet.create({
   successTitle: { ...typography.h1, color: colors.success },
   errorTitle: { ...typography.h2, color: colors.error },
   errorText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+  walletSection: { gap: spacing.sm, marginTop: spacing.md },
+  walletLabel: { ...typography.label, color: colors.textTertiary },
+  walletOption: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  walletRadio: { justifyContent: 'center', alignItems: 'center' },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioOuterSelected: { borderColor: colors.primary },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  walletInfo: { flex: 1 },
+  walletName: { ...typography.body, color: colors.textPrimary },
+  walletAddress: { ...typography.mono, color: colors.textTertiary, fontSize: 12 },
 })
