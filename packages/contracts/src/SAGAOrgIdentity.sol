@@ -19,6 +19,8 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     mapping(uint256 => string) private _orgHandles;
     mapping(uint256 => string) private _orgNames;
     mapping(uint256 => uint256) private _registeredAt;
+    /// tokenId → directoryId (empty string for global orgs)
+    mapping(uint256 => string) private _directoryIds;
 
     string private _baseTokenURI;
 
@@ -62,6 +64,36 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
         return tokenId;
     }
 
+    /// @notice Register an organization within a specific directory and mint an identity NFT
+    /// @param handle Unique handle within the directory (3-64 chars, validated by registry)
+    /// @param name Display name of the organization (1-128 chars)
+    /// @param directoryId The directory to register in
+    /// @return tokenId The minted token ID
+    function registerOrgInDirectory(
+        string calldata handle,
+        string calldata name,
+        string calldata directoryId
+    ) external returns (uint256) {
+        require(
+            bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
+        );
+
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(msg.sender, tokenId);
+
+        _orgHandles[tokenId] = handle;
+        _orgNames[tokenId] = name;
+        _registeredAt[tokenId] = block.timestamp;
+        _directoryIds[tokenId] = directoryId;
+
+        handleRegistry.registerScopedHandle(
+            handle, SAGAHandleRegistry.EntityType.ORG, tokenId, directoryId
+        );
+
+        emit OrgRegistered(tokenId, handle, name, msg.sender, block.timestamp);
+        return tokenId;
+    }
+
     /// @notice Update the organization display name (owner only)
     function updateOrgName(uint256 tokenId, string calldata name) external {
         require(ownerOf(tokenId) == msg.sender, "SAGAOrgIdentity: not owner");
@@ -88,6 +120,11 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     function registeredAt(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _registeredAt[tokenId];
+    }
+
+    function orgDirectoryId(uint256 tokenId) external view returns (string memory) {
+        _requireOwned(tokenId);
+        return _directoryIds[tokenId];
     }
 
     // --- Metadata ---

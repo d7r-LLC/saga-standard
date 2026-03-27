@@ -231,4 +231,64 @@ contract SAGAAgentIdentityTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 999));
         agent.registeredAt(999);
     }
+
+    // --- Test 19: registerAgentInDirectory success ---
+    function test_registerAgentInDirectory_success() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgentInDirectory(
+            "marcus", "https://hub.example.com", "epic-hub"
+        );
+
+        assertEq(tokenId, 0);
+        assertEq(agent.ownerOf(tokenId), user1);
+        assertEq(agent.agentHandle(tokenId), "marcus");
+        assertEq(agent.homeHubUrl(tokenId), "https://hub.example.com");
+        assertEq(agent.agentDirectoryId(tokenId), "epic-hub");
+
+        // Verify in scoped registry
+        (SAGAHandleRegistry.EntityType entityType, uint256 regTokenId, address contractAddr) =
+            registry.resolveScopedHandle("marcus", "epic-hub");
+        assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(regTokenId, 0);
+        assertEq(contractAddr, address(agent));
+    }
+
+    // --- Test 20: same handle in different directories ---
+    function test_registerAgentInDirectory_sameHandleDifferentDirs() public {
+        vm.prank(user1);
+        agent.registerAgentInDirectory("marcus", "https://hub-a.com", "dir-a");
+
+        vm.prank(user2);
+        agent.registerAgentInDirectory("marcus", "https://hub-b.com", "dir-b");
+
+        (, uint256 tidA,) = registry.resolveScopedHandle("marcus", "dir-a");
+        (, uint256 tidB,) = registry.resolveScopedHandle("marcus", "dir-b");
+
+        assertEq(tidA, 0);
+        assertEq(tidB, 1);
+    }
+
+    // --- Test 21: directory-scoped agent doesn't block global agent ---
+    function test_registerAgentInDirectory_doesNotBlockGlobal() public {
+        vm.prank(user1);
+        agent.registerAgentInDirectory("unique-name", "https://hub-a.com", "dir-a");
+
+        // Global registration of same handle should succeed
+        vm.prank(user2);
+        agent.registerAgent("unique-name", "https://hub-b.com");
+
+        (, uint256 globalTid,) = registry.resolveHandle("unique-name");
+        (, uint256 scopedTid,) = registry.resolveScopedHandle("unique-name", "dir-a");
+
+        assertEq(globalTid, 1);
+        assertEq(scopedTid, 0);
+    }
+
+    // --- Test 22: agentDirectoryId for global agent returns empty string ---
+    function test_agentDirectoryId_globalReturnsEmpty() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("global-agent", "https://hub.com");
+
+        assertEq(agent.agentDirectoryId(tokenId), "");
+    }
 }
