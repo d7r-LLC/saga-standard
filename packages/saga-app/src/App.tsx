@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { StyleSheet } from 'react-native'
 import { StorageProvider } from './core/providers/StorageProvider'
 import { AuthProvider } from './core/providers/AuthProvider'
+import { ChainProvider } from './core/providers/ChainProvider'
 import { RootNavigator } from './navigation'
 
 export default function App(): React.JSX.Element {
@@ -13,7 +14,9 @@ export default function App(): React.JSX.Element {
     <GestureHandlerRootView style={styles.root}>
       <StorageProvider>
         <AuthProvider>
-          <RootNavigator />
+          <ChainProvider>
+            <RootNavigator />
+          </ChainProvider>
         </AuthProvider>
       </StorageProvider>
     </GestureHandlerRootView>
