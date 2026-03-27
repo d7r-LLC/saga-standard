@@ -10,8 +10,10 @@ import {
   STALE_TIMEOUT_MS,
   isRegularClientAttachment,
   parseClientMessage,
+  parseFederationMessage,
 } from './types'
 import { generateWsChallenge, reVerifyNft, verifyWsAuth } from './ws-auth'
+import { generateFederationChallenge, verifyFederationAuth } from './federation-auth'
 import { validateEnvelope } from './envelope-validator'
 import { createMailbox } from './mailbox'
 import type { RelayMailbox } from './mailbox'
@@ -46,6 +48,9 @@ export class RelayRoom {
   // ── WebSocket upgrade ─────────────────────────────────────────
 
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url)
+    const isFederation = url.searchParams.get('federation') === 'true'
+
     const upgradeHeader = request.headers.get('Upgrade')
     if (upgradeHeader?.toLowerCase() !== 'websocket') {
       return new Response('Expected WebSocket upgrade', { status: 426 })
@@ -56,15 +61,25 @@ export class RelayRoom {
 
     this.ctx.acceptWebSocket(server)
 
-    const { challenge, expiresAt } = generateWsChallenge()
-    const attachment: WebSocketAttachment = {
-      authenticated: false,
-      challenge,
-      expiresAt,
+    if (isFederation) {
+      const { challenge, expiresAt } = generateFederationChallenge()
+      const attachment: WebSocketAttachment = {
+        authenticated: false,
+        challenge,
+        expiresAt,
+      }
+      server.serializeAttachment(attachment)
+      server.send(JSON.stringify({ type: 'federation:challenge', challenge, expiresAt }))
+    } else {
+      const { challenge, expiresAt } = generateWsChallenge()
+      const attachment: WebSocketAttachment = {
+        authenticated: false,
+        challenge,
+        expiresAt,
+      }
+      server.serializeAttachment(attachment)
+      server.send(JSON.stringify({ type: 'auth:challenge', challenge, expiresAt }))
     }
-    server.serializeAttachment(attachment)
-
-    server.send(JSON.stringify({ type: 'auth:challenge', challenge, expiresAt }))
 
     // Schedule heartbeat alarm if not already set
     const currentAlarm = await this.ctx.storage.getAlarm()
@@ -83,6 +98,14 @@ export class RelayRoom {
       return
     }
 
+    const attachment = ws.deserializeAttachment() as WebSocketAttachment | null
+
+    // Check if this is a federation connection
+    if (this.isFederationConnection(attachment)) {
+      return this.handleFederationWebSocketMessage(ws, message, attachment!)
+    }
+
+    // Standard agent connection handling
     const msg = parseClientMessage(message)
     if (!msg) {
       this.sendJson(ws, { type: 'error', error: 'Invalid message format' })
@@ -416,6 +439,144 @@ export class RelayRoom {
       checkpoint: result.checkpoint,
       hasMore: result.hasMore,
     })
+  }
+
+  // ── Federation handlers ──────────────────────────────────────
+
+  private isFederationConnection(attachment: WebSocketAttachment | null): boolean {
+    if (!attachment) return false
+    if (!attachment.authenticated) {
+      // Check challenge format to distinguish federation vs agent
+      return attachment.challenge.startsWith('saga-federation:')
+    }
+    return 'federation' in attachment && (attachment as any).federation === true
+  }
+
+  private async handleFederationWebSocketMessage(
+    ws: WebSocket,
+    message: string,
+    attachment: WebSocketAttachment
+  ): Promise<void> {
+    const msg = parseFederationMessage(message)
+    if (!msg) {
+      this.sendJson(ws, { type: 'federation:error', error: 'Invalid federation message' })
+      return
+    }
+
+    switch (msg.type) {
+      case 'federation:auth':
+        await this.handleFederationAuth(ws, msg, attachment)
+        break
+      case 'relay:forward':
+        await this.handleFederationForward(ws, msg)
+        break
+      case 'control:pong':
+        this.handleFederationPong(ws)
+        break
+    }
+  }
+
+  private async handleFederationAuth(
+    ws: WebSocket,
+    msg: { directoryId: string; operatorWallet: string; signature: string; challenge: string },
+    attachment: WebSocketAttachment
+  ): Promise<void> {
+    if (attachment.authenticated) {
+      this.sendJson(ws, { type: 'federation:error', error: 'Already authenticated' })
+      return
+    }
+
+    if (msg.challenge !== (attachment as any).challenge) {
+      this.sendJson(ws, { type: 'federation:error', error: 'Challenge mismatch' })
+      return
+    }
+
+    const result = await verifyFederationAuth(
+      msg.directoryId,
+      msg.operatorWallet,
+      msg.signature,
+      (attachment as any).challenge,
+      (attachment as any).expiresAt,
+      this.env.DB
+    )
+
+    if (!result.ok) {
+      this.sendJson(ws, { type: 'federation:error', error: result.error })
+      try {
+        ws.close(4002, result.error)
+      } catch {
+        // Already closed
+      }
+      return
+    }
+
+    const fedAttachment: WebSocketAttachment = {
+      authenticated: true,
+      federation: true,
+      directoryId: result.directoryId,
+      operatorWallet: result.operatorWallet,
+    }
+    ws.serializeAttachment(fedAttachment)
+
+    this.sendJson(ws, { type: 'federation:success', directoryId: result.directoryId })
+  }
+
+  private async handleFederationForward(
+    ws: WebSocket,
+    msg: { envelope: RelayEnvelope; sourceDirectoryId: string }
+  ): Promise<void> {
+    const attachment = ws.deserializeAttachment() as WebSocketAttachment
+    if (!attachment?.authenticated || !('federation' in attachment)) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: msg.envelope?.id ?? '',
+        error: 'Not authenticated',
+      })
+      return
+    }
+
+    const envelope = msg.envelope
+    const validationError = validateEnvelope(envelope)
+    if (validationError) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: envelope?.id ?? '',
+        error: validationError.message,
+      })
+      return
+    }
+
+    // Route the envelope locally: extract handle from the `to` field
+    const recipients = Array.isArray(envelope.to) ? envelope.to : [envelope.to]
+
+    for (const recipient of recipients) {
+      const recipientHandle = recipient.split('@')[0]
+      const recipientSet = this.getHandleMap().get(recipientHandle)
+
+      if (recipientSet && recipientSet.size > 0) {
+        let delivered = false
+        for (const recipientWs of recipientSet) {
+          try {
+            this.sendJson(recipientWs, { type: 'relay:deliver', envelope })
+            delivered = true
+          } catch {
+            // Individual send failure
+          }
+        }
+        if (!delivered) {
+          await this.mailbox.store(recipientHandle, envelope)
+        }
+      } else {
+        await this.mailbox.store(recipientHandle, envelope)
+      }
+    }
+
+    this.sendJson(ws, { type: 'relay:forward-ack', messageId: envelope.id })
+  }
+
+  private handleFederationPong(_ws: WebSocket): void {
+    // Federation connections don't track pong the same way.
+    // Future: add lastPong tracking for federation links too.
   }
 
   // ── Helpers ───────────────────────────────────────────────────
