@@ -73,7 +73,7 @@ export interface FederationForwardMessage {
 export type FederationClientMessage =
   | FederationAuthMessage
   | FederationForwardMessage
-  | ControlPongMessage
+  | ControlPongMessage // heartbeat response to server
 
 // ── Federation server → client messages ─────────────────────────
 
@@ -95,11 +95,13 @@ export interface FederationErrorMessage {
 
 export interface FederationForwardAckMessage {
   type: 'relay:forward-ack'
+  /** Correlates to envelope.id of the originating relay:forward message */
   messageId: string
 }
 
 export interface FederationForwardErrorMessage {
   type: 'relay:forward-error'
+  /** Correlates to envelope.id of the originating relay:forward message */
   messageId: string
   error: string
 }
@@ -110,7 +112,7 @@ export type FederationServerMessage =
   | FederationErrorMessage
   | FederationForwardAckMessage
   | FederationForwardErrorMessage
-  | ControlPingMessage
+  | ControlPingMessage // heartbeat from server
 
 export type ClientMessage =
   | AuthVerifyMessage
