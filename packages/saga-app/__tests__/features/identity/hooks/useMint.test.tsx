@@ -14,7 +14,11 @@ jest.mock('../../../../src/core/providers/ChainProvider', () => ({
 }))
 
 jest.mock('../../../../src/core/providers/StorageProvider', () => ({
-  useStorage: () => ({ addIdentity: jest.fn() }),
+  useStorage: () => ({
+    addIdentity: jest.fn(),
+    setActiveIdentity: jest.fn(),
+    identities: [],
+  }),
 }))
 
 describe('useMint', () => {

@@ -16,7 +16,7 @@ import { useMint } from '../hooks/useMint'
 import { useHandle } from '../hooks/useHandle'
 import { HandleChecker } from '../components/HandleChecker'
 import type { ProfileStackParamList } from '../../../navigation/types'
-import type { EntityType } from '../types'
+import type { EntityType, MintEntityType } from '../types'
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'MintWizard'>
 
@@ -40,6 +40,7 @@ export function MintWizard({ navigation }: Props): React.JSX.Element {
           <HandleEntry
             entityType={state.entityType!}
             handleStatus={handle.status}
+            currentHandle={state.handle}
             orgName={state.orgName}
             hubUrl={state.hubUrl}
             onCheck={handle.checkAvailability}
@@ -53,15 +54,7 @@ export function MintWizard({ navigation }: Props): React.JSX.Element {
             }}
           />
         )}
-        {state.step === 'confirm' && (
-          <Confirmation
-            state={state}
-            onMint={() => {
-              // walletClient will come from wallet signing in future phase
-            }}
-            onBack={() => mint.reset()}
-          />
-        )}
+        {state.step === 'confirm' && <Confirmation state={state} onBack={() => mint.reset()} />}
         {state.step === 'minting' && (
           <View style={styles.center}>
             <LoadingSpinner />
@@ -90,7 +83,7 @@ export function MintWizard({ navigation }: Props): React.JSX.Element {
   )
 }
 
-function TypeSelection({ onSelect }: { onSelect: (type: EntityType) => void }) {
+function TypeSelection({ onSelect }: { onSelect: (type: MintEntityType) => void }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Choose Identity Type</Text>
@@ -116,6 +109,7 @@ function TypeSelection({ onSelect }: { onSelect: (type: EntityType) => void }) {
 function HandleEntry({
   entityType,
   handleStatus,
+  currentHandle,
   orgName,
   hubUrl,
   onCheck,
@@ -132,6 +126,7 @@ function HandleEntry({
     error: string | null
     handle: string
   }
+  currentHandle: string
   orgName: string
   hubUrl: string
   onCheck: (h: string) => void
@@ -141,7 +136,11 @@ function HandleEntry({
   onConfirm: () => void
   onBack: () => void
 }) {
-  const canConfirm = handleStatus.available === true && handleStatus.handle.length >= 3
+  const canConfirm =
+    handleStatus.available === true &&
+    !handleStatus.checking &&
+    currentHandle.length >= 3 &&
+    handleStatus.handle === currentHandle
 
   return (
     <View style={styles.section}>
@@ -177,11 +176,9 @@ function HandleEntry({
 
 function Confirmation({
   state,
-  onMint,
   onBack,
 }: {
   state: { entityType: EntityType | null; handle: string; hubUrl: string; orgName: string }
-  onMint: () => void
   onBack: () => void
 }) {
   return (
@@ -199,13 +196,16 @@ function Confirmation({
           )}
           {state.hubUrl ? <Text style={styles.confirmDetail}>Hub: {state.hubUrl}</Text> : null}
           <Text style={styles.confirmNote}>
-            This will send a transaction to mint your identity NFT on Base Sepolia. Gas fees apply.
+            This will send a transaction to mint your identity NFT. Network fees apply.
+          </Text>
+          <Text style={styles.confirmNote}>
+            Wallet signing will be available in a future update.
           </Text>
         </View>
       </Card>
       <View style={styles.buttonRow}>
         <Button title="Back" variant="secondary" onPress={onBack} />
-        <Button title="Mint Identity" onPress={onMint} />
+        <Button title="Mint Identity" disabled onPress={() => {}} />
       </View>
     </View>
   )

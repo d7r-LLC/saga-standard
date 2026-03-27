@@ -6,7 +6,7 @@ import type { WalletClient } from 'viem'
 import { useChain } from '../../../core/providers/ChainProvider'
 import { useStorage } from '../../../core/providers/StorageProvider'
 import { mintAgent, mintOrg } from '../chain'
-import type { EntityType, MintState } from '../types'
+import type { EntityType, MintEntityType, MintState } from '../types'
 
 const INITIAL_STATE: MintState = {
   step: 'type',
@@ -22,7 +22,7 @@ const INITIAL_STATE: MintState = {
 
 interface UseMintResult {
   state: MintState
-  selectType: (type: EntityType) => void
+  selectType: (type: MintEntityType) => void
   setHandle: (handle: string) => void
   setOrgName: (name: string) => void
   setHubUrl: (url: string) => void
@@ -33,10 +33,10 @@ interface UseMintResult {
 
 export function useMint(): UseMintResult {
   const { chainId, publicClient } = useChain()
-  const { addIdentity } = useStorage()
+  const { addIdentity, setActiveIdentity, identities } = useStorage()
   const [state, setState] = useState<MintState>(INITIAL_STATE)
 
-  const selectType = useCallback((type: EntityType) => {
+  const selectType = useCallback((type: MintEntityType) => {
     setState(prev => ({ ...prev, entityType: type, step: 'handle' }))
   }, [])
 
@@ -58,23 +58,37 @@ export function useMint(): UseMintResult {
 
   const executeMint = useCallback(
     async (walletClient: WalletClient) => {
+      const { entityType, handle: mintHandle, hubUrl: mintHubUrl, orgName: mintOrgName } = state
+      if (!entityType || (entityType !== 'agent' && entityType !== 'org')) {
+        setState(prev => ({
+          ...prev,
+          step: 'error',
+          error: 'Select an identity type before minting.',
+        }))
+        return
+      }
+
       setState(prev => ({ ...prev, step: 'minting', error: null }))
       try {
         const result =
-          state.entityType === 'agent'
-            ? await mintAgent(state.handle, state.hubUrl, walletClient, publicClient, chainId)
-            : await mintOrg(state.handle, state.orgName, walletClient, publicClient, chainId)
+          entityType === 'agent'
+            ? await mintAgent(mintHandle, mintHubUrl, walletClient, publicClient, chainId)
+            : await mintOrg(mintHandle, mintOrgName, walletClient, publicClient, chainId)
 
         const identity = {
-          id: `${state.entityType}-${result.tokenId.toString()}`,
-          type: state.entityType as EntityType,
-          handle: state.handle,
+          id: `${entityType}-${result.tokenId.toString()}`,
+          type: entityType as EntityType,
+          handle: mintHandle,
           tokenId: result.tokenId.toString(),
           contractAddress: '',
           tbaAddress: result.tbaAddress,
-          hubUrl: state.hubUrl,
+          hubUrl: mintHubUrl,
         }
         addIdentity(identity)
+
+        if (identities.length === 0) {
+          setActiveIdentity(identity.id)
+        }
 
         setState(prev => ({
           ...prev,
@@ -91,15 +105,7 @@ export function useMint(): UseMintResult {
         }))
       }
     },
-    [
-      state.entityType,
-      state.handle,
-      state.hubUrl,
-      state.orgName,
-      publicClient,
-      chainId,
-      addIdentity,
-    ]
+    [state, publicClient, chainId, addIdentity, setActiveIdentity, identities.length]
   )
 
   const reset = useCallback(() => {

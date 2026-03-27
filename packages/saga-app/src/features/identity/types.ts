@@ -3,6 +3,9 @@
 
 export type EntityType = 'agent' | 'org' | 'directory'
 
+/** Subset of EntityType that can be minted (directory is resolve-only) */
+export type MintEntityType = 'agent' | 'org'
+
 export interface IdentityData {
   id: string
   type: EntityType
@@ -27,7 +30,7 @@ export type MintStep = 'type' | 'handle' | 'confirm' | 'minting' | 'done' | 'err
 
 export interface MintState {
   step: MintStep
-  entityType: EntityType | null
+  entityType: MintEntityType | null
   handle: string
   orgName: string
   hubUrl: string
