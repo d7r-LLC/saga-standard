@@ -16,8 +16,9 @@ contract Deploy is Script {
         address erc6551Registry =
             vm.envOr("ERC6551_REGISTRY", address(0x000000006551c19487814612e58FE06813775758));
 
-        // Tokenbound V3 account implementation
-        address tbaImplementation = vm.envAddress("TBA_IMPLEMENTATION");
+        // Tokenbound V3 account implementation (zero address if not yet deployed)
+        address tbaImplementation =
+            vm.envOr("TBA_IMPLEMENTATION", address(0));
 
         // Use DEPLOYER_PRIVATE_KEY from .env
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");

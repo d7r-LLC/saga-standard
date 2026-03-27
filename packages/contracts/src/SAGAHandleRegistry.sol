@@ -63,7 +63,7 @@ contract SAGAHandleRegistry is Ownable {
 
     /// @notice Register a handle for an entity. Only authorized contracts can call this.
     /// @param handle The handle string (3-64 chars, alphanumeric with dots/hyphens/underscores)
-    /// @param entityType The type of entity (AGENT or ORG)
+    /// @param entityType The type of entity (AGENT, ORG, or DIRECTORY)
     /// @param tokenId The token ID in the calling contract
     function registerHandle(string calldata handle, EntityType entityType, uint256 tokenId)
         external
