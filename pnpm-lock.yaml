@@ -223,6 +223,9 @@ importers:
 
   packages/saga-app:
     dependencies:
+      '@epicdm/saga-client':
+        specifier: workspace:*
+        version: link:../client
       '@react-native-async-storage/async-storage':
         specifier: ^3.0.2
         version: 3.0.2(react-native@0.84.1(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6))(react@19.2.3)
@@ -241,6 +244,9 @@ importers:
       '@react-navigation/native-stack':
         specifier: ^7.14.9
         version: 7.14.9(7084646d162a06551933a2c4d17717ae)
+      '@saga-standard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@scure/bip39':
         specifier: ^2.0.1
         version: 2.0.1
