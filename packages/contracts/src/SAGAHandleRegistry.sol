@@ -10,7 +10,8 @@ contract SAGAHandleRegistry is Ownable {
     enum EntityType {
         NONE,
         AGENT,
-        ORG
+        ORG,
+        DIRECTORY
     }
 
     struct HandleRecord {

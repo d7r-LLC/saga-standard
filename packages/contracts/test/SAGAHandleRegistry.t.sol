@@ -172,4 +172,17 @@ contract SAGAHandleRegistryTest is Test {
         vm.expectRevert("SAGAHandleRegistry: invalid length");
         registry.registerHandle(string(longInput), SAGAHandleRegistry.EntityType.AGENT, 0);
     }
+
+    // --- Test 16: register DIRECTORY entity type ---
+    function test_registerHandle_directoryType() public {
+        vm.prank(authorizedContract);
+        registry.registerHandle("epic-hub", SAGAHandleRegistry.EntityType.DIRECTORY, 0);
+
+        (SAGAHandleRegistry.EntityType entityType, uint256 tokenId, address contractAddr) =
+            registry.resolveHandle("epic-hub");
+
+        assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.DIRECTORY));
+        assertEq(tokenId, 0);
+        assertEq(contractAddr, authorizedContract);
+    }
 }
