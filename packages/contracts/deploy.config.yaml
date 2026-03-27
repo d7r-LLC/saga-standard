@@ -15,15 +15,15 @@ chains:
   base-sepolia:
     chainId: 84532
     rpc: https://sepolia.base.org
-    safe: '' # TODO: populate with Safe address after creation
-    safeThreshold: 2
+    safe: '0x3F31e7FE81F4f859FB630E1c97FB693f23a3f3B8'
+    safeThreshold: 1
     explorerApi: https://api-sepolia.basescan.org
     safeTransactionService: https://safe-transaction-base-sepolia.safe.global
     external:
       erc6551Registry: '0x000000006551c19487814612e58FE06813775758'
       tbaImplementation: '' # TODO: populate with Tokenbound V3 implementation address
     op:
-      vault: SAGA Deploys
+      vault: saga-prod
       signerItem: base-sepolia-signer
       addressesItem: base-sepolia-addresses
       explorerKeyItem: basescan-api-key
@@ -31,7 +31,7 @@ chains:
   base:
     chainId: 8453
     rpc: https://mainnet.base.org
-    safe: '' # TODO: populate with Safe address after creation
+    safe: '0x3F31e7FE81F4f859FB630E1c97FB693f23a3f3B8'
     safeThreshold: 3
     explorerApi: https://api.basescan.org
     safeTransactionService: https://safe-transaction-base.safe.global
@@ -40,7 +40,7 @@ chains:
       erc6551Registry: '0x000000006551c19487814612e58FE06813775758'
       tbaImplementation: '' # TODO: populate with Tokenbound V3 implementation address
     op:
-      vault: SAGA Deploys
+      vault: saga-prod
       signerItem: base-mainnet-signer
       addressesItem: base-mainnet-addresses
       explorerKeyItem: basescan-api-key

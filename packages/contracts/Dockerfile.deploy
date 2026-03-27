@@ -11,16 +11,17 @@ FROM debian:bookworm-slim
 COPY --from=foundry /usr/local/bin/forge /usr/local/bin/forge
 COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
 
-# Install 1Password CLI, curl, jq
+# Install dependencies + 1Password CLI (multi-arch: amd64 and arm64)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl jq ca-certificates gnupg \
-    && curl -sS https://downloads.1password.com/linux/keys/1password.asc \
-       | gpg --dearmor -o /usr/share/keyrings/1password.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password.gpg] \
-       https://downloads.1password.com/linux/debian/amd64 stable main" \
-       > /etc/apt/sources.list.d/1password.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends 1password-cli \
+    && apt-get install -y --no-install-recommends curl jq ca-certificates unzip \
+    && ARCH=$(dpkg --print-architecture) \
+    && OP_VERSION="v2.30.3" \
+    && curl -sSfo /tmp/op.zip \
+       "https://cache.agilebits.com/dist/1P/op2/pkg/${OP_VERSION}/op_linux_${ARCH}_${OP_VERSION}.zip" \
+    && unzip -o /tmp/op.zip -d /usr/local/bin/ op \
+    && rm /tmp/op.zip \
+    && apt-get purge -y unzip \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy contract sources (frozen snapshot, no host volume mounts)
@@ -30,9 +31,11 @@ COPY script/ script/
 COPY lib/ lib/
 COPY foundry.toml .
 
-# Copy entrypoint
+# Copy entrypoints
 COPY scripts/deploy-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY scripts/fund-entrypoint.sh /fund-entrypoint.sh
+COPY scripts/admin-entrypoint.sh /admin-entrypoint.sh
+RUN chmod +x /entrypoint.sh /fund-entrypoint.sh /admin-entrypoint.sh
 
 # Security: disable shell history
 ENV HISTFILE=/dev/null

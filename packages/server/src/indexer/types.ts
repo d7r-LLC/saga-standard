@@ -14,7 +14,7 @@ export interface AgentRegisteredEvent {
   tokenId: bigint
   handle: string
   owner: string
-  hubUrl: string
+  homeHubUrl: string
   registeredAt: bigint
 }
 
@@ -46,6 +46,30 @@ export interface OrgNameUpdatedEvent {
   tokenId: bigint
   oldName: string
   newName: string
+}
+
+/** Decoded DirectoryRegistered event from SAGADirectoryIdentity */
+export interface DirectoryRegisteredEvent {
+  tokenId: bigint
+  directoryId: string
+  operator: string
+  url: string
+  conformanceLevel: string
+  registeredAt: bigint
+}
+
+/** Decoded DirectoryStatusUpdated event */
+export interface DirectoryStatusUpdatedEvent {
+  tokenId: bigint
+  oldStatus: string
+  newStatus: string
+}
+
+/** Decoded DirectoryUrlUpdated event */
+export interface DirectoryUrlUpdatedEvent {
+  tokenId: bigint
+  oldUrl: string
+  newUrl: string
 }
 
 /** KV key for the indexer block cursor */

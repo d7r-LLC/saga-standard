@@ -4,10 +4,13 @@
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
 import { computeTBAAddress } from '@saga-standard/contracts'
-import { agents, organizations } from '../db/schema'
+import { agents, directories, organizations } from '../db/schema'
 import { generateId } from '../middleware/auth'
 import type {
   AgentRegisteredEvent,
+  DirectoryRegisteredEvent,
+  DirectoryStatusUpdatedEvent,
+  DirectoryUrlUpdatedEvent,
   EventMeta,
   HomeHubUpdatedEvent,
   OrgNameUpdatedEvent,
@@ -80,7 +83,7 @@ export async function handleAgentRegistered(
         tokenId: id,
         contractAddress: meta.contractAddress,
         mintTxHash: meta.txHash,
-        homeHubUrl: event.hubUrl,
+        homeHubUrl: event.homeHubUrl,
         walletAddress: event.owner.toLowerCase(),
         entityType: 'agent',
         tbaAddress,
@@ -96,7 +99,7 @@ export async function handleAgentRegistered(
       tokenId: id,
       contractAddress: meta.contractAddress,
       mintTxHash: meta.txHash,
-      homeHubUrl: event.hubUrl,
+      homeHubUrl: event.homeHubUrl,
       entityType: 'agent',
       tbaAddress,
       registeredAt: timestampToISO(event.registeredAt),
@@ -223,4 +226,110 @@ export async function handleOrgNameUpdated(
       updatedAt: new Date().toISOString(),
     })
     .where(eq(organizations.tokenId, id))
+}
+
+/**
+ * Handle DirectoryRegistered event.
+ * Uses upsert pattern: if the directoryId already exists (off-chain registration),
+ * updates with on-chain fields. Otherwise inserts a new row.
+ * This makes the handler idempotent against replays and reorgs.
+ */
+export async function handleDirectoryRegistered(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  event: DirectoryRegisteredEvent,
+  meta: EventMeta
+): Promise<void> {
+  const now = new Date().toISOString()
+  const id = safeTokenId(event.tokenId)
+  const tbaAddress = computeTBA(event.tokenId, meta.contractAddress, meta.chain)
+
+  const existing = await db
+    .select({ id: directories.id })
+    .from(directories)
+    .where(eq(directories.directoryId, event.directoryId))
+    .limit(1)
+
+  if (existing.length > 0) {
+    await db
+      .update(directories)
+      .set({
+        tokenId: id,
+        url: event.url,
+        operatorWallet: event.operator.toLowerCase(),
+        conformanceLevel: event.conformanceLevel,
+        contractAddress: meta.contractAddress,
+        mintTxHash: meta.txHash,
+        tbaAddress,
+        updatedAt: now,
+      })
+      .where(eq(directories.directoryId, event.directoryId))
+  } else {
+    await db.insert(directories).values({
+      id: generateId('dir'),
+      directoryId: event.directoryId,
+      url: event.url,
+      operatorWallet: event.operator.toLowerCase(),
+      conformanceLevel: event.conformanceLevel,
+      status: 'active',
+      chain: meta.chain,
+      tokenId: id,
+      contractAddress: meta.contractAddress,
+      mintTxHash: meta.txHash,
+      tbaAddress,
+      registeredAt: timestampToISO(event.registeredAt),
+      updatedAt: now,
+    })
+  }
+}
+
+/**
+ * Handle DirectoryStatusUpdated event.
+ */
+export async function handleDirectoryStatusUpdated(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  event: DirectoryStatusUpdatedEvent
+): Promise<void> {
+  const id = safeTokenId(event.tokenId)
+  await db
+    .update(directories)
+    .set({
+      status: event.newStatus,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(directories.tokenId, id))
+}
+
+/**
+ * Handle DirectoryUrlUpdated event.
+ */
+export async function handleDirectoryUrlUpdated(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  event: DirectoryUrlUpdatedEvent
+): Promise<void> {
+  const id = safeTokenId(event.tokenId)
+  await db
+    .update(directories)
+    .set({
+      url: event.newUrl,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(directories.tokenId, id))
+}
+
+/**
+ * Handle ERC-721 Transfer event for a directory identity.
+ * Updates the operatorWallet to the new owner.
+ */
+export async function handleDirectoryTransfer(
+  db: DrizzleD1Database<Record<string, unknown>>,
+  event: TransferEvent
+): Promise<void> {
+  const id = safeTokenId(event.tokenId)
+  await db
+    .update(directories)
+    .set({
+      operatorWallet: event.to.toLowerCase(),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(directories.tokenId, id))
 }

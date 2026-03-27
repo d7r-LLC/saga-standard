@@ -30,12 +30,18 @@ log "chain=${CHAIN} chainId=${CHAIN_ID} mode=${MODE}"
 
 # ── Fetch secrets from 1Password (in-memory only) ──────────────────────
 log "reading signer key from 1password"
-SIGNER_KEY=$(op read "op://${VAULT}/${SIGNER_ITEM}/private-key" 2>/dev/null) \
+SIGNER_KEY=$(op read "op://${VAULT}/${SIGNER_ITEM}/password" 2>/dev/null) \
   || die "failed to read signer key from 1password"
 
 log "reading explorer api key from 1password"
-EXPLORER_KEY=$(op read "op://${VAULT}/${EXPLORER_KEY_ITEM}/api-key" 2>/dev/null) \
+EXPLORER_KEY=$(op read "op://${VAULT}/${EXPLORER_KEY_ITEM}/password" 2>/dev/null) \
   || die "failed to read explorer api key from 1password"
+
+# ── Normalize key format (ensure 0x prefix) ──────────────────────────
+case "$SIGNER_KEY" in
+  0x*) ;; # already has prefix
+  *) SIGNER_KEY="0x${SIGNER_KEY}" ;;
+esac
 
 # ── Derive signer address (key never logged) ──────────────────────────
 SIGNER_ADDR=$(cast wallet address "$SIGNER_KEY" 2>/dev/null) \
@@ -51,14 +57,14 @@ SIM_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
   --fork-url "$RPC" \
   --json 2>/dev/null) || die "simulation failed"
 
-# Parse simulation results
-ADDRESSES=$(echo "$SIM_OUTPUT" | jq -c '
-  [.transactions[]? | select(.transactionType == "CREATE") |
+# Parse simulation results (forge --json may produce multiple JSON objects)
+ADDRESSES=$(echo "$SIM_OUTPUT" | jq -sc '
+  [.[].transactions[]? | select(.transactionType == "CREATE") |
    {key: .contractName, value: .contractAddress}] |
   from_entries // {}
 ' 2>/dev/null || echo '{}')
 
-GAS_ESTIMATE=$(echo "$SIM_OUTPUT" | jq '[.transactions[]?.gas // 0] | add // 0' 2>/dev/null || echo '"unknown"')
+GAS_ESTIMATE=$(echo "$SIM_OUTPUT" | jq -sc '[.[].transactions[]?.gas // 0] | add // 0' 2>/dev/null || echo '"unknown"')
 
 log "simulation complete"
 
@@ -68,25 +74,50 @@ if [ "$MODE" = "dry-run" ]; then
   exit 0
 fi
 
-# ── Broadcast: encode Safe batch, sign, propose ───────────────────────
+# ── Broadcast: deploy directly or propose to Safe ─────────────────────
 if [ "$MODE" = "broadcast" ]; then
+
+  # Direct deployment when signer has sole authority (threshold == 1)
+  if [ "$SAFE_THRESHOLD" = "1" ]; then
+    log "deploying directly (threshold=1, signer is sole owner)"
+
+    BROADCAST_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
+      forge script script/Deploy.s.sol \
+      --fork-url "$RPC" \
+      --broadcast \
+      --json 2>/dev/null) || die "broadcast deployment failed"
+
+    # Parse deployed addresses from broadcast output
+    DEPLOYED_ADDRESSES=$(echo "$BROADCAST_OUTPUT" | jq -sc '
+      [.[].transactions[]? | select(.transactionType == "CREATE") |
+       {key: .contractName, value: .contractAddress}] |
+      from_entries // {}
+    ' 2>/dev/null || echo '{}')
+
+    GAS_USED=$(echo "$BROADCAST_OUTPUT" | jq -sc '[.[].transactions[]?.gas // 0] | add // 0' 2>/dev/null || echo '0')
+
+    log "deployment broadcast complete"
+    echo "{\"status\":\"deployed\",\"chain\":\"${CHAIN}\",\"chainId\":${CHAIN_ID},\"signer\":\"${SIGNER_ADDR}\",\"addresses\":${DEPLOYED_ADDRESSES},\"gasUsed\":${GAS_USED},\"mode\":\"direct\"}"
+    exit 0
+  fi
+
+  # Multi-sig Safe proposal flow (threshold > 1)
   log "encoding safe transaction batch"
 
   # Re-simulate to extract transaction calldata (no --broadcast, no on-chain txs)
-  # The Safe will execute these transactions, not the signer EOA
   BROADCAST_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
     forge script script/Deploy.s.sol \
     --fork-url "$RPC" \
     --json 2>/dev/null) || die "simulation for broadcast failed"
 
   # Guard: Safe cannot execute raw CREATE transactions (no .to address)
-  HAS_CREATE_TX=$(echo "$BROADCAST_OUTPUT" | jq -r 'any(.transactions[]?; .transaction.to == null)' 2>/dev/null || echo "false")
+  HAS_CREATE_TX=$(echo "$BROADCAST_OUTPUT" | jq -sc 'any(.[].transactions[]?; .transaction.to == null)' 2>/dev/null || echo "false")
   if [ "$HAS_CREATE_TX" = "true" ]; then
     die "Deploy script produces CREATE transactions. A Safe cannot execute raw CREATE — use a factory/CREATE2 deployment pattern."
   fi
 
-  # Extract transaction data for Safe batch proposal
-  TRANSACTIONS=$(echo "$BROADCAST_OUTPUT" | jq -c '[.transactions[]? | {
+  # Extract transaction data for Safe batch proposal (forge --json may produce multiple JSON objects)
+  TRANSACTIONS=$(echo "$BROADCAST_OUTPUT" | jq -sc '[.[].transactions[]? | {
     to: .transaction.to,
     value: "0",
     data: .transaction.data,
@@ -94,7 +125,7 @@ if [ "$MODE" = "broadcast" ]; then
   }]' 2>/dev/null) || die "failed to parse transactions"
 
   # Compute Safe transaction hash
-  NONCE=$(curl -sf "${SAFE_TX_SERVICE}/api/v1/safes/${SAFE_ADDR}/" \
+  NONCE=$(curl -sfL "${SAFE_TX_SERVICE}/api/v1/safes/${SAFE_ADDR}/" \
     | jq -r '.nonce' 2>/dev/null) || die "failed to get safe nonce"
 
   # Build the multisend batch for Safe
@@ -143,7 +174,7 @@ if [ "$MODE" = "broadcast" ]; then
   log "proposing to safe transaction service"
 
   # POST to Safe Transaction Service
-  HTTP_STATUS=$(curl -sf -o /tmp/safe-response.json -w "%{http_code}" \
+  HTTP_STATUS=$(curl -sfL -o /tmp/safe-response.json -w "%{http_code}" \
     -X POST "${SAFE_TX_SERVICE}/api/v1/safes/${SAFE_ADDR}/multisig-transactions/" \
     -H "Content-Type: application/json" \
     -d "{
@@ -182,7 +213,7 @@ if [ "$MODE" = "finalize" ]; then
   [ -z "$SAFE_TX_HASH" ] && die "no pendingSafeTxHash in config"
 
   # Query Safe TX Service for the executed transaction
-  TX_RESULT=$(curl -sf "${SAFE_TX_SERVICE}/api/v1/multisig-transactions/${SAFE_TX_HASH}/" 2>/dev/null) \
+  TX_RESULT=$(curl -sfL "${SAFE_TX_SERVICE}/api/v1/multisig-transactions/${SAFE_TX_HASH}/" 2>/dev/null) \
     || die "failed to query safe transaction"
 
   IS_EXECUTED=$(echo "$TX_RESULT" | jq -r '.isExecuted')

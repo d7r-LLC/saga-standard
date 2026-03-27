@@ -31,15 +31,15 @@ export const registerCommand = new Command('register')
     const privateKeyHex = loadWalletPrivateKey(opts.wallet, opts.password)
     const account = privateKeyToAccount(privateKeyHex as `0x${string}`)
 
-    // 2. Resolve server
+    // 2. Resolve server (optional for on-chain path)
     const config = loadConfig()
     const serverUrl = opts.server ?? config.defaultServer
-    if (!serverUrl) {
+    if (!serverUrl && !opts.onChain) {
       console.error(chalk.red('No server configured. Run: saga server add <url>'))
       process.exit(1)
     }
 
-    console.log(chalk.dim(`Server:  ${serverUrl}`))
+    if (serverUrl) console.log(chalk.dim(`Server:  ${serverUrl}`))
     console.log(chalk.dim(`Wallet:  ${account.address}`))
     console.log(chalk.dim(`Handle:  ${handle}`))
     console.log()
@@ -48,7 +48,7 @@ export const registerCommand = new Command('register')
       if (opts.onChain) {
         // ── On-chain registration path ────────────────────────────
         const chain = chainFromCaip2(opts.chain)
-        const hubUrl = opts.hubUrl ?? serverUrl
+        const hubUrl = opts.hubUrl ?? serverUrl ?? ''
 
         console.log(chalk.dim('Creating on-chain identity...'))
 
@@ -85,10 +85,19 @@ export const registerCommand = new Command('register')
         console.log(chalk.green('NFT minted.'))
         console.log(chalk.dim(`  TX Hash: ${result.txHash}`))
 
-        // Wait for indexer
-        console.log(chalk.dim('Waiting for server indexer...'))
-        const client = new SagaServerClient({ serverUrl })
-        const resolved = await waitForIndexer({ client, handle })
+        // Wait for indexer (only if server is configured)
+        if (serverUrl) {
+          console.log(chalk.dim('Waiting for server indexer...'))
+          const client = new SagaServerClient({ serverUrl })
+          try {
+            const resolved = await waitForIndexer({ client, handle })
+            console.log(chalk.dim(`  Indexed: ${resolved.walletAddress}`))
+          } catch {
+            console.log(chalk.yellow('  Indexer not available (skipped).'))
+          }
+        } else {
+          console.log(chalk.dim('No server configured — skipping indexer wait.'))
+        }
 
         console.log()
         console.log(chalk.green.bold('Agent registered on-chain.'))
@@ -96,8 +105,8 @@ export const registerCommand = new Command('register')
         console.log(`  Token ID:    ${result.tokenId}`)
         console.log(`  TBA Address: ${result.tbaAddress}`)
         console.log(`  Mint TX:     ${result.txHash}`)
-        console.log(`  Wallet:      ${resolved.walletAddress}`)
-        console.log(`  Chain:       ${resolved.chain}`)
+        console.log(`  Wallet:      ${account.address}`)
+        console.log(`  Chain:       ${chain}`)
       } else {
         // ── Off-chain registration path (unchanged) ────────────────
         const client = new SagaServerClient({ serverUrl })

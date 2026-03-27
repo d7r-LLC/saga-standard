@@ -10,6 +10,7 @@ export default defineConfig({
   clean: true,
   target: 'es2022',
   sourcemap: true,
+  noExternal: ['js-yaml'],
   banner: {
     js: '#!/usr/bin/env node',
   },

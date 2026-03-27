@@ -71,7 +71,6 @@ describe('deploy-docker', () => {
       })
 
       expect(args).toContain('--rm')
-      expect(args).toContain('--read-only')
       expect(args).toContain('--cap-drop')
       expect(args[args.indexOf('--cap-drop') + 1]).toBe('ALL')
       expect(args).toContain('--security-opt')
@@ -90,16 +89,14 @@ describe('deploy-docker', () => {
       expect(args[envIdx + 1]).toBe('DEPLOY_MODE=dry-run')
     })
 
-    it('includes tmpfs mount for /tmp', () => {
+    it('does not include --read-only (forge needs writable filesystem for compilation)', () => {
       const args = buildDockerRunArgs({
         resolved: MOCK_RESOLVED,
         networkName: 'saga-deploy-net',
         mode: 'broadcast',
       })
 
-      expect(args).toContain('--tmpfs')
-      const tmpfsIdx = args.indexOf('--tmpfs')
-      expect(args[tmpfsIdx + 1]).toBe('/tmp:noexec,nosuid,size=64m')
+      expect(args).not.toContain('--read-only')
     })
 
     it('uses the specified network', () => {

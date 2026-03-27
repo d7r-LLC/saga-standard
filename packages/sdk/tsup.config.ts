@@ -11,4 +11,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: 'es2022',
+  noExternal: ['tweetnacl-util'],
 })

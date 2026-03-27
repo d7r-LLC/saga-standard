@@ -8,6 +8,9 @@ import type { Env } from '../bindings'
 import { INDEXER_CURSOR_KEY } from './types'
 import type {
   AgentRegisteredEvent,
+  DirectoryRegisteredEvent,
+  DirectoryStatusUpdatedEvent,
+  DirectoryUrlUpdatedEvent,
   EventMeta,
   HomeHubUpdatedEvent,
   OrgNameUpdatedEvent,
@@ -17,6 +20,10 @@ import type {
 import {
   handleAgentRegistered,
   handleAgentTransfer,
+  handleDirectoryRegistered,
+  handleDirectoryStatusUpdated,
+  handleDirectoryTransfer,
+  handleDirectoryUrlUpdated,
   handleHomeHubUpdated,
   handleOrgNameUpdated,
   handleOrgRegistered,
@@ -38,8 +45,8 @@ export const EVENT_ABIS = [
     inputs: [
       { name: 'tokenId', type: 'uint256', indexed: true },
       { name: 'handle', type: 'string', indexed: false },
-      { name: 'owner', type: 'address', indexed: false },
-      { name: 'hubUrl', type: 'string', indexed: false },
+      { name: 'owner', type: 'address', indexed: true },
+      { name: 'homeHubUrl', type: 'string', indexed: false },
       { name: 'registeredAt', type: 'uint256', indexed: false },
     ],
   },
@@ -59,7 +66,7 @@ export const EVENT_ABIS = [
       { name: 'tokenId', type: 'uint256', indexed: true },
       { name: 'handle', type: 'string', indexed: false },
       { name: 'name', type: 'string', indexed: false },
-      { name: 'owner', type: 'address', indexed: false },
+      { name: 'owner', type: 'address', indexed: true },
       { name: 'registeredAt', type: 'uint256', indexed: false },
     ],
   },
@@ -70,6 +77,36 @@ export const EVENT_ABIS = [
       { name: 'tokenId', type: 'uint256', indexed: true },
       { name: 'oldName', type: 'string', indexed: false },
       { name: 'newName', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'DirectoryRegistered',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'directoryId', type: 'string', indexed: false },
+      { name: 'operator', type: 'address', indexed: true },
+      { name: 'url', type: 'string', indexed: false },
+      { name: 'conformanceLevel', type: 'string', indexed: false },
+      { name: 'registeredAt', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'DirectoryStatusUpdated',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'oldStatus', type: 'string', indexed: false },
+      { name: 'newStatus', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'DirectoryUrlUpdated',
+    inputs: [
+      { name: 'tokenId', type: 'uint256', indexed: true },
+      { name: 'oldUrl', type: 'string', indexed: false },
+      { name: 'newUrl', type: 'string', indexed: false },
     ],
   },
   {
@@ -136,12 +173,16 @@ export async function runIndexer(env: Env): Promise<void> {
 
   const agentContract = env.AGENT_IDENTITY_CONTRACT as `0x${string}`
   const orgContract = env.ORG_IDENTITY_CONTRACT as `0x${string}`
+  const directoryContract = env.DIRECTORY_IDENTITY_CONTRACT as `0x${string}` | undefined
 
-  // Fetch logs for both contracts with server-side topic0 filtering.
+  // Fetch logs for contracts with server-side topic0 filtering.
   // The `events` parameter tells the RPC to only return logs matching
   // these event signatures, avoiding unnecessary client-side filtering.
+  const watchAddresses: `0x${string}`[] = [agentContract, orgContract]
+  if (directoryContract) watchAddresses.push(directoryContract)
+
   const logs = await client.getLogs({
-    address: [agentContract, orgContract],
+    address: watchAddresses,
     events: EVENT_ABIS,
     fromBlock,
     toBlock,
@@ -170,7 +211,8 @@ export async function runIndexer(env: Env): Promise<void> {
         },
         meta,
         agentContract.toLowerCase(),
-        orgContract.toLowerCase()
+        orgContract.toLowerCase(),
+        directoryContract?.toLowerCase()
       )
       // Only advance success marker if no prior failure (preserve ordering)
       if (!hasFailure) {
@@ -205,11 +247,13 @@ export async function processDecodedLog(
   log: DecodedEventLog,
   meta: EventMeta,
   agentAddress: string,
-  orgAddress: string
+  orgAddress: string,
+  directoryAddress?: string
 ): Promise<void> {
   const isAgent = log.address.toLowerCase() === agentAddress
   const isOrg = log.address.toLowerCase() === orgAddress
-  if (!isAgent && !isOrg) return
+  const isDirectory = directoryAddress ? log.address.toLowerCase() === directoryAddress : false
+  if (!isAgent && !isOrg && !isDirectory) return
 
   switch (log.eventName) {
     case 'Transfer': {
@@ -220,6 +264,8 @@ export async function processDecodedLog(
         await handleAgentTransfer(db, args)
       } else if (isOrg) {
         await handleOrgTransfer(db, args)
+      } else if (isDirectory) {
+        await handleDirectoryTransfer(db, args)
       }
       break
     }
@@ -245,6 +291,24 @@ export async function processDecodedLog(
     case 'OrgNameUpdated': {
       if (!isOrg) break
       await handleOrgNameUpdated(db, log.args as unknown as OrgNameUpdatedEvent)
+      break
+    }
+
+    case 'DirectoryRegistered': {
+      if (!isDirectory) break
+      await handleDirectoryRegistered(db, log.args as unknown as DirectoryRegisteredEvent, meta)
+      break
+    }
+
+    case 'DirectoryStatusUpdated': {
+      if (!isDirectory) break
+      await handleDirectoryStatusUpdated(db, log.args as unknown as DirectoryStatusUpdatedEvent)
+      break
+    }
+
+    case 'DirectoryUrlUpdated': {
+      if (!isDirectory) break
+      await handleDirectoryUrlUpdated(db, log.args as unknown as DirectoryUrlUpdatedEvent)
       break
     }
   }

@@ -28,17 +28,13 @@ export const registerOrgCommand = new Command('register-org')
     const privateKeyHex = loadWalletPrivateKey(opts.wallet, opts.password)
     const account = privateKeyToAccount(privateKeyHex as `0x${string}`)
 
-    // 2. Resolve server
+    // 2. Resolve server (optional — indexer wait is skipped without one)
     const config = loadConfig()
     const serverUrl = opts.server ?? config.defaultServer
-    if (!serverUrl) {
-      console.error(chalk.red('No server configured. Run: saga server add <url>'))
-      process.exit(1)
-    }
 
     const chain = chainFromCaip2(opts.chain)
 
-    console.log(chalk.dim(`Server:  ${serverUrl}`))
+    if (serverUrl) console.log(chalk.dim(`Server:  ${serverUrl}`))
     console.log(chalk.dim(`Wallet:  ${account.address}`))
     console.log(chalk.dim(`Handle:  ${opts.handle}`))
     console.log(chalk.dim(`Name:    ${opts.name}`))
@@ -78,10 +74,19 @@ export const registerOrgCommand = new Command('register-org')
       console.log(chalk.green('NFT minted.'))
       console.log(chalk.dim(`  TX Hash: ${result.txHash}`))
 
-      // Wait for indexer
-      console.log(chalk.dim('Waiting for server indexer...'))
-      const client = new SagaServerClient({ serverUrl })
-      const resolved = await waitForIndexer({ client, handle: opts.handle })
+      // Wait for indexer (only if server is configured)
+      if (serverUrl) {
+        console.log(chalk.dim('Waiting for server indexer...'))
+        const client = new SagaServerClient({ serverUrl })
+        try {
+          const resolved = await waitForIndexer({ client, handle: opts.handle })
+          console.log(chalk.dim(`  Indexed: ${resolved.walletAddress}`))
+        } catch {
+          console.log(chalk.yellow('  Indexer not available (skipped).'))
+        }
+      } else {
+        console.log(chalk.dim('No server configured — skipping indexer wait.'))
+      }
 
       console.log()
       console.log(chalk.green.bold('Organization registered on-chain.'))
@@ -90,8 +95,8 @@ export const registerOrgCommand = new Command('register-org')
       console.log(`  Token ID:    ${result.tokenId}`)
       console.log(`  TBA Address: ${result.tbaAddress}`)
       console.log(`  Mint TX:     ${result.txHash}`)
-      console.log(`  Wallet:      ${resolved.walletAddress}`)
-      console.log(`  Chain:       ${resolved.chain}`)
+      console.log(`  Wallet:      ${account.address}`)
+      console.log(`  Chain:       ${chain}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error(chalk.red(`Registration failed: ${message}`))

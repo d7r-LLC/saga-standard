@@ -32,9 +32,15 @@ export interface Env {
   /** Deployed SAGAHandleRegistry contract address */
   HANDLE_REGISTRY_CONTRACT?: string
 
+  /** Deployed SAGADirectoryIdentity contract address */
+  DIRECTORY_IDENTITY_CONTRACT?: string
+
   /** CAIP-2 chain identifier for the indexer (default: eip155:84532 for Base Sepolia) */
   INDEXER_CHAIN?: string
 
   /** Block number to start indexing from when no cursor exists in KV */
   INDEXER_START_BLOCK?: string
+
+  /** Secret for admin endpoints (e.g. /admin/reindex). Endpoint disabled if unset. */
+  ADMIN_SECRET?: string
 }

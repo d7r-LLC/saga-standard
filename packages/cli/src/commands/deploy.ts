@@ -6,7 +6,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { deriveNetworkAllowlist, loadDeployConfig, resolveChainConfig } from '../deploy-config'
 import {
   buildDockerBuildArgs,
@@ -168,9 +168,17 @@ export const deployCommand = new Command('deploy')
       try {
         const runArgs = buildDockerRunArgs({ resolved, networkName, mode })
 
-        // Verify OP token is available (Docker will resolve it from the env)
+        // Load OP token from .env (project-specific token takes precedence)
+        const envPath = join(process.cwd(), '.env')
+        if (existsSync(envPath)) {
+          const envContent = readFileSync(envPath, 'utf-8')
+          const match = envContent.match(/^OP_SERVICE_ACCOUNT_TOKEN=(.+)$/m)
+          if (match) {
+            process.env.OP_SERVICE_ACCOUNT_TOKEN = match[1].trim()
+          }
+        }
         if (!process.env.OP_SERVICE_ACCOUNT_TOKEN) {
-          runSpinner.fail('OP_SERVICE_ACCOUNT_TOKEN environment variable is not set.')
+          runSpinner.fail('OP_SERVICE_ACCOUNT_TOKEN not found in environment or .env file.')
           process.exit(1)
         }
 
@@ -227,6 +235,34 @@ export const deployCommand = new Command('deploy')
       }
 
       if (mode === 'broadcast') {
+        // Direct deployment (threshold == 1)
+        if (result.mode === 'direct') {
+          const addresses = result.addresses as Record<string, string>
+          console.log()
+          console.log(chalk.green.bold('Deployment complete (direct broadcast).'))
+          console.log(`  Chain: ${opts.chain} (${resolved.chainId})`)
+          for (const [name, addr] of Object.entries(addresses)) {
+            console.log(`  ${name.padEnd(20)} ${addr}`)
+          }
+          console.log(`  Gas used: ${result.gasUsed}`)
+
+          // Update local files if they exist
+          const deploymentJsonPath = join(contractsDir, 'deployments', `${opts.chain}.json`)
+          if (existsSync(deploymentJsonPath)) {
+            updateDeploymentJson(deploymentJsonPath, {
+              addresses,
+              safeTxHash: '',
+              deployedAt: new Date().toISOString(),
+            })
+          }
+          const addressesTsPath = join(contractsDir, 'src', 'ts', 'addresses.ts')
+          if (existsSync(addressesTsPath)) {
+            updateAddressesTs(addressesTsPath, opts.chain, addresses)
+          }
+          return
+        }
+
+        // Safe proposal (threshold > 1)
         savePendingDeploy(deploysDir, opts.chain, {
           safeTxHash: result.safeTxHash as string,
           safeUrl: result.safeUrl as string,

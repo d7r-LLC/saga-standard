@@ -195,6 +195,7 @@ export async function resolveHandleOnChain(options: {
   const { handle, publicClient, chain } = options
   const config = getHandleRegistryConfig(chain)
 
+  // resolveHandle reverts with "SAGAHandleRegistry: not found" when handle doesn't exist
   const result = await publicClient.readContract({
     ...config,
     functionName: 'resolveHandle',
@@ -205,15 +206,14 @@ export async function resolveHandleOnChain(options: {
   const [rawEntityType, tokenId, contractAddress] = result as [number, bigint, string]
   const entityType = entityTypeFromNumber(rawEntityType)
 
-  if (entityType === 'NONE') {
-    throw new Error(`Handle "${handle}" is not registered on-chain`)
-  }
-
   return { entityType, tokenId, contractAddress }
 }
 
 /**
  * Check if a handle is available (not registered) on-chain.
+ *
+ * Uses the `handleExists` view function which returns a boolean,
+ * rather than `resolveHandle` which reverts when the handle is not found.
  */
 export async function isHandleAvailable(options: {
   handle: string
@@ -223,12 +223,11 @@ export async function isHandleAvailable(options: {
   const { handle, publicClient, chain } = options
   const config = getHandleRegistryConfig(chain)
 
-  const result = await publicClient.readContract({
+  const exists = await publicClient.readContract({
     ...config,
-    functionName: 'resolveHandle',
+    functionName: 'handleExists',
     args: [handle],
   })
 
-  const [rawEntityType] = result as [number, bigint, string]
-  return entityTypeFromNumber(rawEntityType) === 'NONE'
+  return !(exists as boolean)
 }

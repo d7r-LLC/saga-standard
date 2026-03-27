@@ -18,6 +18,23 @@ export const agents = sqliteTable('agents', {
   mintTxHash: text('mint_tx_hash'),
   entityType: text('entity_type').default('agent'),
   homeHubUrl: text('home_hub_url'),
+  directoryId: text('directory_id'),
+})
+
+export const directories = sqliteTable('directories', {
+  id: text('id').primaryKey(),
+  directoryId: text('directory_id').unique().notNull(),
+  url: text('url').notNull(),
+  operatorWallet: text('operator_wallet').notNull(),
+  conformanceLevel: text('conformance_level').notNull(),
+  status: text('status').notNull().default('active'),
+  tokenId: integer('token_id'),
+  contractAddress: text('contract_address'),
+  chain: text('chain').notNull(),
+  mintTxHash: text('mint_tx_hash'),
+  tbaAddress: text('tba_address'),
+  registeredAt: text('registered_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
 
 export const organizations = sqliteTable('organizations', {

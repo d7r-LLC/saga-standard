@@ -507,7 +507,8 @@ export async function runMigrations(db: D1Database): Promise<void> {
       contract_address TEXT,
       mint_tx_hash TEXT,
       entity_type TEXT DEFAULT 'agent',
-      home_hub_url TEXT
+      home_hub_url TEXT,
+      directory_id TEXT
     );
     CREATE TABLE IF NOT EXISTS organizations (
       id TEXT PRIMARY KEY,
@@ -569,6 +570,21 @@ export async function runMigrations(db: D1Database): Promise<void> {
     CREATE TABLE IF NOT EXISTS replication_policies (
       org_id TEXT PRIMARY KEY,
       policy_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS directories (
+      id TEXT PRIMARY KEY,
+      directory_id TEXT UNIQUE NOT NULL,
+      url TEXT NOT NULL,
+      operator_wallet TEXT NOT NULL,
+      conformance_level TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      token_id INTEGER,
+      contract_address TEXT,
+      chain TEXT NOT NULL,
+      mint_tx_hash TEXT,
+      tba_address TEXT,
+      registered_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `)

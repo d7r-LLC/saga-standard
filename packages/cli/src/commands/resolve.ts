@@ -3,9 +3,10 @@
 
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { SagaAuthError, SagaServerClient } from '@epicdm/saga-client'
+import { SagaAuthError, SagaServerClient, resolveHandleOnChain } from '@epicdm/saga-client'
 import type { ResolveResponse } from '@epicdm/saga-client'
 import { loadConfig } from '../config'
+import { chainFromCaip2, createViemClients } from '../cli-chain-helpers'
 
 /** Format a resolve response for human-readable output */
 export function formatResolveResult(result: ResolveResponse): string {
@@ -28,16 +29,58 @@ export const resolveCommand = new Command('resolve')
   .description('Resolve a handle to an agent or organization')
   .argument('<handle>', 'Handle to resolve (e.g., marcus.chen)')
   .option('--server <url>', 'Server URL (defaults to configured default)')
+  .option('--on-chain', 'Resolve directly on-chain (no server needed)')
+  .option('--chain <chain>', 'Chain ID for on-chain resolution', 'eip155:84532')
   .option('--json', 'Output raw JSON')
   .action(async (handle, opts) => {
-    const config = loadConfig()
-    const serverUrl = opts.server ?? config.defaultServer
-    if (!serverUrl) {
-      console.error(chalk.red('No server configured. Run: saga server add <url>'))
-      process.exit(1)
-    }
-
     try {
+      if (opts.onChain) {
+        // ── On-chain resolution path ──
+        const chain = chainFromCaip2(opts.chain)
+        const { publicClient } = createViemClients({
+          // Use a dummy private key — only reading, no signing needed
+          privateKeyHex: '0x0000000000000000000000000000000000000000000000000000000000000001',
+          chain,
+        })
+
+        console.log(chalk.dim(`Resolving "${handle}" on-chain (${chain})...`))
+
+        const result = await resolveHandleOnChain({ handle, publicClient, chain })
+
+        if (opts.json) {
+          console.log(
+            JSON.stringify(
+              {
+                handle,
+                entityType: result.entityType,
+                tokenId: result.tokenId.toString(),
+                contractAddress: result.contractAddress,
+                chain,
+              },
+              null,
+              2
+            )
+          )
+        } else {
+          console.log(`Entity Type: ${result.entityType}`)
+          console.log(`Handle:      ${handle}`)
+          console.log(`Token ID:    ${result.tokenId}`)
+          console.log(`Contract:    ${result.contractAddress}`)
+          console.log(`Chain:       ${chain}`)
+        }
+        return
+      }
+
+      // ── Server resolution path ──
+      const config = loadConfig()
+      const serverUrl = opts.server ?? config.defaultServer
+      if (!serverUrl) {
+        console.error(
+          chalk.red('No server configured. Run: saga server add <url> (or use --on-chain)')
+        )
+        process.exit(1)
+      }
+
       const client = new SagaServerClient({ serverUrl })
       const result = await client.resolve(handle)
 
