@@ -14,6 +14,7 @@ import { IdentityManager } from '../../features/identity/screens/IdentityManager
 import { MintWizard } from '../../features/identity/screens/MintWizard'
 import { IdentityDetail } from '../../features/identity/screens/IdentityDetail'
 import { HandleManager } from '../../features/identity/screens/HandleManager'
+import { NetworkSettings } from '../../features/identity/screens/NetworkSettings'
 import type { ProfileStackParamList } from '../types'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 
@@ -43,6 +44,11 @@ function MyProfileScreen({ navigation }: MyProfileProps): React.JSX.Element {
             title="Manage Identities"
             onPress={() => navigation.navigate('IdentityManager')}
           />
+          <Button
+            title="Network Settings"
+            variant="secondary"
+            onPress={() => navigation.navigate('NetworkSettings')}
+          />
         </View>
       </View>
     </SafeArea>
@@ -59,6 +65,7 @@ export function ProfileStack(): React.JSX.Element {
       <Stack.Screen name="MintWizard" component={MintWizard} />
       <Stack.Screen name="IdentityDetail" component={IdentityDetail} />
       <Stack.Screen name="HandleManager" component={HandleManager} />
+      <Stack.Screen name="NetworkSettings" component={NetworkSettings} />
     </Stack.Navigator>
   )
 }
@@ -86,5 +93,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: spacing.lg,
+    gap: spacing.md,
   },
 })

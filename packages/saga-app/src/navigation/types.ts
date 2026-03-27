@@ -30,6 +30,7 @@ export type ProfileStackParamList = {
   MintWizard: undefined
   IdentityDetail: { identityId: string }
   HandleManager: undefined
+  NetworkSettings: undefined
 }
 
 // Tab navigator
