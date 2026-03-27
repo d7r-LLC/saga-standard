@@ -97,6 +97,7 @@ contract SAGAHandleRegistry is Ownable {
     ) external {
         require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
+        require(bytes(directoryId).length > 0, "SAGAHandleRegistry: empty directoryId");
         _validateHandle(handle);
 
         bytes32 key = _scopedHandleKey(handle, directoryId);
@@ -162,13 +163,13 @@ contract SAGAHandleRegistry is Ownable {
         return keccak256(abi.encodePacked(_toLower(handle)));
     }
 
-    /// @dev Compute scoped handle key: keccak256(directoryId + toLower(handle))
+    /// @dev Compute scoped handle key using abi.encode to avoid variable-length collision
     function _scopedHandleKey(string calldata handle, string calldata directoryId)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(directoryId, _toLower(handle)));
+        return keccak256(abi.encode(directoryId, _toLower(handle)));
     }
 
     /// @dev Validate handle: 3-64 chars, alphanumeric + dots/hyphens/underscores,

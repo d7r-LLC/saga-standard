@@ -100,14 +100,24 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
     }
 
     /// @notice Update directory status (token owner or contract owner for governance)
+    /// @param newStatus Must be one of: "active", "suspended", "flagged", "revoked"
     function updateDirectoryStatus(uint256 tokenId, string calldata newStatus) external {
         require(
             ownerOf(tokenId) == msg.sender || owner() == msg.sender,
             "SAGADirectoryIdentity: not owner or governance"
         );
+        require(_isValidStatus(newStatus), "SAGADirectoryIdentity: invalid status");
         string memory oldStatus = _statuses[tokenId];
         _statuses[tokenId] = newStatus;
         emit DirectoryStatusUpdated(tokenId, oldStatus, newStatus);
+    }
+
+    // --- Internal ---
+
+    function _isValidStatus(string memory status) internal pure returns (bool) {
+        bytes32 h = keccak256(bytes(status));
+        return h == keccak256("active") || h == keccak256("suspended")
+            || h == keccak256("flagged") || h == keccak256("revoked");
     }
 
     // --- View functions ---

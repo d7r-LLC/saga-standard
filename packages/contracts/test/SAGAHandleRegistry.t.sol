@@ -269,7 +269,7 @@ contract SAGAHandleRegistryTest is Test {
         vm.prank(authorizedContract);
         vm.expectEmit(true, false, false, true);
         emit ScopedHandleRegistered(
-            keccak256(abi.encodePacked("dir-a", "event-scoped")),
+            keccak256(abi.encode("dir-a", "event-scoped")),
             "event-scoped",
             "dir-a",
             SAGAHandleRegistry.EntityType.AGENT,
