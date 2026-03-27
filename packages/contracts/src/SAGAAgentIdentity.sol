@@ -22,6 +22,8 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
     mapping(uint256 => string) private _homeHubUrls;
     /// tokenId → registration timestamp
     mapping(uint256 => uint256) private _registeredAt;
+    /// tokenId → directoryId (empty string for global agents)
+    mapping(uint256 => string) private _directoryIds;
 
     /// Base URI for token metadata
     string private _baseTokenURI;
@@ -63,6 +65,33 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
         return tokenId;
     }
 
+    /// @notice Register an agent within a specific directory and mint an identity NFT
+    /// @param handle Unique handle within the directory (3-64 chars, validated by registry)
+    /// @param hubUrl URL of the agent's home SAGA hub
+    /// @param directoryId The directory to register in
+    /// @return tokenId The minted token ID
+    function registerAgentInDirectory(
+        string calldata handle,
+        string calldata hubUrl,
+        string calldata directoryId
+    ) external returns (uint256) {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(msg.sender, tokenId);
+
+        _agentHandles[tokenId] = handle;
+        _homeHubUrls[tokenId] = hubUrl;
+        _registeredAt[tokenId] = block.timestamp;
+        _directoryIds[tokenId] = directoryId;
+
+        // Register handle in the scoped registry
+        handleRegistry.registerScopedHandle(
+            handle, SAGAHandleRegistry.EntityType.AGENT, tokenId, directoryId
+        );
+
+        emit AgentRegistered(tokenId, handle, msg.sender, hubUrl, block.timestamp);
+        return tokenId;
+    }
+
     /// @notice Update the home hub URL (owner only)
     function updateHomeHub(uint256 tokenId, string calldata newHubUrl) external {
         require(ownerOf(tokenId) == msg.sender, "SAGAAgentIdentity: not owner");
@@ -86,6 +115,11 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
     function registeredAt(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _registeredAt[tokenId];
+    }
+
+    function agentDirectoryId(uint256 tokenId) external view returns (string memory) {
+        _requireOwned(tokenId);
+        return _directoryIds[tokenId];
     }
 
     // --- Metadata ---

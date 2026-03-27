@@ -19,8 +19,14 @@ describe('addresses', () => {
     expect(isDeployed('SAGAHandleRegistry', 'base')).toBe(false)
   })
 
-  it('getDeployedAddress throws for base-sepolia (not yet deployed)', () => {
-    expect(() => getDeployedAddress('SAGAHandleRegistry', 'base-sepolia')).toThrow(
+  it('getDeployedAddress returns address for base-sepolia deployed contracts', () => {
+    expect(getDeployedAddress('SAGAHandleRegistry', 'base-sepolia')).toBe(
+      '0xec2f53f2cfa24553c4ad6e585965490f839b28f0'
+    )
+  })
+
+  it('getDeployedAddress throws for undeployed SAGADirectoryIdentity on base-sepolia', () => {
+    expect(() => getDeployedAddress('SAGADirectoryIdentity', 'base-sepolia')).toThrow(
       'not yet deployed'
     )
   })

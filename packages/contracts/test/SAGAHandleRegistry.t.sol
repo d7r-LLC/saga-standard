@@ -20,6 +20,15 @@ contract SAGAHandleRegistryTest is Test {
 
     event AuthorizedContractSet(address indexed contractAddress, bool authorized);
 
+    event ScopedHandleRegistered(
+        bytes32 indexed scopedKey,
+        string handle,
+        string directoryId,
+        SAGAHandleRegistry.EntityType entityType,
+        uint256 tokenId,
+        address contractAddress
+    );
+
     function setUp() public {
         owner = address(this);
         authorizedContract = address(0xA);
@@ -171,5 +180,128 @@ contract SAGAHandleRegistryTest is Test {
         vm.prank(authorizedContract);
         vm.expectRevert("SAGAHandleRegistry: invalid length");
         registry.registerHandle(string(longInput), SAGAHandleRegistry.EntityType.AGENT, 0);
+    }
+
+    // --- Test 16: register DIRECTORY entity type ---
+    function test_registerHandle_directoryType() public {
+        vm.prank(authorizedContract);
+        registry.registerHandle("epic-hub", SAGAHandleRegistry.EntityType.DIRECTORY, 0);
+
+        (SAGAHandleRegistry.EntityType entityType, uint256 tokenId, address contractAddr) =
+            registry.resolveHandle("epic-hub");
+
+        assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.DIRECTORY));
+        assertEq(tokenId, 0);
+        assertEq(contractAddr, authorizedContract);
+    }
+
+    // --- Test 17: registerScopedHandle success ---
+    function test_registerScopedHandle_success() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("marcus", SAGAHandleRegistry.EntityType.AGENT, 0, "epic-hub");
+
+        (SAGAHandleRegistry.EntityType entityType, uint256 tokenId, address contractAddr) =
+            registry.resolveScopedHandle("marcus", "epic-hub");
+
+        assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(tokenId, 0);
+        assertEq(contractAddr, authorizedContract);
+    }
+
+    // --- Test 18: same handle in different directories succeeds ---
+    function test_registerScopedHandle_sameHandleDifferentDirs() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("marcus", SAGAHandleRegistry.EntityType.AGENT, 0, "dir-a");
+
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("marcus", SAGAHandleRegistry.EntityType.AGENT, 1, "dir-b");
+
+        (SAGAHandleRegistry.EntityType etA, uint256 tidA,) =
+            registry.resolveScopedHandle("marcus", "dir-a");
+        (SAGAHandleRegistry.EntityType etB, uint256 tidB,) =
+            registry.resolveScopedHandle("marcus", "dir-b");
+
+        assertEq(tidA, 0);
+        assertEq(tidB, 1);
+        assertEq(uint256(etA), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(uint256(etB), uint256(SAGAHandleRegistry.EntityType.AGENT));
+    }
+
+    // --- Test 19: duplicate scoped handle in same directory reverts ---
+    function test_registerScopedHandle_duplicateReverts() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("taken", SAGAHandleRegistry.EntityType.AGENT, 0, "dir-a");
+
+        vm.prank(authorizedContract);
+        vm.expectRevert("SAGAHandleRegistry: handle taken in directory");
+        registry.registerScopedHandle("taken", SAGAHandleRegistry.EntityType.ORG, 1, "dir-a");
+    }
+
+    // --- Test 20: scoped handle case insensitive ---
+    function test_registerScopedHandle_caseInsensitive() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("Marcus", SAGAHandleRegistry.EntityType.AGENT, 0, "dir-a");
+
+        vm.prank(authorizedContract);
+        vm.expectRevert("SAGAHandleRegistry: handle taken in directory");
+        registry.registerScopedHandle("marcus", SAGAHandleRegistry.EntityType.AGENT, 1, "dir-a");
+    }
+
+    // --- Test 21: resolveScopedHandle not found reverts ---
+    function test_resolveScopedHandle_notFoundReverts() public {
+        vm.expectRevert("SAGAHandleRegistry: not found in directory");
+        registry.resolveScopedHandle("nonexistent", "dir-a");
+    }
+
+    // --- Test 22: scopedHandleExists true/false ---
+    function test_scopedHandleExists() public {
+        assertFalse(registry.scopedHandleExists("test-handle", "dir-a"));
+
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("test-handle", SAGAHandleRegistry.EntityType.AGENT, 0, "dir-a");
+
+        assertTrue(registry.scopedHandleExists("test-handle", "dir-a"));
+        assertFalse(registry.scopedHandleExists("test-handle", "dir-b"));
+    }
+
+    // --- Test 23: scoped registration emits event ---
+    function test_registerScopedHandle_emitsEvent() public {
+        vm.prank(authorizedContract);
+        vm.expectEmit(true, false, false, true);
+        emit ScopedHandleRegistered(
+            keccak256(abi.encode("dir-a", "event-scoped")),
+            "event-scoped",
+            "dir-a",
+            SAGAHandleRegistry.EntityType.AGENT,
+            42,
+            authorizedContract
+        );
+        registry.registerScopedHandle(
+            "event-scoped", SAGAHandleRegistry.EntityType.AGENT, 42, "dir-a"
+        );
+    }
+
+    // --- Test 24: unauthorized caller on scoped registration reverts ---
+    function test_registerScopedHandle_unauthorizedReverts() public {
+        vm.prank(unauthorizedUser);
+        vm.expectRevert("SAGAHandleRegistry: unauthorized");
+        registry.registerScopedHandle("test", SAGAHandleRegistry.EntityType.AGENT, 0, "dir-a");
+    }
+
+    // --- Test 25: global and scoped handles are independent ---
+    function test_globalAndScopedIndependent() public {
+        // Register globally
+        vm.prank(authorizedContract);
+        registry.registerHandle("shared", SAGAHandleRegistry.EntityType.AGENT, 0);
+
+        // Register same handle in a directory — should succeed
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle("shared", SAGAHandleRegistry.EntityType.AGENT, 1, "dir-a");
+
+        (, uint256 globalTid,) = registry.resolveHandle("shared");
+        (, uint256 scopedTid,) = registry.resolveScopedHandle("shared", "dir-a");
+
+        assertEq(globalTid, 0);
+        assertEq(scopedTid, 1);
     }
 }

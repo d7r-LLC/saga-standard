@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { SAGAAgentIdentityAbi, SAGAHandleRegistryAbi, SAGAOrgIdentityAbi } from './abis'
+import {
+  SAGAAgentIdentityAbi,
+  SAGADirectoryIdentityAbi,
+  SAGAHandleRegistryAbi,
+  SAGAOrgIdentityAbi,
+} from './abis'
 import { type SupportedChain, getDeployedAddress } from './addresses'
 
 /**
@@ -49,5 +54,21 @@ export function getOrgIdentityConfig(chain: SupportedChain) {
   return {
     address: getDeployedAddress('SAGAOrgIdentity', chain),
     abi: SAGAOrgIdentityAbi,
+  } as const
+}
+
+/**
+ * Get address + ABI config for SAGADirectoryIdentity.
+ *
+ * Usage with viem:
+ * ```ts
+ * import { getContract } from 'viem'
+ * const contract = getContract({ ...getDirectoryIdentityConfig('base-sepolia'), client })
+ * ```
+ */
+export function getDirectoryIdentityConfig(chain: SupportedChain) {
+  return {
+    address: getDeployedAddress('SAGADirectoryIdentity', chain),
+    abi: SAGADirectoryIdentityAbi,
   } as const
 }

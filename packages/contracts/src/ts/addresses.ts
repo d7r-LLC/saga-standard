@@ -10,21 +10,24 @@ export type ContractName =
   | 'SAGAAgentIdentity'
   | 'SAGAOrgIdentity'
   | 'SAGATBAHelper'
+  | 'SAGADirectoryIdentity'
 
 const ZERO: Address = '0x0000000000000000000000000000000000000000'
 
 const ADDRESSES: Record<SupportedChain, Record<ContractName, Address>> = {
   'base-sepolia': {
-    SAGAHandleRegistry: ZERO, // populated after testnet deploy
-    SAGAAgentIdentity: ZERO,
-    SAGAOrgIdentity: ZERO,
-    SAGATBAHelper: ZERO,
+    SAGAHandleRegistry: '0xec2f53f2cfa24553c4ad6e585965490f839b28f0',
+    SAGAAgentIdentity: '0x1a706cc37ea90af568dce0f637aeb60884c9fadb',
+    SAGAOrgIdentity: '0x4f297f7b3439d1bdd548ba897d3b82b5fc2bdd26',
+    SAGATBAHelper: '0xcbd2a8193901eb838439dd2bb3303ce177989dbe',
+    SAGADirectoryIdentity: ZERO,
   },
   base: {
     SAGAHandleRegistry: ZERO,
     SAGAAgentIdentity: ZERO,
     SAGAOrgIdentity: ZERO,
     SAGATBAHelper: ZERO,
+    SAGADirectoryIdentity: ZERO,
   },
 }
 
