@@ -90,7 +90,7 @@ describe('FederationLinkManager', () => {
     })
   })
 
-  it('looks up directory URL from D1 and opens WebSocket', async () => {
+  it('resolves directory URL and opens WebSocket with correct URL', async () => {
     const forwardPromise = manager.forward('remote-hub', {
       v: 1,
       type: 'direct-message',
@@ -102,7 +102,11 @@ describe('FederationLinkManager', () => {
       id: 'msg-001',
     })
 
-    mockWs.simulateOpen()
+    // Yield for async directory URL lookup
+    await new Promise(r => setTimeout(r, 10))
+
+    expect(wsFactory).toHaveBeenCalledWith('wss://remote.example.com/v1/relay/federation')
+
     mockWs.simulateMessage({
       type: 'federation:challenge',
       challenge: 'saga-federation:test:123',
@@ -138,7 +142,9 @@ describe('FederationLinkManager', () => {
       id: 'msg-001',
     })
 
-    mockWs.simulateOpen()
+    // Yield for async directory URL lookup
+    await new Promise(r => setTimeout(r, 10))
+
     mockWs.simulateMessage({
       type: 'federation:challenge',
       challenge: 'saga-federation:test:123',
@@ -216,7 +222,10 @@ describe('FederationLinkManager', () => {
       ts: new Date().toISOString(),
       id: 'msg-001',
     })
-    mockWs.simulateOpen()
+
+    // Yield for async directory URL lookup
+    await new Promise(r => setTimeout(r, 10))
+
     mockWs.simulateMessage({
       type: 'federation:challenge',
       challenge: 'saga-federation:test:123',

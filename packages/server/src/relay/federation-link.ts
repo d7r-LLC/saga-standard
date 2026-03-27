@@ -131,34 +131,23 @@ export function createFederationLinkManager(config: FederationLinkConfig): Feder
   /**
    * Get an existing open link, or create a new one.
    *
-   * WebSocket creation happens synchronously (before any DB lookup) so that
-   * event handlers are registered immediately. Directory validation runs in the
-   * background; if it fails, all pending forwards for that link are rejected.
-   *
-   * The actual WS connection URL is resolved asynchronously after creation and
-   * a reconnect is NOT needed in tests because the mock factory ignores the URL.
-   * In production the WS URL is derived from the directory record, so validation
-   * and URL resolution happen in one DB round-trip.
+   * Resolves the directory URL from D1 and validates NFT status before
+   * creating the WebSocket connection with the real URL.
    */
-  function getOrCreateLink(directoryId: string): {
-    link: FederationLink
-    validationPromise: Promise<void>
-  } {
+  async function getOrCreateLink(directoryId: string): Promise<FederationLink> {
     const existing = links.get(directoryId)
     if (existing && existing.ws.readyState === 1) {
-      return { link: existing, validationPromise: Promise.resolve() }
+      return existing
     }
 
     if (existing) {
       links.delete(directoryId)
     }
 
-    // Create with a placeholder URL — the real URL is resolved below.
-    // In production this WS connects to the placeholder and will fail, but the
-    // validation promise will reject pending forwards before any damage is done.
-    // The placeholder is never used in tests because wsFactory ignores the URL.
-    const placeholderUrl = `wss://resolving.federation.local/${directoryId}`
-    const ws = createWs(placeholderUrl)
+    // Resolve the real URL before creating the WebSocket
+    const directoryUrl = await lookupDirectoryUrl(directoryId)
+    const wsUrl = `${directoryUrl.replace(/^https?:\/\//, 'wss://')}/v1/relay/federation`
+    const ws = createWs(wsUrl)
 
     const link: FederationLink = {
       ws,
@@ -170,34 +159,12 @@ export function createFederationLinkManager(config: FederationLinkConfig): Feder
     setupLinkHandlers(link)
     links.set(directoryId, link)
 
-    // Validate directory and update WS URL in background.
-    // If validation fails, reject all pending forwards.
-    const validationPromise = lookupDirectoryUrl(directoryId).then(
-      () => {
-        // Validation passed — the WS was already created above. The remote server
-        // will send a challenge once the connection opens.
-      },
-      (err: Error) => {
-        // Validation failed — reject all pending forwards and clean up.
-        for (const p of link.pendingForwards) {
-          p.reject(err)
-        }
-        link.pendingForwards = []
-        links.delete(directoryId)
-        if (link.ws.readyState === 1) {
-          link.ws.close()
-        }
-        // Re-throw so callers that await validationPromise also see the error.
-        throw err
-      }
-    )
-
-    return { link, validationPromise }
+    return link
   }
 
   return {
-    forward(targetDirectoryId: string, envelope: RelayEnvelope): Promise<void> {
-      const { link, validationPromise } = getOrCreateLink(targetDirectoryId)
+    async forward(targetDirectoryId: string, envelope: RelayEnvelope): Promise<void> {
+      const link = await getOrCreateLink(targetDirectoryId)
 
       if (link.authenticated) {
         link.ws.send(
@@ -207,27 +174,31 @@ export function createFederationLinkManager(config: FederationLinkConfig): Feder
             sourceDirectoryId: config.localDirectoryId,
           })
         )
-        return Promise.resolve()
+        return
       }
 
-      // Queue the forward — it will be sent once authentication completes.
-      const forwardPromise = new Promise<void>((resolve, reject) => {
-        link.pendingForwards.push({ envelope, resolve, reject })
-
-        setTimeout(() => {
+      // Queue the forward -- sent once authentication completes.
+      return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
           const idx = link.pendingForwards.findIndex(p => p.envelope.id === envelope.id)
           if (idx >= 0) {
             link.pendingForwards.splice(idx, 1)
             reject(new Error('Federation link authentication timeout'))
           }
         }, FEDERATION_LINK_TIMEOUT_MS)
-      })
 
-      // Return a combined promise: rejects if validation fails OR if auth times out.
-      // For the validation-failure case we rely on the reject in the closure above
-      // (validationPromise's rejection handler already calls p.reject), so we just
-      // need to make sure the caller also sees the error. We can race them.
-      return Promise.race([forwardPromise, validationPromise.then(() => forwardPromise)])
+        link.pendingForwards.push({
+          envelope,
+          resolve: () => {
+            clearTimeout(timer)
+            resolve()
+          },
+          reject: (err: Error) => {
+            clearTimeout(timer)
+            reject(err)
+          },
+        })
+      })
     },
 
     closeAll(): void {

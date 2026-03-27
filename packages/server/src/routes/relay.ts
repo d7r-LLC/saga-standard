@@ -26,6 +26,10 @@ relayRoutes.get('/relay', async c => {
  * GET /v1/relay/federation — WebSocket upgrade for directory-to-directory federation
  */
 relayRoutes.get('/relay/federation', async c => {
+  if (!c.env.LOCAL_DIRECTORY_ID) {
+    return c.json({ error: 'Federation not enabled', code: 'FEDERATION_DISABLED' }, 404)
+  }
+
   const upgradeHeader = c.req.header('Upgrade')
   if ((upgradeHeader ?? '').toLowerCase() !== 'websocket') {
     return c.json({ error: 'Expected WebSocket upgrade', code: 'UPGRADE_REQUIRED' }, 426)

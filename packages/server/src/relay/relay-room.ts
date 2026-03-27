@@ -585,9 +585,18 @@ export class RelayRoom {
       return
     }
 
-    // Verify envelope.from belongs to the source directory
-    const fromDirectory = envelope.from.includes('@') ? envelope.from.split('@')[1] : null
-    if (fromDirectory && fromDirectory !== fedAttachment.directoryId) {
+    // Verify envelope.from is fully qualified (handle@directoryId) for federation
+    const fromAtIndex = envelope.from.indexOf('@')
+    if (fromAtIndex < 0) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: envelope.id,
+        error: 'Federation forward requires fully qualified sender (handle@directoryId)',
+      })
+      return
+    }
+    const fromDirectory = envelope.from.substring(fromAtIndex + 1)
+    if (fromDirectory !== fedAttachment.directoryId) {
       this.sendJson(ws, {
         type: 'relay:forward-error',
         messageId: envelope.id,
@@ -598,6 +607,25 @@ export class RelayRoom {
 
     // Route the envelope locally: extract handle from the `to` field
     const recipients = Array.isArray(envelope.to) ? envelope.to : [envelope.to]
+
+    // Verify all recipients belong to this directory
+    const localDirectoryId = this.env.LOCAL_DIRECTORY_ID
+    if (localDirectoryId) {
+      for (const recipient of recipients) {
+        const recipientAtIndex = recipient.indexOf('@')
+        if (recipientAtIndex >= 0) {
+          const recipientDirectory = recipient.substring(recipientAtIndex + 1)
+          if (recipientDirectory !== localDirectoryId) {
+            this.sendJson(ws, {
+              type: 'relay:forward-error',
+              messageId: envelope.id,
+              error: `Recipient "${recipient}" does not belong to this directory`,
+            })
+            return
+          }
+        }
+      }
+    }
 
     for (const recipient of recipients) {
       const recipientHandle = recipient.split('@')[0]
@@ -655,10 +683,14 @@ export class RelayRoom {
   /** Lazily create FederationLinkManager for outbound cross-directory routing */
   private getFederationLinks(): FederationLinkManager {
     if (!this.federationLinks) {
+      if (!this.env.LOCAL_DIRECTORY_ID) {
+        throw new Error('Federation requires LOCAL_DIRECTORY_ID')
+      }
+      // TODO: Add OPERATOR_WALLET env var and validate here
       this.federationLinks = createFederationLinkManager({
         db: this.env.DB,
-        localDirectoryId: this.env.LOCAL_DIRECTORY_ID ?? '',
-        localOperatorWallet: '', // TODO: configure from env
+        localDirectoryId: this.env.LOCAL_DIRECTORY_ID,
+        localOperatorWallet: '', // TODO: configure OPERATOR_WALLET from env
         signChallenge: async (challenge: string) => {
           // TODO: Sign with operator wallet. Placeholder for now.
           return `placeholder-sig-${challenge}`
