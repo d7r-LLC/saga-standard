@@ -24,12 +24,24 @@ contract SAGAHandleRegistry is Ownable {
     /// @notice handle hash → record
     mapping(bytes32 => HandleRecord) internal _handles;
 
+    /// @notice scoped handle key (directoryId + handle hash) → record
+    mapping(bytes32 => HandleRecord) internal _scopedHandles;
+
     /// @notice Contracts authorized to register handles
     mapping(address => bool) public authorizedContracts;
 
     event HandleRegistered(
         bytes32 indexed handleKey,
         string handle,
+        EntityType entityType,
+        uint256 tokenId,
+        address contractAddress
+    );
+
+    event ScopedHandleRegistered(
+        bytes32 indexed scopedKey,
+        string handle,
+        string directoryId,
         EntityType entityType,
         uint256 tokenId,
         address contractAddress
@@ -76,6 +88,33 @@ contract SAGAHandleRegistry is Ownable {
         emit HandleRegistered(key, handle, entityType, tokenId, msg.sender);
     }
 
+    /// @notice Register a handle scoped to a specific directory. Only authorized contracts can call this.
+    function registerScopedHandle(
+        string calldata handle,
+        EntityType entityType,
+        uint256 tokenId,
+        string calldata directoryId
+    ) external {
+        require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
+        require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
+        _validateHandle(handle);
+
+        bytes32 key = _scopedHandleKey(handle, directoryId);
+        require(
+            _scopedHandles[key].entityType == EntityType.NONE,
+            "SAGAHandleRegistry: handle taken in directory"
+        );
+
+        _scopedHandles[key] = HandleRecord({
+            entityType: entityType,
+            tokenId: tokenId,
+            contractAddress: msg.sender,
+            registeredAt: block.timestamp
+        });
+
+        emit ScopedHandleRegistered(key, handle, directoryId, entityType, tokenId, msg.sender);
+    }
+
     // --- Resolution (public view) ---
 
     /// @notice Resolve a handle to its entity type, token ID, and contract address
@@ -95,11 +134,41 @@ contract SAGAHandleRegistry is Ownable {
         return _handles[_handleKey(handle)].entityType != EntityType.NONE;
     }
 
+    /// @notice Resolve a handle within a specific directory
+    function resolveScopedHandle(string calldata handle, string calldata directoryId)
+        external
+        view
+        returns (EntityType entityType, uint256 tokenId, address contractAddress)
+    {
+        bytes32 key = _scopedHandleKey(handle, directoryId);
+        HandleRecord memory record = _scopedHandles[key];
+        require(record.entityType != EntityType.NONE, "SAGAHandleRegistry: not found in directory");
+        return (record.entityType, record.tokenId, record.contractAddress);
+    }
+
+    /// @notice Check if a handle exists within a specific directory
+    function scopedHandleExists(string calldata handle, string calldata directoryId)
+        external
+        view
+        returns (bool)
+    {
+        return _scopedHandles[_scopedHandleKey(handle, directoryId)].entityType != EntityType.NONE;
+    }
+
     // --- Internal ---
 
     /// @dev Normalize handle to lowercase bytes32 hash for storage efficiency
     function _handleKey(string calldata handle) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_toLower(handle)));
+    }
+
+    /// @dev Compute scoped handle key: keccak256(directoryId + toLower(handle))
+    function _scopedHandleKey(string calldata handle, string calldata directoryId)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(directoryId, _toLower(handle)));
     }
 
     /// @dev Validate handle: 3-64 chars, alphanumeric + dots/hyphens/underscores,
