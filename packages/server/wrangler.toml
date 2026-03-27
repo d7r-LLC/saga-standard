@@ -17,6 +17,8 @@ ORG_IDENTITY_CONTRACT = "0x4f297f7b3439d1bdd548ba897d3b82b5fc2bdd26"
 DIRECTORY_IDENTITY_CONTRACT = ""
 INDEXER_CHAIN = "eip155:84532"
 INDEXER_START_BLOCK = "39400000"
+# Federation: set to your directoryId to enable cross-directory routing (opt-in)
+LOCAL_DIRECTORY_ID = ""
 
 # ── Local development ────────────────────────────────────────────────
 
@@ -66,6 +68,7 @@ crons = ["* * * * *"]
 SERVER_NAME = "SAGA Reference Hub (Staging)"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
 BASE_RPC_URL = "https://sepolia.base.org"
+LOCAL_DIRECTORY_ID = ""
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -103,6 +106,7 @@ crons = ["* * * * *"]
 [env.production.vars]
 SERVER_NAME = "SAGA Reference Hub"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
+LOCAL_DIRECTORY_ID = ""
 
 [[env.production.d1_databases]]
 binding = "DB"

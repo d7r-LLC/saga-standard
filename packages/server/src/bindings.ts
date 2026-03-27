@@ -43,4 +43,7 @@ export interface Env {
 
   /** Secret for admin endpoints (e.g. /admin/reindex). Endpoint disabled if unset. */
   ADMIN_SECRET?: string
+
+  /** Local directory identity (used for federation routing decisions) */
+  LOCAL_DIRECTORY_ID?: string
 }

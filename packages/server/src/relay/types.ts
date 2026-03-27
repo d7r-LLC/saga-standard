@@ -54,6 +54,66 @@ export interface SyncRequestMessage {
   collections?: string[] // reserved — currently ignored by hub (cannot filter encrypted blobs)
 }
 
+// ── Federation messages (directory ↔ directory) ─────────────────
+
+export interface FederationAuthMessage {
+  type: 'federation:auth'
+  directoryId: string
+  operatorWallet: string
+  signature: string
+  challenge: string
+}
+
+export interface FederationForwardMessage {
+  type: 'relay:forward'
+  envelope: RelayEnvelope
+  sourceDirectoryId: string
+}
+
+export type FederationClientMessage =
+  | FederationAuthMessage
+  | FederationForwardMessage
+  | ControlPongMessage // heartbeat response to server
+
+// ── Federation server → client messages ─────────────────────────
+
+export interface FederationChallengeMessage {
+  type: 'federation:challenge'
+  challenge: string
+  expiresAt: string
+}
+
+export interface FederationSuccessMessage {
+  type: 'federation:success'
+  directoryId: string
+}
+
+export interface FederationErrorMessage {
+  type: 'federation:error'
+  error: string
+}
+
+export interface FederationForwardAckMessage {
+  type: 'relay:forward-ack'
+  /** Correlates to envelope.id of the originating relay:forward message */
+  messageId: string
+}
+
+export interface FederationForwardErrorMessage {
+  type: 'relay:forward-error'
+  /** Correlates to envelope.id of the originating relay:forward message */
+  messageId: string
+  error: string
+}
+
+export type FederationServerMessage =
+  | FederationChallengeMessage
+  | FederationSuccessMessage
+  | FederationErrorMessage
+  | FederationForwardAckMessage
+  | FederationForwardErrorMessage
+  | ControlPingMessage // heartbeat from server
+
 export type ClientMessage =
   | AuthVerifyMessage
   | RelaySendMessage
@@ -135,6 +195,7 @@ export type ServerMessage =
 export type WebSocketAttachment =
   | { authenticated: false; challenge: string; expiresAt: string }
   | { authenticated: true; state: ConnectionState }
+  | { authenticated: true; federation: true; directoryId: string; operatorWallet: string }
 
 export interface ConnectionState {
   handle: string
@@ -154,6 +215,8 @@ export const CHALLENGE_TTL_MS = 5 * 60_000
 export const MAILBOX_TTL_SECONDS = 30 * 24 * 3600
 export const DM_TTL_SECONDS = 7 * 24 * 3600 // 7 days for direct messages
 export const MAILBOX_DRAIN_BATCH_SIZE = 50
+export const FEDERATION_LINK_TIMEOUT_MS = 10_000
+export const FEDERATION_RECONNECT_MAX_MS = 60_000
 
 // ── Type guards ─────────────────────────────────────────────────
 
@@ -230,4 +293,57 @@ export function parseClientMessage(raw: string): ClientMessage | null {
   } catch {
     return null
   }
+}
+
+const FEDERATION_CLIENT_MESSAGE_TYPES = new Set([
+  'federation:auth',
+  'relay:forward',
+  'control:pong',
+])
+
+export function isFederationClientMessage(msg: unknown): msg is FederationClientMessage {
+  if (typeof msg !== 'object' || msg === null) return false
+  const obj = msg as Record<string, unknown>
+  if (typeof obj.type !== 'string' || !FEDERATION_CLIENT_MESSAGE_TYPES.has(obj.type)) return false
+
+  switch (obj.type) {
+    case 'federation:auth':
+      return (
+        typeof obj.directoryId === 'string' &&
+        typeof obj.operatorWallet === 'string' &&
+        typeof obj.signature === 'string' &&
+        typeof obj.challenge === 'string'
+      )
+    case 'relay:forward':
+      return (
+        typeof obj.envelope === 'object' &&
+        obj.envelope !== null &&
+        typeof obj.sourceDirectoryId === 'string'
+      )
+    case 'control:pong':
+      return true
+    default:
+      return false
+  }
+}
+
+export function parseFederationMessage(raw: string): FederationClientMessage | null {
+  try {
+    const parsed = JSON.parse(raw)
+    return isFederationClientMessage(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+// Type guard for regular agent connections (non-federation authenticated)
+export function isRegularClientAttachment(
+  attachment: WebSocketAttachment | null
+): attachment is { authenticated: true; state: ConnectionState } {
+  return (
+    attachment !== null &&
+    attachment.authenticated === true &&
+    'state' in attachment &&
+    !('federation' in attachment)
+  )
 }

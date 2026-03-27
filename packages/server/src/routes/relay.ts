@@ -21,3 +21,26 @@ relayRoutes.get('/relay', async c => {
   const stub = c.env.RELAY_ROOM.get(id)
   return stub.fetch(c.req.raw)
 })
+
+/**
+ * GET /v1/relay/federation — WebSocket upgrade for directory-to-directory federation
+ */
+relayRoutes.get('/relay/federation', async c => {
+  if (!c.env.LOCAL_DIRECTORY_ID) {
+    return c.json({ error: 'Federation not enabled', code: 'FEDERATION_DISABLED' }, 404)
+  }
+
+  const upgradeHeader = c.req.header('Upgrade')
+  if ((upgradeHeader ?? '').toLowerCase() !== 'websocket') {
+    return c.json({ error: 'Expected WebSocket upgrade', code: 'UPGRADE_REQUIRED' }, 426)
+  }
+
+  const id = c.env.RELAY_ROOM.idFromName('default')
+  const stub = c.env.RELAY_ROOM.get(id)
+
+  // Append ?federation=true so the DO distinguishes federation from agent connections
+  const url = new URL(c.req.url)
+  url.searchParams.set('federation', 'true')
+  const req = new Request(url.toString(), { headers: c.req.raw.headers })
+  return stub.fetch(req)
+})
