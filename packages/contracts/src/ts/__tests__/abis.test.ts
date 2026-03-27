@@ -2,7 +2,12 @@
 // Copyright 2026 d7r LLC
 
 import { describe, expect, it } from 'vitest'
-import { SAGAAgentIdentityAbi, SAGAHandleRegistryAbi, SAGAOrgIdentityAbi } from '../abis'
+import {
+  SAGAAgentIdentityAbi,
+  SAGADirectoryIdentityAbi,
+  SAGAHandleRegistryAbi,
+  SAGAOrgIdentityAbi,
+} from '../abis'
 
 describe('ABI exports', () => {
   it('SAGAHandleRegistryAbi is a non-empty array', () => {
@@ -33,6 +38,18 @@ describe('ABI exports', () => {
   it('org ABI contains registerOrganization function', () => {
     const fn = SAGAOrgIdentityAbi.find(
       e => e.type === 'function' && e.name === 'registerOrganization'
+    )
+    expect(fn).toBeDefined()
+  })
+
+  it('SAGADirectoryIdentityAbi is a non-empty array', () => {
+    expect(Array.isArray(SAGADirectoryIdentityAbi)).toBe(true)
+    expect(SAGADirectoryIdentityAbi.length).toBeGreaterThan(0)
+  })
+
+  it('directory ABI contains registerDirectory function', () => {
+    const fn = SAGADirectoryIdentityAbi.find(
+      e => e.type === 'function' && e.name === 'registerDirectory'
     )
     expect(fn).toBeDefined()
   })
