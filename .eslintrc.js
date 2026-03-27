@@ -26,6 +26,14 @@ module.exports = {
       },
     },
     {
+      // React Native entry point uses ES module imports (handled by Metro)
+      files: ['packages/saga-app/index.js'],
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 2022,
+      },
+    },
+    {
       files: ['**/*.ts', '**/*.tsx'],
       parser: '@typescript-eslint/parser',
       plugins: ['@typescript-eslint'],
@@ -59,5 +67,13 @@ module.exports = {
       },
     },
   ],
-  ignorePatterns: ['dist/', 'build/', 'node_modules/', 'coverage/', '*.min.js'],
+  ignorePatterns: [
+    'dist/',
+    'build/',
+    'node_modules/',
+    'coverage/',
+    '*.min.js',
+    '**/android/',
+    '**/ios/',
+  ],
 }
