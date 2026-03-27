@@ -26,6 +26,10 @@ export type WalletStackParamList = {
 
 export type ProfileStackParamList = {
   MyProfile: undefined
+  IdentityManager: undefined
+  MintWizard: undefined
+  IdentityDetail: { identityId: string }
+  HandleManager: undefined
 }
 
 // Tab navigator
