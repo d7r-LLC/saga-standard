@@ -8,7 +8,7 @@ import { mnemonicToAccount } from 'viem/accounts'
 import { SecureKeychain } from '../../../core/storage/keychain'
 import { useChain } from '../../../core/providers/ChainProvider'
 import { useStorage } from '../../../core/providers/StorageProvider'
-import { KEYCHAIN_MNEMONIC_PREFIX } from '../constants'
+import { DEFAULT_DERIVATION_PATH, KEYCHAIN_MNEMONIC_PREFIX } from '../constants'
 import { CHAINS, RPC_URLS } from '../../../core/chain/config'
 import type { ChainId } from '../types'
 
@@ -46,16 +46,19 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
 
     setSigning(true)
     setError(null)
+    let errorSet = false
 
     try {
       const wallet = wallets.find(w => w.id === walletId)
-      const derivationPath = (wallet?.derivationPath ?? "m/44'/60'/0'/0/0") as `m/44'/60'/${string}`
+      const derivationPath = (wallet?.derivationPath ||
+        DEFAULT_DERIVATION_PATH) as `m/44'/60'/${string}`
 
       const mnemonic = await SecureKeychain.get(`${KEYCHAIN_MNEMONIC_PREFIX}-${walletId}`)
 
       if (!mnemonic) {
         const msg = 'Wallet key not found. Re-import your wallet.'
         setError(msg)
+        errorSet = true
         throw new Error('Wallet key not found')
       }
 
@@ -69,6 +72,15 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
 
       cachedClient.current = { walletId, chainId, client }
       return client
+    } catch (err) {
+      if (!errorSet) {
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : 'Unexpected error while preparing wallet client.'
+        setError(msg)
+      }
+      throw err
     } finally {
       setSigning(false)
     }

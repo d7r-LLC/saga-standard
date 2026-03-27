@@ -16,9 +16,30 @@ jest.mock('../../../../src/core/providers/ChainProvider', () => ({
   useChain: () => ({ chainId: 'base-sepolia' }),
 }))
 
+let mockWallets = [
+  {
+    id: 'w1',
+    type: 'self-custody',
+    label: 'Test Wallet',
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    chain: 'base-sepolia',
+    balance: '1.0',
+    derivationPath: "m/44'/60'/0'/0/0",
+  },
+]
+
 jest.mock('../../../../src/core/providers/StorageProvider', () => ({
   useStorage: () => ({
-    wallets: [
+    wallets: mockWallets,
+  }),
+}))
+
+describe('useWalletSigner', () => {
+  const { SecureKeychain } = jest.requireMock('../../../../src/core/storage/keychain')
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockWallets = [
       {
         id: 'w1',
         type: 'self-custody',
@@ -28,15 +49,7 @@ jest.mock('../../../../src/core/providers/StorageProvider', () => ({
         balance: '1.0',
         derivationPath: "m/44'/60'/0'/0/0",
       },
-    ],
-  }),
-}))
-
-describe('useWalletSigner', () => {
-  const { SecureKeychain } = jest.requireMock('../../../../src/core/storage/keychain')
-
-  beforeEach(() => {
-    jest.clearAllMocks()
+    ]
   })
 
   it('returns a WalletClient when mnemonic is found', async () => {
@@ -86,6 +99,21 @@ describe('useWalletSigner', () => {
 
     expect(thrown?.message).toBe('No wallet selected')
     expect(result.current.error).toBe('No wallet selected.')
+  })
+
+  it('falls back to default derivation path when derivationPath is empty', async () => {
+    mockWallets = [{ ...mockWallets[0], derivationPath: '' }]
+    SecureKeychain.get.mockResolvedValue(TEST_MNEMONIC)
+
+    const { result } = renderHook(() => useWalletSigner('w1'))
+
+    let client: unknown
+    await act(async () => {
+      client = await result.current.getWalletClient()
+    })
+
+    expect(client).toBeDefined()
+    expect(result.current.error).toBeNull()
   })
 
   it('clears error with clearError', async () => {

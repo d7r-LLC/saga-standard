@@ -103,16 +103,16 @@ No changes needed. The hook already accepts a `WalletClient` parameter and handl
 
 ## Error Handling
 
-| Error                              | Source               | User sees                                             |
-| ---------------------------------- | -------------------- | ----------------------------------------------------- |
-| No wallets exist                   | StorageProvider      | "Create a wallet first" + navigation button           |
-| Mnemonic not in keychain           | SecureKeychain.get() | "Wallet key not found. Re-import your wallet."        |
-| Insufficient funds                 | viem transaction     | "Insufficient funds for gas. Fund your wallet first." |
-| Transaction reverted               | Contract call        | The revert reason from the contract                   |
-| Network error                      | RPC transport        | "Network error. Check your connection and try again." |
-| User has no identity type selected | useMint guard        | "Select an identity type before minting."             |
+| Error                              | Source               | User sees                                                                 |
+| ---------------------------------- | -------------------- | ------------------------------------------------------------------------- |
+| No wallets exist                   | StorageProvider      | Inline message on Confirm step: "Create a wallet first."                  |
+| Mnemonic not in keychain           | SecureKeychain.get() | Inline message on Confirm step: "Wallet key not found. Re-import."        |
+| Insufficient funds                 | viem transaction     | useMint error step: "Insufficient funds for gas. Fund your wallet first." |
+| Transaction reverted               | Contract call        | useMint error step: the revert reason from the contract                   |
+| Network error                      | RPC transport        | useMint error step: "Network error. Check your connection and try again." |
+| User has no identity type selected | useMint guard        | useMint error step: "Select an identity type before minting."             |
 
-All errors surface through useMint's existing error step. No new error UI needed.
+Signer and selection errors are shown inline on the MintWizard Confirm step; on-chain and minting failures continue to use useMint's existing error step.
 
 ## Testing
 
