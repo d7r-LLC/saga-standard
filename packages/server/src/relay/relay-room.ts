@@ -370,6 +370,7 @@ export class RelayRoom {
     // Route to recipients
     const recipients = Array.isArray(envelope.to) ? envelope.to : [envelope.to]
     const localDirectoryId = this.env.LOCAL_DIRECTORY_ID
+    const federationErrors: string[] = []
 
     for (const recipient of recipients) {
       const atIndex = recipient.indexOf('@')
@@ -381,12 +382,7 @@ export class RelayRoom {
         try {
           await this.getFederationLinks().forward(recipientDirectoryId, envelope)
         } catch (err) {
-          this.sendJson(ws, {
-            type: 'relay:error',
-            messageId: envelope.id,
-            error: `Federation forward failed: ${err instanceof Error ? err.message : String(err)}`,
-          })
-          return
+          federationErrors.push(`${recipient}: ${err instanceof Error ? err.message : String(err)}`)
         }
         continue
       }
@@ -410,6 +406,14 @@ export class RelayRoom {
       } else {
         await this.mailbox.store(recipientHandle, envelope)
       }
+    }
+
+    if (federationErrors.length > 0) {
+      this.sendJson(ws, {
+        type: 'relay:error',
+        messageId: envelope.id,
+        error: `Federation forward failed: ${federationErrors.join('; ')}`,
+      })
     }
 
     this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
@@ -559,6 +563,17 @@ export class RelayRoom {
       return
     }
 
+    // Verify sourceDirectoryId matches authenticated federation connection
+    const fedAttachment = attachment as { directoryId: string }
+    if (msg.sourceDirectoryId !== fedAttachment.directoryId) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: msg.envelope?.id ?? '',
+        error: 'Source directory mismatch',
+      })
+      return
+    }
+
     const envelope = msg.envelope
     const validationError = validateEnvelope(envelope)
     if (validationError) {
@@ -566,6 +581,17 @@ export class RelayRoom {
         type: 'relay:forward-error',
         messageId: envelope?.id ?? '',
         error: validationError.message,
+      })
+      return
+    }
+
+    // Verify envelope.from belongs to the source directory
+    const fromDirectory = envelope.from.includes('@') ? envelope.from.split('@')[1] : null
+    if (fromDirectory && fromDirectory !== fedAttachment.directoryId) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: envelope.id,
+        error: 'Envelope sender directory mismatch',
       })
       return
     }
