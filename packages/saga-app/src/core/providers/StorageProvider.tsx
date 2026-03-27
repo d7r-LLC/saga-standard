@@ -4,7 +4,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { RealmStore } from '../storage/realm-store'
 import { AppStorage } from '../storage/async-storage'
-import { WalletRecord } from '../storage/realm-schemas'
+import { IdentityRecord, WalletRecord } from '../storage/realm-schemas'
 
 export interface Wallet {
   id: string
@@ -36,6 +36,7 @@ interface StorageContextValue {
   deleteWallet: (id: string) => void
   setActiveWallet: (id: string) => void
   addIdentity: (identity: Identity) => void
+  deleteIdentity: (id: string) => void
   updateIdentity: (id: string, patch: Partial<Identity>) => void
   setActiveIdentity: (id: string) => void
   updateWalletBalance: (id: string, balance: string) => void
@@ -77,6 +78,17 @@ export function StorageProvider({ children }: StorageProviderProps): React.JSX.E
         derivationPath: w.derivationPath,
       }))
       setWallets(loadedWallets)
+      const identityResults = RealmStore.query<IdentityRecord>('Identity')
+      const loadedIdentities: Identity[] = Array.from(identityResults).map(i => ({
+        id: i.id,
+        type: i.type,
+        handle: i.handle,
+        tokenId: i.tokenId,
+        contractAddress: i.contractAddress,
+        tbaAddress: i.tbaAddress,
+        hubUrl: i.hubUrl,
+      }))
+      setIdentities(loadedIdentities)
       const savedWalletId = await AppStorage.get<string>('activeWalletId')
       const savedIdentityId = await AppStorage.get<string>('activeIdentityId')
       if (savedWalletId && loadedWallets.some(w => w.id === savedWalletId)) {
@@ -84,7 +96,11 @@ export function StorageProvider({ children }: StorageProviderProps): React.JSX.E
       } else if (savedWalletId) {
         AppStorage.set('activeWalletId', '')
       }
-      if (savedIdentityId) setActiveIdentityId(savedIdentityId)
+      if (savedIdentityId && loadedIdentities.some(i => i.id === savedIdentityId)) {
+        setActiveIdentityId(savedIdentityId)
+      } else if (savedIdentityId) {
+        AppStorage.set('activeIdentityId', '')
+      }
       setInitialized(true)
     }
     init()
@@ -132,10 +148,50 @@ export function StorageProvider({ children }: StorageProviderProps): React.JSX.E
   }, [])
 
   const addIdentity = useCallback((identity: Identity) => {
+    RealmStore.write(() => {
+      const realm = RealmStore.getInstance()
+      realm.create('Identity', {
+        id: identity.id,
+        type: identity.type,
+        handle: identity.handle,
+        tokenId: identity.tokenId,
+        contractAddress: identity.contractAddress,
+        tbaAddress: identity.tbaAddress,
+        hubUrl: identity.hubUrl,
+        metadata: '{}',
+      })
+    })
     setIdentities(prev => [...prev, identity])
   }, [])
 
+  const deleteIdentity = useCallback(
+    (id: string) => {
+      RealmStore.write(() => {
+        const realm = RealmStore.getInstance()
+        const record = realm.objectForPrimaryKey('Identity', id)
+        if (record) realm.delete(record)
+      })
+      if (activeIdentityId === id) {
+        setActiveIdentityId(null)
+        AppStorage.set('activeIdentityId', '')
+      }
+      setIdentities(prev => prev.filter(i => i.id !== id))
+    },
+    [activeIdentityId]
+  )
+
   const updateIdentity = useCallback((id: string, patch: Partial<Identity>) => {
+    RealmStore.write(() => {
+      const realm = RealmStore.getInstance()
+      const record = realm.objectForPrimaryKey('Identity', id)
+      if (record) {
+        if (patch.handle !== undefined) record.handle = patch.handle
+        if (patch.hubUrl !== undefined) record.hubUrl = patch.hubUrl
+        if (patch.tbaAddress !== undefined) record.tbaAddress = patch.tbaAddress
+        if (patch.contractAddress !== undefined) record.contractAddress = patch.contractAddress
+        if (patch.tokenId !== undefined) record.tokenId = patch.tokenId
+      }
+    })
     setIdentities(prev => prev.map(i => (i.id === id ? { ...i, ...patch } : i)))
   }, [])
 
@@ -166,6 +222,7 @@ export function StorageProvider({ children }: StorageProviderProps): React.JSX.E
     deleteWallet,
     setActiveWallet,
     addIdentity,
+    deleteIdentity,
     updateIdentity,
     setActiveIdentity,
     updateWalletBalance,
