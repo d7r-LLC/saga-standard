@@ -2,13 +2,14 @@
 // Copyright 2026 d7r LLC
 
 /** Entity type matching the on-chain SAGAHandleRegistry.EntityType enum */
-export type EntityType = 'NONE' | 'AGENT' | 'ORG'
+export type EntityType = 'NONE' | 'AGENT' | 'ORG' | 'DIRECTORY'
 
-/** Numeric entity type values matching Solidity enum (0=NONE, 1=AGENT, 2=ORG) */
+/** Numeric entity type values matching Solidity enum (0=NONE, 1=AGENT, 2=ORG, 3=DIRECTORY) */
 export const ENTITY_TYPE_VALUES = {
   NONE: 0,
   AGENT: 1,
   ORG: 2,
+  DIRECTORY: 3,
 } as const
 
 /** On-chain handle record from SAGAHandleRegistry.resolveHandle() */
@@ -45,7 +46,20 @@ export function entityTypeFromNumber(n: number): EntityType {
       return 'AGENT'
     case 2:
       return 'ORG'
+    case 3:
+      return 'DIRECTORY'
     default:
       return 'NONE'
   }
+}
+
+/** Directory identity data from SAGADirectoryIdentity */
+export interface DirectoryIdentity {
+  tokenId: bigint
+  directoryId: string
+  url: string
+  operatorWallet: `0x${string}`
+  conformanceLevel: string
+  status: string
+  registeredAt: bigint
 }

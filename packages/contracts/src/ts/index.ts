@@ -2,7 +2,12 @@
 // Copyright 2026 d7r LLC
 
 // ABIs
-export { SAGAHandleRegistryAbi, SAGAAgentIdentityAbi, SAGAOrgIdentityAbi } from './abis'
+export {
+  SAGAHandleRegistryAbi,
+  SAGAAgentIdentityAbi,
+  SAGAOrgIdentityAbi,
+  SAGADirectoryIdentityAbi,
+} from './abis'
 
 // Addresses
 export {
@@ -14,7 +19,12 @@ export {
 } from './addresses'
 
 // Contract config helpers (spread into viem's getContract)
-export { getHandleRegistryConfig, getAgentIdentityConfig, getOrgIdentityConfig } from './clients'
+export {
+  getHandleRegistryConfig,
+  getAgentIdentityConfig,
+  getOrgIdentityConfig,
+  getDirectoryIdentityConfig,
+} from './clients'
 
 // Types
 export {
@@ -24,6 +34,7 @@ export {
   type HandleRecord,
   type AgentIdentity,
   type OrgIdentity,
+  type DirectoryIdentity,
 } from './types'
 
 // TBA

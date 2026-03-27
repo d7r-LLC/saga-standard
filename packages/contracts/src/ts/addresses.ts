@@ -10,6 +10,7 @@ export type ContractName =
   | 'SAGAAgentIdentity'
   | 'SAGAOrgIdentity'
   | 'SAGATBAHelper'
+  | 'SAGADirectoryIdentity'
 
 const ZERO: Address = '0x0000000000000000000000000000000000000000'
 
@@ -19,12 +20,14 @@ const ADDRESSES: Record<SupportedChain, Record<ContractName, Address>> = {
     SAGAAgentIdentity: ZERO,
     SAGAOrgIdentity: ZERO,
     SAGATBAHelper: ZERO,
+    SAGADirectoryIdentity: ZERO,
   },
   base: {
     SAGAHandleRegistry: ZERO,
     SAGAAgentIdentity: ZERO,
     SAGAOrgIdentity: ZERO,
     SAGATBAHelper: ZERO,
+    SAGADirectoryIdentity: ZERO,
   },
 }
 

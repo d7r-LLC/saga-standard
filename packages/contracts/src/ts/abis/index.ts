@@ -4,3 +4,4 @@
 export { SAGAHandleRegistryAbi } from './SAGAHandleRegistry'
 export { SAGAAgentIdentityAbi } from './SAGAAgentIdentity'
 export { SAGAOrgIdentityAbi } from './SAGAOrgIdentity'
+export { SAGADirectoryIdentityAbi } from './SAGADirectoryIdentity'
