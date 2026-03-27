@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { createWalletClient, http } from 'viem'
 import type { WalletClient } from 'viem'
 import { mnemonicToAccount } from 'viem/accounts'
@@ -23,14 +23,15 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
   const { chainId } = useChain()
   const { wallets } = useStorage()
   const [signing, setSigning] = useState(false)
-  const errorRef = useRef<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const cachedClient = useRef<{ walletId: string; chainId: ChainId; client: WalletClient } | null>(
     null
   )
 
   const getWalletClient = useCallback(async (): Promise<WalletClient> => {
     if (!walletId) {
-      errorRef.current = 'No wallet selected.'
+      const msg = 'No wallet selected.'
+      setError(msg)
       throw new Error('No wallet selected')
     }
 
@@ -44,7 +45,7 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
     }
 
     setSigning(true)
-    errorRef.current = null
+    setError(null)
 
     try {
       const wallet = wallets.find(w => w.id === walletId)
@@ -53,7 +54,8 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
       const mnemonic = await SecureKeychain.get(`${KEYCHAIN_MNEMONIC_PREFIX}-${walletId}`)
 
       if (!mnemonic) {
-        errorRef.current = 'Wallet key not found. Re-import your wallet.'
+        const msg = 'Wallet key not found. Re-import your wallet.'
+        setError(msg)
         throw new Error('Wallet key not found')
       }
 
@@ -73,23 +75,8 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
   }, [walletId, chainId, wallets])
 
   const clearError = useCallback(() => {
-    errorRef.current = null
+    setError(null)
   }, [])
 
-  const result = useMemo(() => {
-    const obj: UseWalletSignerResult = {
-      getWalletClient,
-      signing,
-      error: null,
-      clearError,
-    }
-    Object.defineProperty(obj, 'error', {
-      get: () => errorRef.current,
-      enumerable: true,
-      configurable: true,
-    })
-    return obj
-  }, [getWalletClient, signing, clearError])
-
-  return result
+  return { getWalletClient, signing, error, clearError }
 }

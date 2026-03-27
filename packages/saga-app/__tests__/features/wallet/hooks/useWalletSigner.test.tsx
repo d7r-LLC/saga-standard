@@ -59,14 +59,32 @@ describe('useWalletSigner', () => {
 
     const { result } = renderHook(() => useWalletSigner('w1'))
 
-    await expect(result.current.getWalletClient()).rejects.toThrow('Wallet key not found')
+    let thrown: Error | undefined
+    await act(async () => {
+      try {
+        await result.current.getWalletClient()
+      } catch (e) {
+        thrown = e as Error
+      }
+    })
+
+    expect(thrown?.message).toBe('Wallet key not found')
     expect(result.current.error).toBe('Wallet key not found. Re-import your wallet.')
   })
 
   it('sets error when walletId is null', async () => {
     const { result } = renderHook(() => useWalletSigner(null))
 
-    await expect(result.current.getWalletClient()).rejects.toThrow('No wallet selected')
+    let thrown: Error | undefined
+    await act(async () => {
+      try {
+        await result.current.getWalletClient()
+      } catch (e) {
+        thrown = e as Error
+      }
+    })
+
+    expect(thrown?.message).toBe('No wallet selected')
     expect(result.current.error).toBe('No wallet selected.')
   })
 
@@ -75,13 +93,9 @@ describe('useWalletSigner', () => {
 
     const { result } = renderHook(() => useWalletSigner('w1'))
 
-    try {
-      await act(async () => {
-        await result.current.getWalletClient()
-      })
-    } catch {
-      // expected
-    }
+    await act(async () => {
+      await result.current.getWalletClient().catch(() => {})
+    })
 
     expect(result.current.error).not.toBeNull()
 
