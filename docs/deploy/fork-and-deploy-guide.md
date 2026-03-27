@@ -193,6 +193,16 @@ curl https://saga-my-directory-dev.<your-subdomain>.workers.dev/v1/server
 
 You should see a JSON response with your server name and capabilities.
 
+### Set the operator secret
+
+Federation requires your directory's operator wallet to sign authentication challenges. Set the private key as a Wrangler secret (never a plain environment variable):
+
+```bash
+wrangler secret put OPERATOR_PRIVATE_KEY --env dev
+```
+
+Paste the private key (hex format with 0x prefix) when prompted. This must be the private key for the wallet that minted your Directory NFT.
+
 ### Trigger the indexer
 
 The indexer runs on a cron schedule (every minute), but you can trigger it immediately:
@@ -255,19 +265,20 @@ Run through this checklist:
 
 ## Environment Variables Reference
 
-| Variable                      | Required | Description                             |
-| ----------------------------- | -------- | --------------------------------------- |
-| `SERVER_NAME`                 | No       | Display name for your directory         |
-| `SUPPORTED_CHAINS`            | No       | Comma-separated CAIP-2 chain IDs        |
-| `BASE_RPC_URL`                | Yes\*    | Base RPC endpoint for the indexer       |
-| `AGENT_IDENTITY_CONTRACT`     | Yes\*    | Deployed SAGAAgentIdentity address      |
-| `ORG_IDENTITY_CONTRACT`       | Yes\*    | Deployed SAGAOrgIdentity address        |
-| `DIRECTORY_IDENTITY_CONTRACT` | Yes\*    | Deployed SAGADirectoryIdentity address  |
-| `HANDLE_REGISTRY_CONTRACT`    | Yes\*    | Deployed SAGAHandleRegistry address     |
-| `INDEXER_CHAIN`               | No       | CAIP-2 chain ID (default: eip155:84532) |
-| `INDEXER_START_BLOCK`         | No       | Starting block for indexer              |
-| `ADMIN_SECRET`                | No       | Enables `/admin/reindex` endpoint       |
-| `LOCAL_DIRECTORY_ID`          | No       | Enables federation when set             |
+| Variable                      | Required | Description                                                  |
+| ----------------------------- | -------- | ------------------------------------------------------------ |
+| `SERVER_NAME`                 | No       | Display name for your directory                              |
+| `SUPPORTED_CHAINS`            | No       | Comma-separated CAIP-2 chain IDs                             |
+| `BASE_RPC_URL`                | Yes\*    | Base RPC endpoint for the indexer                            |
+| `AGENT_IDENTITY_CONTRACT`     | Yes\*    | Deployed SAGAAgentIdentity address                           |
+| `ORG_IDENTITY_CONTRACT`       | Yes\*    | Deployed SAGAOrgIdentity address                             |
+| `DIRECTORY_IDENTITY_CONTRACT` | Yes\*    | Deployed SAGADirectoryIdentity address                       |
+| `HANDLE_REGISTRY_CONTRACT`    | Yes\*    | Deployed SAGAHandleRegistry address                          |
+| `INDEXER_CHAIN`               | No       | CAIP-2 chain ID (default: eip155:84532)                      |
+| `INDEXER_START_BLOCK`         | No       | Starting block for indexer                                   |
+| `ADMIN_SECRET`                | No       | Enables `/admin/reindex` endpoint                            |
+| `LOCAL_DIRECTORY_ID`          | No       | Enables federation when set                                  |
+| `OPERATOR_PRIVATE_KEY`        | No       | Operator wallet key for federation signing (Wrangler secret) |
 
 \*Required for the chain indexer. Without these, the server runs but doesn't index on-chain events.
 

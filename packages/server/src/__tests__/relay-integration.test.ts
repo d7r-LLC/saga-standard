@@ -3,6 +3,7 @@
 // Copyright 2026 d7r LLC
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
 import { drizzle } from 'drizzle-orm/d1'
 import { agents, groupMembers, organizations } from '../db/schema'
 import { RelayRoom } from '../relay/relay-room'
@@ -13,6 +14,16 @@ import {
 } from './relay-test-helpers'
 import type { MockWebSocket } from './relay-test-helpers'
 import type { Env } from '../bindings'
+
+// Hardhat's first account — well-known test key, NOT a real wallet
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const // gitleaks:allow
+const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY)
+const TEST_WALLET = testAccount.address.toLowerCase() // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+async function signChallenge(challenge: string): Promise<string> {
+  return testAccount.signMessage({ message: challenge })
+}
 
 describe('Relay Integration', () => {
   let ctx: ReturnType<typeof createMockDurableObjectState>
@@ -27,7 +38,7 @@ describe('Relay Integration', () => {
     await orm.insert(agents).values({
       id: 'agent_alice',
       handle: 'alice',
-      walletAddress: '0xalice',
+      walletAddress: TEST_WALLET,
       chain: 'eip155:8453',
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -37,7 +48,7 @@ describe('Relay Integration', () => {
     await orm.insert(agents).values({
       id: 'agent_bob',
       handle: 'bob',
-      walletAddress: '0xbob',
+      walletAddress: TEST_WALLET,
       chain: 'eip155:8453',
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -48,7 +59,7 @@ describe('Relay Integration', () => {
       id: 'org_acme',
       handle: 'acme',
       name: 'Acme Corp',
-      walletAddress: '0xacme',
+      walletAddress: TEST_WALLET,
       chain: 'eip155:8453',
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -67,21 +78,23 @@ describe('Relay Integration', () => {
     return JSON.parse(ws._sent[ws._sent.length - 1])
   }
 
-  async function connectAndAuth(handle: string, walletAddress: string): Promise<MockWebSocket> {
+  async function connectAndAuth(handle: string): Promise<MockWebSocket> {
     const ws = createMockWebSocket()
     const challenge = `saga-relay:${crypto.randomUUID()}:${Date.now()}`
     const expiresAt = new Date(Date.now() + 300_000).toISOString()
     ws.serializeAttachment({ authenticated: false, challenge, expiresAt })
     ctx._websockets.push(ws)
 
+    const signature = await signChallenge(challenge)
+
     await room.webSocketMessage(
       ws,
       JSON.stringify({
         type: 'auth:verify',
-        walletAddress,
+        walletAddress: TEST_WALLET,
         chain: 'eip155:8453',
         handle,
-        signature: 'valid-signature-1234567890',
+        signature,
         challenge,
       })
     )
@@ -91,8 +104,8 @@ describe('Relay Integration', () => {
   }
 
   it('full flow: connect → auth → send → receive → ack', async () => {
-    const aliceWs = await connectAndAuth('alice', '0xalice')
-    const bobWs = await connectAndAuth('bob', '0xbob')
+    const aliceWs = await connectAndAuth('alice')
+    const bobWs = await connectAndAuth('bob')
 
     const envelope = {
       v: 1,
@@ -121,16 +134,16 @@ describe('Relay Integration', () => {
   })
 
   it('hub cannot read message content — memory-sync stored canonically and forwarded to own DERPs', async () => {
-    const aliceWs1 = await connectAndAuth('alice', '0xalice')
-    const aliceWs2 = await connectAndAuth('alice', '0xalice')
-    const bobWs = await connectAndAuth('bob', '0xbob')
+    const aliceWs1 = await connectAndAuth('alice')
+    const aliceWs2 = await connectAndAuth('alice')
+    const bobWs = await connectAndAuth('bob')
 
     // Content is random bytes (base64) — hub has no way to decrypt
     const opaquePayload = 'dGhpcyBpcyBlbmNyeXB0ZWQgZGF0YSB0aGF0IHRoZSBodWIgY2Fubm90IHJlYWQ='
     const envelope = {
       v: 1,
       type: 'memory-sync',
-      scope: 'self',
+      scope: 'private',
       from: 'alice@epicflow',
       to: 'alice@epicflow',
       ct: opaquePayload,
@@ -167,7 +180,7 @@ describe('Relay Integration', () => {
   })
 
   it('offline message delivery via mailbox', async () => {
-    const aliceWs = await connectAndAuth('alice', '0xalice')
+    const aliceWs = await connectAndAuth('alice')
     // Bob is NOT connected
 
     const envelope = {
@@ -187,7 +200,7 @@ describe('Relay Integration', () => {
     expect(lastMessage(aliceWs).type).toBe('relay:ack')
 
     // Bob connects later
-    const bobWs = await connectAndAuth('bob', '0xbob')
+    const bobWs = await connectAndAuth('bob')
 
     // Bob drains mailbox
     await room.webSocketMessage(bobWs, JSON.stringify({ type: 'mailbox:drain' }))
@@ -211,8 +224,8 @@ describe('Relay Integration', () => {
   })
 
   it('org entity can authenticate and send messages', async () => {
-    const acmeWs = await connectAndAuth('acme', '0xacme')
-    const aliceWs = await connectAndAuth('alice', '0xalice')
+    const acmeWs = await connectAndAuth('acme')
+    const aliceWs = await connectAndAuth('alice')
 
     const envelope = {
       v: 1,
@@ -232,15 +245,15 @@ describe('Relay Integration', () => {
   })
 
   it('multi-connection — second connection coexists and both receive messages', async () => {
-    const aliceWs1 = await connectAndAuth('alice', '0xalice')
-    const aliceWs2 = await connectAndAuth('alice', '0xalice')
+    const aliceWs1 = await connectAndAuth('alice')
+    const aliceWs2 = await connectAndAuth('alice')
 
     // Both connections should remain open (multi-DERP support)
     expect(aliceWs1._closed).toBe(false)
     expect(aliceWs2._closed).toBe(false)
 
     // Both connections should receive messages sent to alice
-    const bobWs = await connectAndAuth('bob', '0xbob')
+    const bobWs = await connectAndAuth('bob')
     const envelope = {
       v: 1,
       type: 'direct-message',
@@ -262,8 +275,8 @@ describe('Relay Integration', () => {
 
   describe('direct messaging integration', () => {
     it('full DM flow: alice sends to bob, bob receives', async () => {
-      const aliceWs = await connectAndAuth('alice', '0xalice')
-      const bobWs = await connectAndAuth('bob', '0xbob')
+      const aliceWs = await connectAndAuth('alice')
+      const bobWs = await connectAndAuth('bob')
 
       const envelope = {
         v: 1,
@@ -312,8 +325,8 @@ describe('Relay Integration', () => {
         addedAt: new Date().toISOString(),
       })
 
-      const aliceWs = await connectAndAuth('alice', '0xalice')
-      const bobWs = await connectAndAuth('bob', '0xbob')
+      const aliceWs = await connectAndAuth('alice')
+      const bobWs = await connectAndAuth('bob')
 
       const envelope = {
         v: 1,
@@ -356,12 +369,12 @@ describe('Relay Integration', () => {
     })
 
     it('full sync flow: store memory, sync-request retrieves it', async () => {
-      const derpA = await connectAndAuth('alice', '0xalice')
+      const derpA = await connectAndAuth('alice')
 
       const envelope = {
         v: 1,
         type: 'memory-sync',
-        scope: 'self',
+        scope: 'private',
         from: 'alice@epicflow',
         to: 'alice@epicflow',
         ct: 'encrypted-data',
@@ -372,7 +385,7 @@ describe('Relay Integration', () => {
       await room.webSocketMessage(derpA, JSON.stringify({ type: 'relay:send', envelope }))
 
       // Connect a second DERP for alice
-      const derpB = await connectAndAuth('alice', '0xalice')
+      const derpB = await connectAndAuth('alice')
       derpB._sent.length = 0
 
       // Request sync from the beginning of time
@@ -391,14 +404,14 @@ describe('Relay Integration', () => {
     })
 
     it('multi-DERP real-time: memory created on derpA delivered live to derpB', async () => {
-      const derpA = await connectAndAuth('alice', '0xalice')
-      const derpB = await connectAndAuth('alice', '0xalice')
+      const derpA = await connectAndAuth('alice')
+      const derpB = await connectAndAuth('alice')
       derpB._sent.length = 0
 
       const envelope = {
         v: 1,
         type: 'memory-sync',
-        scope: 'self',
+        scope: 'private',
         from: 'alice@epicflow',
         to: 'alice@epicflow',
         ct: 'realtime-encrypted-data',
@@ -416,13 +429,13 @@ describe('Relay Integration', () => {
     })
 
     it('checkpoint-based sync: only returns envelopes after checkpoint', async () => {
-      const ws = await connectAndAuth('alice', '0xalice')
+      const ws = await connectAndAuth('alice')
 
       // Store first envelope with an explicit early timestamp
       const env1 = {
         v: 1,
         type: 'memory-sync',
-        scope: 'self',
+        scope: 'private',
         from: 'alice@epicflow',
         to: 'alice@epicflow',
         ct: 'first-memory',
@@ -452,7 +465,7 @@ describe('Relay Integration', () => {
       const env2 = {
         v: 1,
         type: 'memory-sync',
-        scope: 'self',
+        scope: 'private',
         from: 'alice@epicflow',
         to: 'alice@epicflow',
         ct: 'second-memory',
@@ -477,12 +490,12 @@ describe('Relay Integration', () => {
     })
 
     it('hub cannot read memory content — envelopes are opaque blobs', async () => {
-      const ws = await connectAndAuth('alice', '0xalice')
+      const ws = await connectAndAuth('alice')
 
       const envelope = {
         v: 1,
         type: 'memory-sync',
-        scope: 'self',
+        scope: 'private',
         from: 'alice@epicflow',
         to: 'alice@epicflow',
         ct: 'totally-opaque-encrypted-content',

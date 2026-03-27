@@ -21,6 +21,7 @@ import { createCanonicalMemoryStore } from './memory-store'
 import type { CanonicalMemoryStore } from './memory-store'
 import { createFederationLinkManager } from './federation-link'
 import type { FederationLinkManager } from './federation-link'
+import { privateKeyToAccount } from 'viem/accounts'
 
 /**
  * RelayRoom Durable Object — manages WebSocket connections for the SAGA relay.
@@ -42,6 +43,11 @@ export class RelayRoom {
 
   /** Lazy federation link manager for outbound cross-directory routing */
   private federationLinks: FederationLinkManager | null = null
+
+  /** Recent message IDs for dedup (prevents relay of duplicate/replayed envelopes) */
+  private recentMessageIds = new Map<string, number>()
+  private static readonly DEDUP_TTL_MS = 60 * 60 * 1000 // 1 hour
+  private static readonly DEDUP_CLEANUP_THRESHOLD = 10000
 
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx
@@ -274,6 +280,38 @@ export class RelayRoom {
     this.sendJson(ws, { type: 'auth:success', handle: result.state.handle })
   }
 
+  /**
+   * Check if a message ID has been seen recently.
+   * Returns true if duplicate (should be rejected), false if new.
+   * Does NOT record the ID. Call markSeen() after successful processing.
+   */
+  private hasSeen(messageId: string): boolean {
+    const now = Date.now()
+
+    // Periodic cleanup of expired entries
+    if (this.recentMessageIds.size > RelayRoom.DEDUP_CLEANUP_THRESHOLD) {
+      for (const [id, ts] of this.recentMessageIds) {
+        if (now - ts > RelayRoom.DEDUP_TTL_MS) {
+          this.recentMessageIds.delete(id)
+        }
+      }
+    }
+
+    if (this.recentMessageIds.has(messageId)) {
+      const seenAt = this.recentMessageIds.get(messageId)!
+      if (now - seenAt < RelayRoom.DEDUP_TTL_MS) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /** Record a message ID as seen after successful routing. */
+  private markSeen(messageId: string): void {
+    this.recentMessageIds.set(messageId, Date.now())
+  }
+
   private async handleRelaySend(ws: WebSocket, msg: { envelope: unknown }): Promise<void> {
     const senderState = this.getAuthenticatedState(ws)
     if (!senderState) {
@@ -303,6 +341,12 @@ export class RelayRoom {
       return
     }
 
+    // Dedup: reject messages the hub has already seen
+    if (this.hasSeen(envelope.id)) {
+      this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
+      return
+    }
+
     // Memory-sync interception: store canonically and forward to sender's other DERPs
     if (envelope.type === 'memory-sync') {
       await this.memoryStore.store(senderHandle, envelope)
@@ -321,7 +365,8 @@ export class RelayRoom {
         }
       }
 
-      // Ack the sender
+      // Ack the sender and mark as seen (after successful processing)
+      this.markSeen(envelope.id)
       this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
       return // Memory-sync routing is handled above — don't fall through to normal routing
     }
@@ -363,6 +408,7 @@ export class RelayRoom {
         }
       }
 
+      this.markSeen(envelope.id)
       this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
       return
     }
@@ -416,6 +462,7 @@ export class RelayRoom {
       })
     }
 
+    this.markSeen(envelope.id)
     this.sendJson(ws, { type: 'relay:ack', messageId: envelope.id })
   }
 
@@ -686,14 +733,29 @@ export class RelayRoom {
       if (!this.env.LOCAL_DIRECTORY_ID) {
         throw new Error('Federation requires LOCAL_DIRECTORY_ID')
       }
-      // TODO: Add OPERATOR_WALLET env var and validate here
+      const operatorKey = this.env.OPERATOR_PRIVATE_KEY
+      let operatorAccount: ReturnType<typeof privateKeyToAccount> | null = null
+      if (operatorKey) {
+        try {
+          operatorAccount = privateKeyToAccount(operatorKey as `0x${string}`)
+        } catch (err) {
+          throw new Error(
+            `Invalid OPERATOR_PRIVATE_KEY (expected 0x-prefixed 32-byte hex): ${err instanceof Error ? err.message : String(err)}`
+          )
+        }
+      }
+
       this.federationLinks = createFederationLinkManager({
         db: this.env.DB,
-        localDirectoryId: this.env.LOCAL_DIRECTORY_ID,
-        localOperatorWallet: '', // TODO: configure OPERATOR_WALLET from env
+        localDirectoryId: this.env.LOCAL_DIRECTORY_ID!,
+        localOperatorWallet: operatorAccount?.address.toLowerCase() ?? '',
         signChallenge: async (challenge: string) => {
-          // TODO: Sign with operator wallet. Placeholder for now.
-          return `placeholder-sig-${challenge}`
+          if (!operatorAccount) {
+            throw new Error(
+              'OPERATOR_PRIVATE_KEY not configured: cannot sign federation challenges'
+            )
+          }
+          return operatorAccount.signMessage({ message: challenge })
         },
       })
     }

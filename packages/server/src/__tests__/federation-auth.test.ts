@@ -2,10 +2,21 @@
 // Copyright 2026 d7r LLC
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
 import { createMockD1, runMigrations } from './test-helpers'
 import { drizzle } from 'drizzle-orm/d1'
 import { directories } from '../db/schema'
 import { generateFederationChallenge, verifyFederationAuth } from '../relay/federation-auth'
+
+// Hardhat's first account — well-known test key, NOT a real wallet
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const // gitleaks:allow
+const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY)
+const TEST_WALLET = testAccount.address.toLowerCase() // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+async function signChallenge(challenge: string): Promise<string> {
+  return testAccount.signMessage({ message: challenge })
+}
 
 describe('generateFederationChallenge', () => {
   it('returns a challenge string and expiry', () => {
@@ -33,7 +44,7 @@ describe('verifyFederationAuth', () => {
       id: 'dir_epic',
       directoryId: 'epic-hub',
       url: 'https://epic.example.com',
-      operatorWallet: '0xoperator',
+      operatorWallet: TEST_WALLET,
       conformanceLevel: 'full',
       status: 'active',
       chain: 'eip155:84532',
@@ -47,7 +58,7 @@ describe('verifyFederationAuth', () => {
       id: 'dir_suspended',
       directoryId: 'suspended-hub',
       url: 'https://suspended.example.com',
-      operatorWallet: '0xsuspended',
+      operatorWallet: TEST_WALLET,
       conformanceLevel: 'basic',
       status: 'suspended',
       chain: 'eip155:84532',
@@ -61,7 +72,7 @@ describe('verifyFederationAuth', () => {
       id: 'dir_no_nft',
       directoryId: 'no-nft-hub',
       url: 'https://nonft.example.com',
-      operatorWallet: '0xnonft',
+      operatorWallet: TEST_WALLET,
       conformanceLevel: 'basic',
       status: 'active',
       chain: 'eip155:84532',
@@ -69,14 +80,30 @@ describe('verifyFederationAuth', () => {
       registeredAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
+
+    // wallet-mismatch hub: seeded with a different wallet address
+    await orm.insert(directories).values({
+      id: 'dir_mismatch',
+      directoryId: 'mismatch-hub',
+      url: 'https://mismatch.example.com',
+      operatorWallet: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      conformanceLevel: 'basic',
+      status: 'active',
+      chain: 'eip155:84532',
+      tokenId: 3,
+      contractAddress: '0xdircontract',
+      registeredAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
   })
 
   it('authenticates a valid directory with active status and NFT', async () => {
     const { challenge, expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
       'epic-hub',
-      '0xoperator',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       challenge,
       expiresAt,
       db
@@ -84,16 +111,17 @@ describe('verifyFederationAuth', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.directoryId).toBe('epic-hub')
-      expect(result.operatorWallet).toBe('0xoperator')
+      expect(result.operatorWallet).toBe(TEST_WALLET)
     }
   })
 
   it('rejects unknown directoryId', async () => {
     const { challenge, expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
       'unknown-hub',
-      '0xoperator',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       challenge,
       expiresAt,
       db
@@ -103,11 +131,14 @@ describe('verifyFederationAuth', () => {
   })
 
   it('rejects wallet mismatch', async () => {
+    // mismatch-hub is seeded with a different wallet; TEST_WALLET signature verifies
+    // but the DB record has a different address → "does not match"
     const { challenge, expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
-      'epic-hub',
-      '0xwrongwallet',
-      'valid-signature-1234567890',
+      'mismatch-hub',
+      TEST_WALLET,
+      signature,
       challenge,
       expiresAt,
       db
@@ -118,10 +149,11 @@ describe('verifyFederationAuth', () => {
 
   it('rejects directory without NFT', async () => {
     const { challenge, expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
       'no-nft-hub',
-      '0xnonft',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       challenge,
       expiresAt,
       db
@@ -132,10 +164,11 @@ describe('verifyFederationAuth', () => {
 
   it('rejects suspended directory', async () => {
     const { challenge, expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
       'suspended-hub',
-      '0xsuspended',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       challenge,
       expiresAt,
       db
@@ -147,10 +180,11 @@ describe('verifyFederationAuth', () => {
   it('rejects expired challenge', async () => {
     const { challenge } = generateFederationChallenge()
     const expiredAt = new Date(Date.now() - 1000).toISOString()
+    const signature = await signChallenge(challenge)
     const result = await verifyFederationAuth(
       'epic-hub',
-      '0xoperator',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       challenge,
       expiredAt,
       db
@@ -161,10 +195,11 @@ describe('verifyFederationAuth', () => {
 
   it('rejects invalid challenge format', async () => {
     const { expiresAt } = generateFederationChallenge()
+    const signature = await signChallenge('bad-format')
     const result = await verifyFederationAuth(
       'epic-hub',
-      '0xoperator',
-      'valid-signature-1234567890',
+      TEST_WALLET,
+      signature,
       'bad-format',
       expiresAt,
       db

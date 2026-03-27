@@ -46,4 +46,7 @@ export interface Env {
 
   /** Local directory identity (used for federation routing decisions) */
   LOCAL_DIRECTORY_ID?: string
+
+  /** Operator wallet private key (Wrangler secret). Used for outbound federation signing. */
+  OPERATOR_PRIVATE_KEY?: string
 }

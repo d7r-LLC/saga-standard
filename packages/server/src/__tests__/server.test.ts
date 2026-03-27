@@ -2,13 +2,18 @@
 // Copyright 2026 d7r LLC
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
 import { app } from '../index'
 import { createMockEnv, runMigrations } from './test-helpers'
 import type { Env } from '../bindings'
 
 // -- Helpers --
 
-const WALLET = '0xaabbccddee1234567890aabbccddee1234567890'
+// Hardhat's first account — well-known test key, NOT a real wallet
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const // gitleaks:allow
+const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY)
+const WALLET = testAccount.address // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 const CHAIN = 'eip155:8453'
 
 let env: Env
@@ -39,9 +44,9 @@ async function getSessionToken(wallet = WALLET): Promise<string> {
   })
   const { challenge } = (await challengeRes.json()) as { challenge: string }
 
-  const fakeSignature = `0x${'ab'.repeat(65)}`
+  const signature = await testAccount.signMessage({ message: challenge })
   const verifyRes = await req('POST', '/v1/auth/verify', {
-    body: { walletAddress: wallet, chain: CHAIN, signature: fakeSignature, challenge },
+    body: { walletAddress: wallet, chain: CHAIN, signature, challenge },
   })
   const { token } = (await verifyRes.json()) as { token: string }
   return token
@@ -98,12 +103,12 @@ describe('SAGA Reference Server', () => {
       expect(challengeBody.challenge).toContain(WALLET)
       expect(challengeBody.expiresAt).toBeTruthy()
 
-      const fakeSignature = `0x${'ab'.repeat(65)}`
+      const signature = await testAccount.signMessage({ message: challengeBody.challenge })
       const verifyRes = await req('POST', '/v1/auth/verify', {
         body: {
           walletAddress: WALLET,
           chain: CHAIN,
-          signature: fakeSignature,
+          signature,
           challenge: challengeBody.challenge,
         },
       })
@@ -145,21 +150,23 @@ describe('SAGA Reference Server', () => {
       })
       const { challenge } = (await challengeRes.json()) as { challenge: string }
 
+      const sig1 = await testAccount.signMessage({ message: challenge })
       const firstVerify = await req('POST', '/v1/auth/verify', {
         body: {
           walletAddress: WALLET,
           chain: CHAIN,
-          signature: `0x${'cd'.repeat(65)}`,
+          signature: sig1,
           challenge,
         },
       })
       expect(firstVerify.status).toBe(200)
 
+      const sig2 = await testAccount.signMessage({ message: challenge })
       const secondVerify = await req('POST', '/v1/auth/verify', {
         body: {
           walletAddress: WALLET,
           chain: CHAIN,
-          signature: `0x${'ef'.repeat(65)}`,
+          signature: sig2,
           challenge,
         },
       })

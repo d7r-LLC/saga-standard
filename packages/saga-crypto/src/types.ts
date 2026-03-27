@@ -175,6 +175,8 @@ export interface SagaEncryptedEnvelope {
   ts: string
   /** Message ID (UUID for dedup) */
   id: string
+  /** Per-sender sequence number for ordering (monotonically increasing per sender) */
+  seq?: number
 }
 
 /** Payload to seal into an envelope */

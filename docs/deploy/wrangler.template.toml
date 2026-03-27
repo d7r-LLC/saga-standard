@@ -37,6 +37,11 @@ LOCAL_DIRECTORY_ID = "<YOUR_DIRECTORY_ID>"   # Must match the directoryId used w
 # Admin (set a strong random string)
 ADMIN_SECRET = "<RANDOM_SECRET>"
 
+# Operator wallet (set as Wrangler secret, NOT as plain env var)
+# wrangler secret put OPERATOR_PRIVATE_KEY --env dev
+# This is the private key for the wallet that minted your Directory NFT.
+# Required for outbound federation authentication.
+
 # D1 Database
 [[env.dev.d1_databases]]
 binding = "DB"
@@ -93,6 +98,11 @@ LOCAL_DIRECTORY_ID = "<YOUR_DIRECTORY_ID>"
 
 # Admin
 ADMIN_SECRET = "<RANDOM_SECRET>"
+
+# Operator wallet (set as Wrangler secret, NOT as plain env var)
+# wrangler secret put OPERATOR_PRIVATE_KEY --env production
+# This is the private key for the wallet that minted your Directory NFT.
+# Required for outbound federation authentication.
 
 # D1 Database
 [[env.production.d1_databases]]

@@ -216,7 +216,7 @@ describe('integration — event handler → API', () => {
         tokenId: 42n,
         handle: 'minted.agent',
         owner: WALLET,
-        hubUrl: 'https://hub.example.com',
+        homeHubUrl: 'https://hub.example.com',
         registeredAt: NOW_SECONDS,
       },
       {
@@ -248,7 +248,7 @@ describe('integration — event handler → API', () => {
         tokenId: 100n,
         handle: 'tba.agent',
         owner: WALLET,
-        hubUrl: 'https://hub.example.com',
+        homeHubUrl: 'https://hub.example.com',
         registeredAt: NOW_SECONDS,
       },
       {
@@ -345,7 +345,7 @@ describe('integration — event handler → API', () => {
         tokenId: 55n,
         handle: 'transfer.agent',
         owner: walletA,
-        hubUrl: 'https://hub.example.com',
+        homeHubUrl: 'https://hub.example.com',
         registeredAt: NOW_SECONDS,
       },
       {
@@ -389,7 +389,7 @@ describe('integration — event handler → API', () => {
       tokenId: 77n,
       handle: 'idempotent.agent',
       owner: WALLET,
-      hubUrl: 'https://hub.example.com',
+      homeHubUrl: 'https://hub.example.com',
       registeredAt: NOW_SECONDS,
     }
     const meta = {

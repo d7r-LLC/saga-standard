@@ -3,7 +3,7 @@
 // Copyright 2026 d7r LLC
 
 const VALID_TYPES = new Set(['memory-sync', 'direct-message', 'group-message'])
-const VALID_SCOPES = new Set(['private', 'mutual', 'group', 'self'])
+const VALID_SCOPES = new Set(['private', 'mutual', 'group'])
 
 export interface EnvelopeValidationError {
   field: string

@@ -3,6 +3,7 @@
 
 import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { verifyMessage } from 'viem'
 import { agents, organizations } from '../db/schema'
 import type { ConnectionState } from './types'
 import { CHALLENGE_TTL_MS } from './types'
@@ -47,9 +48,21 @@ export async function verifyWsAuth(
     return { ok: false, error: 'Invalid challenge format' }
   }
 
-  // TODO: Full EIP-191 signature verification with viem (same pattern as routes/auth.ts)
-  if (!signature || signature.length < 10) {
-    return { ok: false, error: 'Invalid signature' }
+  if (!signature || !signature.startsWith('0x')) {
+    return { ok: false, error: 'Invalid signature format' }
+  }
+  let signatureValid: boolean
+  try {
+    signatureValid = await verifyMessage({
+      address: walletAddress as `0x${string}`,
+      message: challenge,
+      signature: signature as `0x${string}`,
+    })
+  } catch {
+    signatureValid = false
+  }
+  if (!signatureValid) {
+    return { ok: false, error: 'Signature verification failed' }
   }
 
   const orm = drizzle(db)

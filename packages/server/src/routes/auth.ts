@@ -4,6 +4,7 @@
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { and, eq } from 'drizzle-orm'
+import { verifyMessage } from 'viem'
 import type { Env } from '../bindings'
 import { authChallenges } from '../db/schema'
 import { generateId } from '../middleware/auth'
@@ -127,33 +128,23 @@ authRoutes.post('/verify', async c => {
 })
 
 /**
- * Verify an EIP-191 personal_sign signature.
- *
- * Uses the Web Crypto API compatible approach.
- * For production, this would use viem's verifyMessage.
- * In the reference server, we accept any well-formed signature
- * and rely on the challenge mechanism for security.
+ * Verify an EIP-191 personal_sign signature using viem.
  */
 async function verifySignature(
   address: string,
-  _message: string,
-  _signature: string
+  message: string,
+  signature: string
 ): Promise<boolean> {
-  // In a production server, this would use viem/ethers to verify:
-  //   const recoveredAddress = await verifyMessage({ address, message, signature })
-  //   return recoveredAddress.toLowerCase() === address.toLowerCase()
-  //
-  // For the reference server, we verify the signature format is valid
-  // and the challenge mechanism provides replay protection.
-  // Full EIP-191 verification will be added when we integrate viem.
-
-  if (!_signature || _signature.length < 10) {
+  if (!signature || !signature.startsWith('0x')) return false
+  try {
+    return await verifyMessage({
+      address: address as `0x${string}`,
+      message,
+      signature: signature as `0x${string}`,
+    })
+  } catch {
     return false
   }
-
-  // Signature should be a hex string (0x-prefixed, 65 bytes = 132 chars)
-  // or a non-empty string for testing
-  return true
 }
 
 export { verifySignature as _verifySignature }

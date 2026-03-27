@@ -19,6 +19,7 @@ import { createDedup } from './dedup'
 import { createKeyResolver } from './key-resolver'
 import { classifyMemory } from './policy-engine'
 import { runRetention } from './retention-engine'
+import { createSequenceTracker } from './sequence'
 
 const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
@@ -32,6 +33,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
   const peers = new Map<string, ConnectedPeer>()
 
   const dedup = createDedup()
+  const sequenceTracker = createSequenceTracker()
   const backend = config.storageBackend ?? new MemoryBackend()
   const store = createEncryptedStore(config.keyRing, backend)
 
@@ -232,7 +234,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
         // Always use private scope for self-addressed memory-sync so the agent
         // can decrypt it on future sync-response replays
         const plaintext = new TextEncoder().encode(JSON.stringify(classified))
-        const envelope = await seal(
+        const sealed = (await seal(
           {
             type: 'memory-sync',
             scope: 'private',
@@ -241,15 +243,16 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
             plaintext,
           },
           config.keyRing
-        )
-        connection.send(envelope as SagaEncryptedEnvelope)
+        )) as SagaEncryptedEnvelope
+        sealed.seq = sequenceTracker.next(config.identity)
+        connection.send(sealed)
         return
       }
 
       // No governance — original behavior
       await store.put(`memory:${memory.id}`, memory)
       const plaintext = new TextEncoder().encode(JSON.stringify(memory))
-      const envelope = await seal(
+      const sealed = (await seal(
         {
           type: 'memory-sync',
           scope: 'private',
@@ -258,8 +261,9 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
           plaintext,
         },
         config.keyRing
-      )
-      connection.send(envelope as SagaEncryptedEnvelope)
+      )) as SagaEncryptedEnvelope
+      sealed.seq = sequenceTracker.next(config.identity)
+      connection.send(sealed)
     },
 
     async queryMemory(filter: MemoryFilter): Promise<SagaMemory[]> {
@@ -340,6 +344,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       const resolved = (
         envelope instanceof Promise ? await envelope : envelope
       ) as SagaEncryptedEnvelope
+      resolved.seq = sequenceTracker.next(config.identity)
       connection.send(resolved)
       return resolved.id
     },
@@ -369,6 +374,7 @@ export function createSagaClient(config: SagaClientConfig): SagaClient {
       const resolved = (
         envelope instanceof Promise ? await envelope : envelope
       ) as SagaEncryptedEnvelope
+      resolved.seq = sequenceTracker.next(config.identity)
       connection.send(resolved)
       return resolved.id
     },
