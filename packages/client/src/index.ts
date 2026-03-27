@@ -12,6 +12,7 @@ export { SagaServerClient } from './saga-server-client'
 export {
   mintAgentIdentity,
   mintOrgIdentity,
+  mintDirectoryIdentity,
   resolveHandleOnChain,
   isHandleAvailable,
 } from './chain'

@@ -11,6 +11,7 @@ import { vaultCommand } from './commands/vault'
 import { registerCommand } from './commands/register'
 import { resolveCommand } from './commands/resolve'
 import { registerOrgCommand } from './commands/register-org'
+import { registerDirectoryCommand } from './commands/register-directory'
 import { deployCommand } from './commands/deploy'
 import { fundCommand } from './commands/fund'
 
@@ -26,6 +27,7 @@ program.addCommand(serverCommand)
 program.addCommand(registerCommand)
 program.addCommand(resolveCommand)
 program.addCommand(registerOrgCommand)
+program.addCommand(registerDirectoryCommand)
 program.addCommand(collectCommand)
 program.addCommand(exportCommand)
 program.addCommand(inspectCommand)

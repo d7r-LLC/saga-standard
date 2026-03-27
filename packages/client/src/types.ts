@@ -139,7 +139,7 @@ export interface MintResult {
 }
 
 export interface OnChainResolveResult {
-  entityType: 'NONE' | 'AGENT' | 'ORG'
+  entityType: 'NONE' | 'AGENT' | 'ORG' | 'DIRECTORY'
   tokenId: bigint
   contractAddress: string
 }

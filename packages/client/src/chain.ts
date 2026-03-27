@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { PublicClient, WalletClient } from 'viem'
+import type { Address, PublicClient, WalletClient } from 'viem'
 import { decodeEventLog } from 'viem'
 import {
   type SupportedChain,
   computeTBAAddress,
   entityTypeFromNumber,
   getAgentIdentityConfig,
+  getDirectoryIdentityConfig,
   getHandleRegistryConfig,
   getOrgIdentityConfig,
 } from '@saga-standard/contracts'
@@ -169,6 +170,81 @@ export async function mintOrgIdentity(options: {
 
   if (tokenId === undefined) {
     throw new Error('OrgRegistered event not found in transaction receipt')
+  }
+
+  const tbaAddress = computeTBAAddress({
+    implementation: TBA_IMPLEMENTATION,
+    chainId: CHAIN_IDS[chain],
+    tokenContract: config.address,
+    tokenId,
+  })
+
+  return { tokenId, txHash, tbaAddress }
+}
+
+/**
+ * Mint a SAGA Directory Identity NFT on-chain.
+ *
+ * Calls SAGADirectoryIdentity.registerDirectory(directoryId, url, operator, conformanceLevel)
+ * and waits for the transaction receipt. Extracts tokenId from the
+ * DirectoryRegistered event log and computes the TBA address.
+ */
+export async function mintDirectoryIdentity(options: {
+  directoryId: string
+  url: string
+  operatorWallet: Address
+  conformanceLevel: string
+  walletClient: WalletClient
+  publicClient: PublicClient
+  chain: SupportedChain
+}): Promise<MintResult> {
+  const { directoryId, url, operatorWallet, conformanceLevel, walletClient, publicClient, chain } =
+    options
+  const config = getDirectoryIdentityConfig(chain)
+
+  assertChainMatch(walletClient, publicClient, chain)
+
+  const account = walletClient.account
+  if (!account) {
+    throw new Error('WalletClient must have an account')
+  }
+
+  const txHash = await walletClient.writeContract({
+    ...config,
+    functionName: 'registerDirectory',
+    args: [directoryId, url, operatorWallet, conformanceLevel],
+    account,
+    chain: walletClient.chain,
+  })
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+  if (receipt.status === 'reverted') {
+    throw new Error('Transaction reverted while minting directory identity')
+  }
+
+  // Find DirectoryRegistered event in logs from the directory contract
+  let tokenId: bigint | undefined
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== config.address.toLowerCase()) continue
+    try {
+      const decoded = decodeEventLog({
+        abi: config.abi,
+        data: log.data,
+        topics: log.topics,
+      })
+      if (decoded.eventName === 'DirectoryRegistered') {
+        const args = decoded.args as { tokenId: bigint }
+        tokenId = args.tokenId
+        break
+      }
+    } catch {
+      // Not a matching event, skip
+    }
+  }
+
+  if (tokenId === undefined) {
+    throw new Error('DirectoryRegistered event not found in transaction receipt')
   }
 
   const tbaAddress = computeTBAAddress({

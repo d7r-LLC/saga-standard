@@ -1,0 +1,128 @@
+# SAGA Server -- Wrangler Configuration Template
+#
+# Copy this file to packages/server/wrangler.toml and fill in your values.
+# See docs/deploy/fork-and-deploy-guide.md for the full walkthrough.
+#
+# Required: Replace all <PLACEHOLDER> values before deploying.
+
+name = "<YOUR_WORKER_NAME>"   # e.g. "saga-my-directory"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["* * * * *"]    # Runs indexer every minute
+
+# ---------- Development ----------
+
+[env.dev]
+name = "<YOUR_WORKER_NAME>-dev"
+
+[env.dev.vars]
+SERVER_NAME = "<YOUR_DIRECTORY_NAME>"       # e.g. "My SAGA Directory"
+SUPPORTED_CHAINS = "eip155:84532"           # Base Sepolia for testing
+
+# Chain indexer (Base Sepolia testnet)
+BASE_RPC_URL = "https://sepolia.base.org"
+AGENT_IDENTITY_CONTRACT = "<DEPLOYED_AGENT_CONTRACT>"
+ORG_IDENTITY_CONTRACT = "<DEPLOYED_ORG_CONTRACT>"
+DIRECTORY_IDENTITY_CONTRACT = "<DEPLOYED_DIRECTORY_CONTRACT>"
+HANDLE_REGISTRY_CONTRACT = "<DEPLOYED_REGISTRY_CONTRACT>"
+INDEXER_CHAIN = "eip155:84532"
+INDEXER_START_BLOCK = "<BLOCK_NUMBER>"       # Block where your contracts were deployed
+
+# Federation
+LOCAL_DIRECTORY_ID = "<YOUR_DIRECTORY_ID>"   # Must match the directoryId used when minting your NFT
+
+# Admin (set a strong random string)
+ADMIN_SECRET = "<RANDOM_SECRET>"
+
+# D1 Database
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "<YOUR_DB_NAME>-dev"        # e.g. "saga-my-directory-dev"
+database_id = "<D1_DATABASE_ID>"            # From: wrangler d1 create <name>
+
+# R2 Document Storage
+[[env.dev.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "<YOUR_BUCKET_NAME>-dev"      # e.g. "saga-docs-dev"
+
+# KV Namespaces (each must use a different KV namespace ID)
+[[env.dev.kv_namespaces]]
+binding = "SESSIONS"
+id = "<SESSIONS_KV_NAMESPACE_ID>"           # From: wrangler kv namespace create SESSIONS
+
+[[env.dev.kv_namespaces]]
+binding = "INDEXER_STATE"
+id = "<INDEXER_STATE_KV_NAMESPACE_ID>"      # From: wrangler kv namespace create INDEXER_STATE
+
+[[env.dev.kv_namespaces]]
+binding = "RELAY_MAILBOX"
+id = "<RELAY_MAILBOX_KV_NAMESPACE_ID>"      # From: wrangler kv namespace create RELAY_MAILBOX
+
+# Durable Objects
+[[env.dev.durable_objects.bindings]]
+name = "RELAY_ROOM"
+class_name = "RelayRoom"
+
+[[env.dev.migrations]]
+tag = "v1"
+new_classes = ["RelayRoom"]
+
+# ---------- Production ----------
+
+[env.production]
+name = "<YOUR_WORKER_NAME>"
+
+[env.production.vars]
+SERVER_NAME = "<YOUR_DIRECTORY_NAME>"
+SUPPORTED_CHAINS = "eip155:8453"            # Base mainnet
+
+# Chain indexer (Base mainnet)
+BASE_RPC_URL = "https://mainnet.base.org"
+AGENT_IDENTITY_CONTRACT = "<DEPLOYED_AGENT_CONTRACT>"
+ORG_IDENTITY_CONTRACT = "<DEPLOYED_ORG_CONTRACT>"
+DIRECTORY_IDENTITY_CONTRACT = "<DEPLOYED_DIRECTORY_CONTRACT>"
+HANDLE_REGISTRY_CONTRACT = "<DEPLOYED_REGISTRY_CONTRACT>"
+INDEXER_CHAIN = "eip155:8453"
+INDEXER_START_BLOCK = "<BLOCK_NUMBER>"
+
+# Federation
+LOCAL_DIRECTORY_ID = "<YOUR_DIRECTORY_ID>"
+
+# Admin
+ADMIN_SECRET = "<RANDOM_SECRET>"
+
+# D1 Database
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "<YOUR_DB_NAME>"
+database_id = "<D1_DATABASE_ID>"
+
+# R2 Document Storage
+[[env.production.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "<YOUR_BUCKET_NAME>"
+
+# KV Namespaces (each must use a different KV namespace ID)
+[[env.production.kv_namespaces]]
+binding = "SESSIONS"
+id = "<SESSIONS_KV_NAMESPACE_ID>"
+
+[[env.production.kv_namespaces]]
+binding = "INDEXER_STATE"
+id = "<INDEXER_STATE_KV_NAMESPACE_ID>"
+
+[[env.production.kv_namespaces]]
+binding = "RELAY_MAILBOX"
+id = "<RELAY_MAILBOX_KV_NAMESPACE_ID>"
+
+# Durable Objects
+[[env.production.durable_objects.bindings]]
+name = "RELAY_ROOM"
+class_name = "RelayRoom"
+
+[[env.production.migrations]]
+tag = "v1"
+new_classes = ["RelayRoom"]

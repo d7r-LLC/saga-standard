@@ -10,6 +10,7 @@ const MOCK_AGENT_CONTRACT = '0x1111111111111111111111111111111111111111' as cons
 const MOCK_ORG_CONTRACT = '0x2222222222222222222222222222222222222222' as const
 const MOCK_REGISTRY_CONTRACT = '0x3333333333333333333333333333333333333333' as const
 const MOCK_TBA = '0x4444444444444444444444444444444444444444' as const
+const MOCK_DIRECTORY_CONTRACT = '0x5555555555555555555555555555555555555555' as const
 
 // Mock @saga-standard/contracts before importing chain.ts
 vi.mock('@saga-standard/contracts', () => ({
@@ -43,6 +44,23 @@ vi.mock('@saga-standard/contracts', () => ({
       },
     ],
   }),
+  getDirectoryIdentityConfig: () => ({
+    address: MOCK_DIRECTORY_CONTRACT,
+    abi: [
+      {
+        type: 'function',
+        name: 'registerDirectory',
+        inputs: [
+          { name: 'directoryId', type: 'string' },
+          { name: 'url', type: 'string' },
+          { name: 'operator', type: 'address' },
+          { name: 'conformanceLevel', type: 'string' },
+        ],
+        outputs: [{ type: 'uint256' }],
+        stateMutability: 'nonpayable',
+      },
+    ],
+  }),
   getHandleRegistryConfig: () => ({
     address: MOCK_REGISTRY_CONTRACT,
     abi: [
@@ -66,8 +84,13 @@ vi.mock('@saga-standard/contracts', () => ({
 }))
 
 // Import after mock
-const { mintAgentIdentity, mintOrgIdentity, resolveHandleOnChain, isHandleAvailable } =
-  await import('../chain')
+const {
+  mintAgentIdentity,
+  mintOrgIdentity,
+  mintDirectoryIdentity,
+  resolveHandleOnChain,
+  isHandleAvailable,
+} = await import('../chain')
 
 function createMockWalletClient(chainId = 84532): WalletClient {
   return {
@@ -339,5 +362,113 @@ describe('isHandleAvailable', () => {
     })
 
     expect(available).toBe(false)
+  })
+})
+
+// -- mintDirectoryIdentity ---------------------------------------------------
+
+describe('mintDirectoryIdentity', () => {
+  it('calls writeContract with registerDirectory and correct args', async () => {
+    const walletClient = createMockWalletClient()
+    const publicClient = createMockPublicClient()
+
+    await mintDirectoryIdentity({
+      directoryId: 'my-directory',
+      url: 'https://my-directory.example.com',
+      operatorWallet: '0xaabbccddee1234567890aabbccddee1234567890',
+      conformanceLevel: 'full',
+      walletClient,
+      publicClient,
+      chain: 'base-sepolia',
+    }).catch(() => {
+      /* expected -- no DirectoryRegistered event in empty logs */
+    })
+
+    expect(walletClient.writeContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: 'registerDirectory',
+        args: [
+          'my-directory',
+          'https://my-directory.example.com',
+          '0xaabbccddee1234567890aabbccddee1234567890',
+          'full',
+        ],
+      })
+    )
+  })
+
+  it('waits for transaction receipt after writeContract', async () => {
+    const walletClient = createMockWalletClient()
+    const waitFn = vi.fn().mockResolvedValue({ status: 'success', logs: [] })
+    const publicClient = createMockPublicClient({
+      waitForTransactionReceipt: waitFn,
+    })
+
+    await mintDirectoryIdentity({
+      directoryId: 'my-directory',
+      url: 'https://my-directory.example.com',
+      operatorWallet: '0xaabbccddee1234567890aabbccddee1234567890',
+      conformanceLevel: 'full',
+      walletClient,
+      publicClient,
+      chain: 'base-sepolia',
+    }).catch(() => {
+      /* expected */
+    })
+
+    expect(waitFn).toHaveBeenCalledWith({ hash: MOCK_TX })
+  })
+
+  it('throws when DirectoryRegistered event is missing from receipt', async () => {
+    const walletClient = createMockWalletClient()
+    const publicClient = createMockPublicClient()
+
+    await expect(
+      mintDirectoryIdentity({
+        directoryId: 'my-directory',
+        url: 'https://my-directory.example.com',
+        operatorWallet: '0xaabbccddee1234567890aabbccddee1234567890',
+        conformanceLevel: 'full',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia',
+      })
+    ).rejects.toThrow('DirectoryRegistered event not found')
+  })
+
+  it('throws on reverted transaction', async () => {
+    const walletClient = createMockWalletClient()
+    const publicClient = createMockPublicClient({
+      waitForTransactionReceipt: vi.fn().mockResolvedValue({ status: 'reverted', logs: [] }),
+    })
+
+    await expect(
+      mintDirectoryIdentity({
+        directoryId: 'my-directory',
+        url: 'https://my-directory.example.com',
+        operatorWallet: '0xaabbccddee1234567890aabbccddee1234567890',
+        conformanceLevel: 'full',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia',
+      })
+    ).rejects.toThrow('Transaction reverted while minting directory identity')
+  })
+
+  it('throws on chain mismatch between client and options', async () => {
+    const walletClient = createMockWalletClient(8453) // mainnet
+    const publicClient = createMockPublicClient()
+
+    await expect(
+      mintDirectoryIdentity({
+        directoryId: 'my-directory',
+        url: 'https://my-directory.example.com',
+        operatorWallet: '0xaabbccddee1234567890aabbccddee1234567890',
+        conformanceLevel: 'full',
+        walletClient,
+        publicClient,
+        chain: 'base-sepolia', // sepolia, mismatch!
+      })
+    ).rejects.toThrow('Chain mismatch')
   })
 })
