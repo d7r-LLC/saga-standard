@@ -24,7 +24,8 @@ const SYNC_CHECKPOINT_KEY = 'checkpoint:sync'
 
 export function createSagaClient(config: SagaClientConfig): SagaClient {
   const handle = config.identity.split('@')[0]
-  const keyResolver = createKeyResolver(config.hubUrl, config.fetchFn)
+  const localDirectoryId = config.identity.includes('@') ? config.identity.split('@')[1] : undefined
+  const keyResolver = createKeyResolver(config.hubUrl, config.fetchFn, localDirectoryId)
   const messageHandlers = new Set<(from: string, msg: SagaDirectMessage) => void>()
   const groupHandlers = new Set<(groupId: string, from: string, msg: SagaDirectMessage) => void>()
   const connectionHandlers = new Set<(connected: boolean) => void>()
