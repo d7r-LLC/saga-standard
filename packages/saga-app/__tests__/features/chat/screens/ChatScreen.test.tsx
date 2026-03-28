@@ -8,10 +8,23 @@ import type { Conversation, Message } from '../../../../src/features/chat/types'
 
 const mockGetConversation = jest.fn()
 const mockSendMessage = jest.fn()
+const mockGetToken = jest.fn().mockResolvedValue('test-token-123')
+const mockClearSession = jest.fn()
 
 jest.mock('../../../../src/features/chat/api/chat', () => ({
   getConversation: (...args: unknown[]) => mockGetConversation(...args),
   sendMessage: (...args: unknown[]) => mockSendMessage(...args),
+}))
+
+jest.mock('../../../../src/features/chat/hooks/useSession', () => ({
+  useSession: () => ({
+    token: 'test-token-123',
+    isAuthenticated: true,
+    authenticating: false,
+    error: null,
+    getToken: mockGetToken,
+    clearSession: mockClearSession,
+  }),
 }))
 
 const MOCK_CONVERSATION: Conversation = {

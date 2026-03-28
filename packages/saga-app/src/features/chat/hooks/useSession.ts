@@ -6,6 +6,7 @@ import type { Account, Chain, Transport } from 'viem'
 import type { WalletClient } from 'viem'
 import { useStorage } from '../../../core/providers/StorageProvider'
 import { useWalletSigner } from '../../wallet/hooks/useWalletSigner'
+import { hubAuthManager } from '../../../core/api/hub'
 import { requestChallenge, verifyChallenge } from '../api/session'
 
 export interface UseSessionResult {
@@ -49,6 +50,7 @@ export function useSession(): UseSessionResult {
       const session = await verifyChallenge(wallet.address, wallet.chain, signature, challenge)
 
       sessionRef.current = { token: session.token, expiresAt: session.expiresAt }
+      hubAuthManager.setToken(session.token)
       setToken(session.token)
       return session.token
     } catch (err) {
@@ -62,6 +64,7 @@ export function useSession(): UseSessionResult {
 
   const clearSession = useCallback(() => {
     sessionRef.current = null
+    hubAuthManager.logout()
     setToken(null)
     setError(null)
   }, [])

@@ -35,6 +35,7 @@ export function ChatInput({
         placeholder={placeholder}
         placeholderTextColor={colors.textTertiary}
         multiline
+        maxLength={4000}
         editable={!disabled}
         accessibilityLabel="Message input"
       />

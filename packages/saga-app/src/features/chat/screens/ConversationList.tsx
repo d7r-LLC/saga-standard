@@ -41,18 +41,14 @@ export function ConversationList({ navigation }: Props): React.JSX.Element {
   const { conversations, loading, error, refresh, remove } = useConversations(agentHandle)
 
   function handleDelete(item: Conversation): void {
-    Alert.alert(
-      'Delete conversation',
-      `Delete "${item.title ?? 'New conversation'}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => remove(item.id),
-        },
-      ]
-    )
+    Alert.alert('Delete conversation', `Delete "${item.title ?? 'New conversation'}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => remove(item.id),
+      },
+    ])
   }
 
   const renderItem = ({ item }: { item: Conversation }) => (
@@ -83,6 +79,20 @@ export function ConversationList({ navigation }: Props): React.JSX.Element {
   )
 
   const isInitialLoad = loading && conversations.length === 0
+
+  if (!activeIdentity) {
+    return (
+      <SafeArea>
+        <Header title="Messages" />
+        <View style={styles.center}>
+          <Text style={styles.emptyTitle}>No identity set</Text>
+          <Text style={styles.emptySubtitle}>
+            Set up an identity in the Profile tab to start chatting.
+          </Text>
+        </View>
+      </SafeArea>
+    )
+  }
 
   return (
     <SafeArea>

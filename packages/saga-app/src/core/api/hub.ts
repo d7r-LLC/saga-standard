@@ -51,6 +51,10 @@ class HubAuthManager {
     return this.token !== null
   }
 
+  setToken(token: string): void {
+    this.token = token
+  }
+
   logout(): void {
     this.token = null
     this.walletAddress = null

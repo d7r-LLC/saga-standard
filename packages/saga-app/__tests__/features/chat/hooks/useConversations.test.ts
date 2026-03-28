@@ -7,18 +7,28 @@ import type { Conversation } from '../../../../src/features/chat/types'
 
 jest.mock('../../../../src/features/chat/api/chat')
 
+const mockGetToken = jest.fn().mockResolvedValue('test-token-123')
+
+jest.mock('../../../../src/features/chat/hooks/useSession', () => ({
+  useSession: () => ({
+    token: 'test-token-123',
+    isAuthenticated: true,
+    authenticating: false,
+    error: null,
+    getToken: mockGetToken,
+    clearSession: jest.fn(),
+  }),
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { listConversations, createConversation, deleteConversation } = require(
-  '../../../../src/features/chat/api/chat'
-) as {
-  listConversations: jest.MockedFunction<
-    (agentHandle: string) => Promise<{ conversations: Conversation[]; total: number }>
-  >
-  createConversation: jest.MockedFunction<
-    (params: unknown) => Promise<Conversation>
-  >
-  deleteConversation: jest.MockedFunction<(id: string) => Promise<void>>
-}
+const { listConversations, createConversation, deleteConversation } =
+  require('../../../../src/features/chat/api/chat') as {
+    listConversations: jest.MockedFunction<
+      (agentHandle: string) => Promise<{ conversations: Conversation[]; total: number }>
+    >
+    createConversation: jest.MockedFunction<(params: unknown) => Promise<Conversation>>
+    deleteConversation: jest.MockedFunction<(id: string) => Promise<void>>
+  }
 
 const MOCK_CONVERSATION: Conversation = {
   id: 'conv_test1',

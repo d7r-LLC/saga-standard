@@ -12,12 +12,14 @@ import type { MessagesStackParamList } from '../../../navigation/types'
 import { getConversation, sendMessage } from '../api/chat'
 import { ChatInput } from '../components/ChatInput'
 import { MessageBubble } from '../components/MessageBubble'
+import { useSession } from '../hooks/useSession'
 import type { Message } from '../types'
 
 type Props = NativeStackScreenProps<MessagesStackParamList, 'ChatScreen'>
 
 export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
   const { conversationId, title: routeTitle } = route.params
+  const { getToken } = useSession()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [conversationTitle, setConversationTitle] = useState<string | null>(routeTitle ?? null)
@@ -27,6 +29,7 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
 
   const loadConversation = useCallback(async () => {
     try {
+      await getToken()
       const data = await getConversation(conversationId)
       setMessages(data.messages)
       setConversationTitle(data.conversation.title)
@@ -36,7 +39,7 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [conversationId])
+  }, [conversationId, getToken])
 
   useEffect(() => {
     loadConversation()
@@ -60,6 +63,7 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
       setSending(true)
 
       try {
+        await getToken()
         await sendMessage(conversationId, text)
         const data = await getConversation(conversationId)
         setMessages(data.messages)
@@ -70,18 +74,14 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
         setSending(false)
       }
     },
-    [conversationId]
+    [conversationId, getToken]
   )
 
   const headerTitle = conversationTitle ?? 'Chat'
 
   const renderItem = useCallback(
     ({ item }: { item: Message }) => (
-      <MessageBubble
-        role={item.role}
-        content={item.content}
-        testID={`message-${item.id}`}
-      />
+      <MessageBubble role={item.role} content={item.content} testID={`message-${item.id}`} />
     ),
     []
   )
