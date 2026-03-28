@@ -3,7 +3,7 @@
 
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import type { Env } from '../bindings'
 import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
@@ -66,4 +66,114 @@ chatRoutes.post('/conversations', requireAuth, async c => {
     },
     201
   )
+})
+
+/**
+ * GET /v1/chat/conversations — List conversations for an agent
+ */
+chatRoutes.get('/conversations', requireAuth, async c => {
+  const session = c.get('session')
+  const agentHandle = c.req.query('agentHandle')
+
+  if (!agentHandle) {
+    return c.json({ error: 'agentHandle query param is required', code: 'INVALID_REQUEST' }, 400)
+  }
+
+  const page = Math.max(1, parseIntParam(c.req.query('page'), 1))
+  const limit = Math.min(100, Math.max(1, parseIntParam(c.req.query('limit'), 20)))
+  const offset = (page - 1) * limit
+
+  const db = drizzle(c.env.DB)
+  const wallet = session.walletAddress.toLowerCase()
+
+  const [rows, countResult] = await Promise.all([
+    db
+      .select()
+      .from(chatConversations)
+      .where(
+        and(
+          eq(chatConversations.walletAddress, wallet),
+          eq(chatConversations.agentHandle, agentHandle)
+        )
+      )
+      .orderBy(desc(chatConversations.updatedAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(chatConversations)
+      .where(
+        and(
+          eq(chatConversations.walletAddress, wallet),
+          eq(chatConversations.agentHandle, agentHandle)
+        )
+      ),
+  ])
+
+  return c.json({
+    conversations: rows.map(r => ({
+      id: r.id,
+      agentHandle: r.agentHandle,
+      title: r.title,
+      provider: r.provider,
+      model: r.model,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    })),
+    total: countResult[0]?.count ?? 0,
+    page,
+    limit,
+  })
+})
+
+/**
+ * GET /v1/chat/conversations/:id — Get conversation with messages
+ */
+chatRoutes.get('/conversations/:id', requireAuth, async c => {
+  const session = c.get('session')
+  const id = c.req.param('id') as string
+  const wallet = session.walletAddress.toLowerCase()
+
+  const db = drizzle(c.env.DB)
+
+  const rows = await db
+    .select()
+    .from(chatConversations)
+    .where(and(eq(chatConversations.id, id), eq(chatConversations.walletAddress, wallet)))
+    .limit(1)
+
+  if (rows.length === 0) {
+    return c.json({ error: 'Conversation not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const conversation = rows[0]
+
+  const messages = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, id as string))
+    .orderBy(chatMessages.createdAt)
+
+  return c.json({
+    conversation: {
+      id: conversation.id,
+      agentHandle: conversation.agentHandle,
+      title: conversation.title,
+      provider: conversation.provider,
+      model: conversation.model,
+      systemPrompt: conversation.systemPrompt,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+    },
+    messages: messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      tokensPrompt: m.tokensPrompt,
+      tokensCompletion: m.tokensCompletion,
+      costUsd: m.costUsd,
+      latencyMs: m.latencyMs,
+      createdAt: m.createdAt,
+    })),
+  })
 })
