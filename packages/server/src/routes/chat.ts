@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { streamText } from 'ai'
-import type { CoreMessage } from 'ai'
+import type { ModelMessage } from 'ai'
 import type { Env } from '../bindings'
 import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
@@ -272,7 +272,7 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
     .where(eq(chatMessages.conversationId, conversationId))
     .orderBy(chatMessages.createdAt)
 
-  const messages: CoreMessage[] = dbMessages.map(m => ({
+  const messages: ModelMessage[] = dbMessages.map(m => ({
     role: m.role as 'user' | 'assistant' | 'system',
     content: m.content,
   }))
@@ -316,11 +316,10 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       const usage = await result.usage
       const finishReason = await result.finishReason
       const latencyMs = Date.now() - startTime
-      const costUsd = estimateCost(
-        conversation.model,
-        usage.promptTokens,
-        usage.completionTokens
-      )
+      const promptTokens = usage.inputTokens ?? 0
+      const completionTokens = usage.outputTokens ?? 0
+      const totalTokens = promptTokens + completionTokens
+      const costUsd = estimateCost(conversation.model, promptTokens, completionTokens)
 
       // Save assistant message to D1
       await db.insert(chatMessages).values({
@@ -328,8 +327,8 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
         conversationId,
         role: 'assistant',
         content: fullText,
-        tokensPrompt: usage.promptTokens,
-        tokensCompletion: usage.completionTokens,
+        tokensPrompt: promptTokens,
+        tokensCompletion: completionTokens,
         costUsd,
         latencyMs,
         createdAt: new Date().toISOString(),
@@ -342,9 +341,9 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
             type: 'finish',
             finishReason,
             usage: {
-              inputTokens: usage.promptTokens,
-              outputTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens,
+              inputTokens: promptTokens,
+              outputTokens: completionTokens,
+              totalTokens,
             },
             cost: { totalCostUSD: costUsd, model: conversation.model },
           })}\n\n`
@@ -357,6 +356,7 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       await writer.write(
         encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
       )
+      await writer.write(encoder.encode('data: [DONE]\n\n'))
     } finally {
       await writer.close()
     }

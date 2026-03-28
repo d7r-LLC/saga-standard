@@ -70,10 +70,10 @@ function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` }
 }
 
-/** Create a mock streamText return value */
+/** Create a mock streamText return value (matches ai v6 LanguageModelUsage shape) */
 function createMockStreamResult(
   chunks: string[],
-  usage = { promptTokens: 10, completionTokens: 20, totalTokens: 30 }
+  usage = { inputTokens: 10, outputTokens: 20 }
 ) {
   return {
     textStream: (async function* () {
@@ -258,9 +258,10 @@ describe('Chat API', () => {
       expect(body.conversation.id).toBe(conversation.id)
       expect(body.conversation.provider).toBe('anthropic')
       // Should have user message + assistant message from stream
-      expect(body.messages.length).toBeGreaterThanOrEqual(1)
+      expect(body.messages).toHaveLength(2)
       expect(body.messages[0].role).toBe('user')
       expect(body.messages[0].content).toBe('Hello, how are you?')
+      expect(body.messages[1].role).toBe('assistant')
     })
 
     it('returns 404 for non-existent conversation', async () => {
@@ -412,9 +413,8 @@ describe('Chat API', () => {
     it('saves assistant message to D1 with usage metadata', async () => {
       vi.mocked(streamText).mockReturnValue(
         createMockStreamResult(['The SAGA standard is...'], {
-          promptTokens: 15,
-          completionTokens: 25,
-          totalTokens: 40,
+          inputTokens: 15,
+          outputTokens: 25,
         }) as ReturnType<typeof streamText>
       )
 
@@ -451,9 +451,8 @@ describe('Chat API', () => {
     it('includes cost and model in finish event', async () => {
       vi.mocked(streamText).mockReturnValue(
         createMockStreamResult(['Response'], {
-          promptTokens: 10,
-          completionTokens: 20,
-          totalTokens: 30,
+          inputTokens: 10,
+          outputTokens: 20,
         }) as ReturnType<typeof streamText>
       )
 
@@ -481,7 +480,7 @@ describe('Chat API', () => {
       const usage = finish.usage as Record<string, unknown>
       expect(usage.inputTokens).toBe(10)
       expect(usage.outputTokens).toBe(20)
-      expect(usage.totalTokens).toBe(30)
+      expect(usage.totalTokens).toBe(30) // inputTokens(10) + outputTokens(20)
 
       const cost = finish.cost as Record<string, unknown>
       expect(cost.totalCostUSD).toBeGreaterThan(0)
@@ -524,7 +523,7 @@ describe('Chat API', () => {
 
       const secondCallArgs = calls[1][0] as { messages: Array<{ role: string; content: string }> }
       // Should include: user "First question", assistant "OK" (from first mock), user "Follow-up question"
-      expect(secondCallArgs.messages.length).toBeGreaterThanOrEqual(3)
+      expect(secondCallArgs.messages).toHaveLength(3)
       expect(secondCallArgs.messages[0]).toEqual({
         role: 'user',
         content: 'First question',
