@@ -37,107 +37,27 @@ describe('ApiError', () => {
   })
 })
 
-describe('HubAuthManager.authenticate()', () => {
-  it('calls challenge then verify endpoints with correct payloads', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({ challenge: 'sign-this-message', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-session-token-123' }),
-      })
-
-    const signMessage = jest.fn().mockResolvedValue('fake-wallet-signature')
-
-    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', signMessage)
-
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-
-    const [challengeUrl, challengeOpts] = mockFetch.mock.calls[0]
-    expect(challengeUrl).toBe(`${HUB_URL}/v1/auth/challenge`)
-    expect(challengeOpts.method).toBe('POST')
-    expect(JSON.parse(challengeOpts.body)).toEqual({
-      walletAddress: '0xWalletAddress',
-      chain: 'eip155:8453',
-    })
-
-    expect(signMessage).toHaveBeenCalledWith('sign-this-message')
-
-    const [verifyUrl, verifyOpts] = mockFetch.mock.calls[1]
-    expect(verifyUrl).toBe(`${HUB_URL}/v1/auth/verify`)
-    expect(verifyOpts.method).toBe('POST')
-    expect(JSON.parse(verifyOpts.body)).toEqual({
-      walletAddress: '0xWalletAddress',
-      chain: 'eip155:8453',
-      signature: 'fake-wallet-signature',
-      challenge: 'sign-this-message',
-    })
-  })
-
-  it('throws ApiError when challenge endpoint fails', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 503 })
-
-    const err = await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn()).catch(e => e)
-
-    expect(err).toBeInstanceOf(ApiError)
-    expect(err.status).toBe(503)
-  })
-
-  it('throws ApiError when verify endpoint fails', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({ ok: false, status: 401 })
-
-    const err = await hubAuthManager
-      .authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-      .catch(e => e)
-
-    expect(err).toBeInstanceOf(ApiError)
-    expect(err.status).toBe(401)
+describe('HubAuthManager.setToken()', () => {
+  it('stores token and makes it retrievable via getToken()', () => {
+    hubAuthManager.setToken('test-token-abc')
+    expect(hubAuthManager.getToken()).toBe('test-token-abc')
   })
 })
 
 describe('HubAuthManager.isAuthenticated()', () => {
-  it('returns false before authenticate', () => {
+  it('returns false before setToken', () => {
     expect(hubAuthManager.isAuthenticated()).toBe(false)
   })
 
-  it('returns true after successful authenticate', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-session-token-123' }),
-      })
-
-    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-
+  it('returns true after setToken', () => {
+    hubAuthManager.setToken('test-token-abc')
     expect(hubAuthManager.isAuthenticated()).toBe(true)
   })
 })
 
 describe('HubAuthManager.logout()', () => {
-  it('clears token and isAuthenticated returns false', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-session-token-123' }),
-      })
-
-    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
+  it('clears token and isAuthenticated returns false', () => {
+    hubAuthManager.setToken('test-token-abc')
     expect(hubAuthManager.isAuthenticated()).toBe(true)
 
     hubAuthManager.logout()
@@ -158,18 +78,7 @@ describe('authenticatedFetch()', () => {
   })
 
   it('adds Bearer auth header with token', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
-      })
-
-    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-    mockFetch.mockReset()
+    hubAuthManager.setToken('test-auth-token-abc')
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -186,18 +95,7 @@ describe('authenticatedFetch()', () => {
   })
 
   it('sends body when provided', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
-      })
-
-    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-    mockFetch.mockReset()
+    hubAuthManager.setToken('test-auth-token-abc')
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -212,18 +110,7 @@ describe('authenticatedFetch()', () => {
   })
 
   it('throws ApiError on non-2xx response', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
-      })
-
-    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-    mockFetch.mockReset()
+    hubAuthManager.setToken('test-auth-token-abc')
 
     mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
 
@@ -235,18 +122,7 @@ describe('authenticatedFetch()', () => {
   })
 
   it('returns empty object for DELETE 204 responses', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
-      })
-
-    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-    mockFetch.mockReset()
+    hubAuthManager.setToken('test-auth-token-abc')
 
     mockFetch.mockResolvedValueOnce({ ok: true, status: 204 })
 
@@ -256,18 +132,7 @@ describe('authenticatedFetch()', () => {
   })
 
   it('returns parsed JSON for successful responses', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ challenge: 'sign-this', expiresAt: '2026-03-28T00:00:00Z' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
-      })
-
-    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
-    mockFetch.mockReset()
+    hubAuthManager.setToken('test-auth-token-abc')
 
     mockFetch.mockResolvedValueOnce({
       ok: true,

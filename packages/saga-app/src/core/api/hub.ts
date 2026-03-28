@@ -17,34 +17,6 @@ export class ApiError extends Error {
 
 class HubAuthManager {
   private token: string | null = null
-  private walletAddress: string | null = null
-
-  async authenticate(
-    walletAddress: string,
-    chain: string,
-    signMessage: (msg: string) => Promise<string>
-  ): Promise<void> {
-    const challengeRes = await fetch(`${HUB_URL}/v1/auth/challenge`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress, chain }),
-    })
-    if (!challengeRes.ok) throw new ApiError(challengeRes.status)
-    const { challenge } = (await challengeRes.json()) as { challenge: string; expiresAt: string }
-
-    const signature = await signMessage(challenge)
-
-    const verifyRes = await fetch(`${HUB_URL}/v1/auth/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress, chain, signature, challenge }),
-    })
-    if (!verifyRes.ok) throw new ApiError(verifyRes.status)
-    const { token } = (await verifyRes.json()) as { token: string }
-
-    this.token = token
-    this.walletAddress = walletAddress
-  }
 
   getToken(): string | null {
     return this.token
@@ -60,7 +32,6 @@ class HubAuthManager {
 
   logout(): void {
     this.token = null
-    this.walletAddress = null
   }
 }
 
