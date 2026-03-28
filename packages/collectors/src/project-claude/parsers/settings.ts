@@ -19,16 +19,16 @@ export function parseProjectSettings(claudeDir: string): Partial<CognitiveLayer>
     const result: Partial<CognitiveLayer> = {}
 
     // Extract allowed/denied tools as capabilities
-    const allowedTools = settings.allowedTools as string[] | undefined
-    const deniedTools = settings.deniedTools as string[] | undefined
+    const allowedTools = Array.isArray(settings.allowedTools) ? settings.allowedTools as string[] : undefined
+    const deniedTools = Array.isArray(settings.deniedTools) ? settings.deniedTools as string[] : undefined
 
     if (allowedTools || deniedTools) {
       const capabilities: Record<string, boolean> = {}
       if (allowedTools) {
-        for (const tool of allowedTools) capabilities[tool] = true
+        for (const tool of allowedTools) capabilities[String(tool)] = true
       }
       if (deniedTools) {
-        for (const tool of deniedTools) capabilities[tool] = false
+        for (const tool of deniedTools) capabilities[String(tool)] = false
       }
       result.capabilities = capabilities
     }

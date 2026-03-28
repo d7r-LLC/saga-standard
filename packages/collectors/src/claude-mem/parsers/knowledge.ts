@@ -29,7 +29,7 @@ export function aggregateKnowledge(concepts: string[]): Partial<SemanticMemory> 
 }
 
 function frequencyToLevel(count: number): ExpertiseLevel {
-  if (count >= 8) return 'proficient'
+  if (count >= 8) return 'expert'
   if (count >= 4) return 'proficient'
   return 'familiar'
 }

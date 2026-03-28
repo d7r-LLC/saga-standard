@@ -43,7 +43,7 @@ describe('Integration: Collector → Assembly pipeline', () => {
   })
 
   it('detectCollectors finds installed sources', async () => {
-    // Create .claude, .openclaw, and .claude-mem dirs
+    // Create fixture directories for all local collectors
     mkdirSync(join(homeDir, '.claude'), { recursive: true })
     mkdirSync(join(homeDir, '.openclaw', 'workspace'), { recursive: true })
     const cmDir = join(homeDir, '.claude-mem')
@@ -53,13 +53,13 @@ describe('Integration: Collector → Assembly pipeline', () => {
     const detected = await detectCollectors(homeDir)
     const found = detected.filter(d => d.found)
     const foundSources = found.map(d => d.source)
-    // These three are always found via test fixtures
+    // All file-based collectors found via test fixtures
     expect(foundSources).toContain('claude-code')
     expect(foundSources).toContain('openclaw')
     expect(foundSources).toContain('claude-mem')
+    expect(foundSources).toContain('project-claude')
     // flowstate-memory returns found:false (no running HTTP service)
     expect(detected.find(d => d.source === 'flowstate-memory')?.found).toBe(false)
-    // project-claude may or may not be found depending on real ~/.claude/
   })
 
   it('assembles partials from Claude Code + OpenClaw into a SagaDocument', async () => {

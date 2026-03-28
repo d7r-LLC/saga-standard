@@ -15,15 +15,14 @@ function toEpisodicType(obsType: string): EpisodicEvent['type'] {
   switch (obsType) {
     case 'discovery':
     case 'refactor':
-      return 'learning'
+      return 'interaction'
     case 'bugfix':
-      return 'error-recovery'
     case 'feature':
-      return 'task-completion'
+      return 'task-completed'
     case 'decision':
-      return 'milestone'
+      return 'decision'
     default:
-      return 'observation'
+      return 'interaction'
   }
 }
 
@@ -37,17 +36,19 @@ function toEpisodicType(obsType: string): EpisodicEvent['type'] {
 export class FlowstateMemoryCollector implements SagaCollector {
   readonly source = 'flowstate-memory'
   private client: FlowstateMemoryClient
+  private url: string
 
   constructor(url?: string) {
-    this.client = new FlowstateMemoryClient(url ?? DEFAULT_URL)
+    this.url = url ?? DEFAULT_URL
+    this.client = new FlowstateMemoryClient(this.url)
   }
 
   async detect(homeDir?: string): Promise<CollectorDetection> {
-    return detectFlowstateMemory(this.client['baseUrl'])
+    return detectFlowstateMemory(this.url)
   }
 
   async scan(homeDir?: string): Promise<CollectorScan> {
-    return scanFlowstateMemory(this.client['baseUrl'])
+    return scanFlowstateMemory(this.url)
   }
 
   async extract(options?: ExtractOptions): Promise<PartialSagaDocument> {

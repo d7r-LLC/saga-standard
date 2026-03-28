@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, basename } from 'node:path'
 import type { SelfReportedSkill } from '@epicdm/saga-sdk'
 
@@ -15,11 +15,15 @@ export function parseCommands(claudeDir: string): SelfReportedSkill[] {
 
   try {
     const files = readdirSync(commandsDir).filter(f => f.endsWith('.md'))
-    return files.map(f => ({
-      name: basename(f, '.md'),
-      category: 'custom-command',
-      addedAt: new Date().toISOString(),
-    }))
+    return files.map(f => {
+      const filePath = join(commandsDir, f)
+      const mtime = statSync(filePath).mtime.toISOString()
+      return {
+        name: basename(f, '.md'),
+        category: 'custom-command',
+        addedAt: mtime,
+      }
+    })
   } catch {
     return []
   }

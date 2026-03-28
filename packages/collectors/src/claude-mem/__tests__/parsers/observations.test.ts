@@ -65,7 +65,7 @@ describe('parseObservations', () => {
     const result = parseObservations(dbPath)
     const discovery = result.episodic.find(e => e.summary === 'Found caching pattern')
     expect(discovery).toBeDefined()
-    expect(discovery!.type).toBe('learning')
+    expect(discovery!.type).toBe('interaction')
     expect(discovery!.timestamp).toBe('2026-03-01T00:00:00Z')
   })
 

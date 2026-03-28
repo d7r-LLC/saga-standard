@@ -23,7 +23,7 @@ export async function scanFlowstateMemory(url?: string): Promise<CollectorScan> 
   try {
     const result = await client.search({ limit: 0 })
     const layers: SagaLayerName[] = []
-    if (result.total > 0) layers.push('memory', 'taskHistory')
+    if (result.total > 0) layers.push('memory')
 
     return {
       ...empty,

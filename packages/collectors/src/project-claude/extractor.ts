@@ -24,22 +24,26 @@ import { parseCommands } from './parsers/commands'
  */
 export class ProjectClaudeCollector implements SagaCollector {
   readonly source = 'project-claude'
-  private paths: string[]
+  private explicitPaths?: string[]
 
   constructor(paths?: string[]) {
-    this.paths = paths ?? [homedir()]
+    this.explicitPaths = paths
+  }
+
+  private resolvePaths(homeDir?: string): string[] {
+    return this.explicitPaths ?? [homeDir ?? homedir()]
   }
 
   async detect(homeDir?: string): Promise<CollectorDetection> {
-    return detectProjectClaude(this.paths, homeDir)
+    return detectProjectClaude(this.resolvePaths(homeDir), homeDir)
   }
 
   async scan(homeDir?: string): Promise<CollectorScan> {
-    return scanProjectClaude(this.paths)
+    return scanProjectClaude(this.resolvePaths(homeDir))
   }
 
   async extract(options?: ExtractOptions): Promise<PartialSagaDocument> {
-    const detection = detectProjectClaude(this.paths)
+    const detection = await this.detect(options?.homeDir)
     if (!detection.found) {
       return { source: this.source, layers: {} }
     }

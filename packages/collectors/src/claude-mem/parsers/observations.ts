@@ -32,15 +32,14 @@ function toEpisodicType(obsType: string): EpisodicEvent['type'] {
   switch (obsType) {
     case 'discovery':
     case 'refactor':
-      return 'learning' as EpisodicEvent['type']
+      return 'interaction'
     case 'bugfix':
-      return 'error-recovery' as EpisodicEvent['type']
     case 'feature':
-      return 'task-completion' as EpisodicEvent['type']
+      return 'task-completed'
     case 'decision':
-      return 'milestone' as EpisodicEvent['type']
+      return 'decision'
     default:
-      return 'observation' as EpisodicEvent['type']
+      return 'interaction'
   }
 }
 
@@ -95,8 +94,8 @@ export function parseObservations(dbPath: string, options?: ParseOptions): Parse
           name: row.title ?? `pattern-${row.id}`,
           description: row.narrative ?? undefined,
           steps: row.facts ? tryParseArray(row.facts) : undefined,
-          classification: classifyScope(row.type) === 'agent-portable' ? 'public' : 'org-internal',
-        } as ProceduralWorkflow)
+          classification: classifyScope(row.type),
+        })
       } else {
         episodic.push({
           eventId: `claude-mem-${row.id}`,
@@ -104,8 +103,8 @@ export function parseObservations(dbPath: string, options?: ParseOptions): Parse
           timestamp: row.created_at,
           summary: row.title ?? undefined,
           learnings: row.narrative ?? undefined,
-          classification: classifyScope(row.type) === 'agent-portable' ? 'public' : 'org-internal',
-        } as EpisodicEvent)
+          classification: classifyScope(row.type),
+        })
       }
     }
 

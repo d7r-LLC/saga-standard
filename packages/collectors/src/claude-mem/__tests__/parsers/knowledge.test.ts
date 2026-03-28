@@ -21,7 +21,7 @@ describe('aggregateKnowledge', () => {
   it('builds expertise entries with frequency-based level', () => {
     const concepts = Array(10).fill('typescript').concat(Array(3).fill('rust'))
     const result = aggregateKnowledge(concepts)
-    expect(result.expertise!['typescript'].level).toBe('proficient')
+    expect(result.expertise!['typescript'].level).toBe('expert')
     expect(result.expertise!['rust'].level).toBe('familiar')
   })
 

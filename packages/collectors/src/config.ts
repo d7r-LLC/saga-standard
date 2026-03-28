@@ -21,7 +21,9 @@ export function loadSagaConfig(workspaceDir: string): SagaConfig | null {
     if (!parsed.agent || typeof parsed.agent !== 'object') return null
 
     const agent = parsed.agent as Record<string, unknown>
-    if (!agent.sagaHandle || !agent.sagaWallet || !agent.chain) return null
+    if (typeof agent.sagaHandle !== 'string') return null
+    if (typeof agent.sagaWallet !== 'string') return null
+    if (typeof agent.chain !== 'string') return null
 
     return parsed as unknown as SagaConfig
   } catch {
