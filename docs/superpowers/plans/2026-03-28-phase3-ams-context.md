@@ -4,11 +4,11 @@
 
 **Goal:** Integrate the Agent Memory Server (AMS) client for automatic context window management with summarization, falling back to D1-only context when AMS is unavailable.
 
-**Architecture:** A new `services/memory.ts` module wraps `@epicdm/flowstate-agents-memory-client`, providing a per-request factory and fallback helpers. Chat routes call AMS to sync messages and retrieve context-managed prompts. If AMS is down or unconfigured, the existing D1-based history loading (last 50 messages) is used as a fallback.
+**Architecture:** A new `services/ams.ts` module provides a lightweight fetch-based AMS HTTP client with session lifecycle management. Chat routes call AMS to sync messages and retrieve context-managed prompts. If AMS is down or unconfigured, the existing D1-based history loading (most recent 50 messages) is used as a fallback.
 
-**Tech Stack:** `@epicdm/flowstate-agents-memory-client@0.1.0`, Hono, Drizzle ORM, D1, Vitest
+**Tech Stack:** Hono, Drizzle ORM, D1, Vitest
 
-**Deviation from spec:** The spec says to use `@epicdm/flowstate-agents-llm-client` for streaming, but Phase 2 already replaced that with Vercel AI SDK (`ai` v6). This plan only adds the memory-client integration on top of the existing AI SDK streaming.
+**Implementation note:** The original plan specified wrapping `@epicdm/flowstate-agents-memory-client`, but the implementation uses a direct fetch-based client (`services/ams.ts`) for smaller bundle size and fewer dependencies in the Cloudflare Worker environment.
 
 ---
 
