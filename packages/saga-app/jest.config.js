@@ -19,6 +19,7 @@ module.exports = {
       '<rootDir>/__mocks__/@react-native-async-storage/async-storage.js',
     '^@scure/bip39/wordlists/([^.]+)(\\.js)?$': `${bip39WordlistDir}/$1.js`,
     'react-native-qrcode-svg': '<rootDir>/__mocks__/react-native-qrcode-svg.js',
+    'react-native-sse': '<rootDir>/__mocks__/react-native-sse.js',
     '@react-native-clipboard/clipboard': '<rootDir>/__mocks__/@react-native-clipboard/clipboard.js',
     '^@epicdm/saga-client$': '<rootDir>/node_modules/@epicdm/saga-client/src/index.ts',
   },
