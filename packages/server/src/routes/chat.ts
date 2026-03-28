@@ -11,7 +11,14 @@ import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 import { resolveApiKey, getProviderEnvKey, createModel, estimateCost } from '../services/llm'
+import { createAmsClient } from '../services/ams'
 import { HANDLE_REGEX, parseIntParam } from '../utils'
+
+/** Create AMS client if configured, or null */
+function getAmsClient(env: Env) {
+  if (!env.AMS_BASE_URL || !env.AMS_AUTH_TOKEN) return null
+  return createAmsClient(env.AMS_BASE_URL, env.AMS_AUTH_TOKEN)
+}
 
 export const chatRoutes = new Hono<{
   Bindings: Env
@@ -58,6 +65,22 @@ chatRoutes.post('/conversations', requireAuth, async c => {
     createdAt: now,
     updatedAt: now,
   })
+
+  // Initialize AMS session (best-effort, don't block conversation creation)
+  const ams = getAmsClient(c.env)
+  let amsSessionId: string | null = null
+  if (ams) {
+    try {
+      const session = await ams.initSession(id, body.agentHandle, body.systemPrompt)
+      amsSessionId = session.sessionId
+      await db
+        .update(chatConversations)
+        .set({ amsSessionId })
+        .where(eq(chatConversations.id, id))
+    } catch {
+      // AMS unavailable; conversation works without it
+    }
+  }
 
   return c.json(
     {

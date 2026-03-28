@@ -19,6 +19,18 @@ vi.mock('@ai-sdk/openai', () => ({
 vi.mock('@ai-sdk/google', () => ({
   createGoogleGenerativeAI: vi.fn(() => vi.fn(() => ({ modelId: 'mock-model' }))),
 }))
+
+vi.mock('../services/ams', () => ({
+  createAmsClient: vi.fn(() => ({
+    healthCheck: vi.fn().mockResolvedValue(true),
+    initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+    addMessage: vi.fn().mockResolvedValue(undefined),
+    getContextMessages: vi.fn().mockResolvedValue([]),
+    removeSession: vi.fn().mockResolvedValue(undefined),
+  })),
+}))
+
+import { createAmsClient } from '../services/ams'
 import { privateKeyToAccount } from 'viem/accounts'
 import { app } from '../index'
 import { createMockEnv, runMigrations } from './test-helpers'
@@ -102,10 +114,12 @@ describe('Chat API', () => {
 
   beforeEach(async () => {
     env = createMockEnv()
+    env.AMS_BASE_URL = 'http://localhost:7090'
+    env.AMS_AUTH_TOKEN = 'test-ams-token'
     await runMigrations(env.DB)
     token = await getSessionToken()
     vi.mocked(streamText).mockReset()
-    // Default mock so any test that reaches streaming doesn't crash
+    vi.mocked(createAmsClient).mockClear()
     vi.mocked(streamText).mockReturnValue(
       createMockStreamResult(['OK']) as ReturnType<typeof streamText>
     )
@@ -164,6 +178,55 @@ describe('Chat API', () => {
         },
       })
       expect(res.status).toBe(401)
+    })
+
+    it('initializes AMS session when AMS is configured', async () => {
+      const mockInitSession = vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true })
+      vi.mocked(createAmsClient).mockReturnValue({
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: mockInitSession,
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue([]),
+        removeSession: vi.fn().mockResolvedValue(undefined),
+      })
+
+      const res = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+          systemPrompt: 'You are helpful.',
+        },
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { conversation: Record<string, unknown> }
+
+      expect(mockInitSession).toHaveBeenCalledWith(
+        body.conversation.id,
+        'alice.saga',
+        'You are helpful.'
+      )
+    })
+
+    it('still creates conversation when AMS init fails', async () => {
+      vi.mocked(createAmsClient).mockReturnValue({
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockRejectedValue(new Error('AMS down')),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue([]),
+        removeSession: vi.fn().mockResolvedValue(undefined),
+      })
+
+      const res = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      expect(res.status).toBe(201)
     })
   })
 
