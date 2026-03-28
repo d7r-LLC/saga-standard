@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Header } from '../../../components/Header'
@@ -68,8 +68,8 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
         const data = await getConversation(conversationId)
         setMessages(data.messages)
         setConversationTitle(data.conversation.title)
-      } catch {
-        // Keep the optimistic message visible so the user sees what they typed
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to send message')
       } finally {
         setSending(false)
       }
@@ -86,7 +86,7 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
     []
   )
 
-  const reversedMessages = [...messages].reverse()
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages])
 
   return (
     <SafeArea>

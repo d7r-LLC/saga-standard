@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-export const HUB_URL = 'http://localhost:8787'
+export const HUB_URL = __DEV__
+  ? 'http://localhost:8787'
+  : 'https://saga-hub.d7r-LLC.workers.dev'
 
 export class ApiError extends Error {
   constructor(
@@ -19,12 +21,13 @@ class HubAuthManager {
 
   async authenticate(
     walletAddress: string,
+    chain: string,
     signMessage: (msg: string) => Promise<string>
   ): Promise<void> {
     const challengeRes = await fetch(`${HUB_URL}/v1/auth/challenge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress, chain: 'eip155:8453' }),
+      body: JSON.stringify({ walletAddress, chain }),
     })
     if (!challengeRes.ok) throw new ApiError(challengeRes.status)
     const { challenge } = (await challengeRes.json()) as { challenge: string; expiresAt: string }
@@ -34,7 +37,7 @@ class HubAuthManager {
     const verifyRes = await fetch(`${HUB_URL}/v1/auth/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress, chain: 'eip155:8453', signature, challenge }),
+      body: JSON.stringify({ walletAddress, chain, signature, challenge }),
     })
     if (!verifyRes.ok) throw new ApiError(verifyRes.status)
     const { token } = (await verifyRes.json()) as { token: string }

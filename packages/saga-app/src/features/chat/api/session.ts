@@ -1,21 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
+import { HUB_URL, ApiError } from '../../../core/api/hub'
 import type { SessionToken } from '../types'
-
-export const HUB_URL = __DEV__
-  ? 'http://localhost:8787'
-  : 'https://saga-hub.d7r-LLC.workers.dev'
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message?: string
-  ) {
-    super(message ?? `Server error: ${status}`)
-    this.name = 'ApiError'
-  }
-}
 
 export async function requestChallenge(
   walletAddress: string,

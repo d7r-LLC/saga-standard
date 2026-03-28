@@ -3,6 +3,7 @@
 
 import { act, renderHook } from '@testing-library/react-native'
 import { useSession } from '../../../../src/features/chat/hooks/useSession'
+import { hubAuthManager } from '../../../../src/core/api/hub'
 
 const mockRequestChallenge = jest.fn()
 const mockVerifyChallenge = jest.fn()
@@ -32,6 +33,7 @@ jest.mock('../../../../src/features/wallet/hooks/useWalletSigner', () => ({
 describe('useSession', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    hubAuthManager.logout()
     mockGetWalletClient.mockResolvedValue({ signMessage: mockSignMessage })
     mockSignMessage.mockResolvedValue('0xsig123')
     mockRequestChallenge.mockResolvedValue({

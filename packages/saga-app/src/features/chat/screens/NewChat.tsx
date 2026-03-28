@@ -28,6 +28,22 @@ export function NewChat({ navigation }: Props): React.JSX.Element {
   const [systemPrompt, setSystemPrompt] = useState('')
   const [creating, setCreating] = useState(false)
 
+  if (!agentHandle) {
+    return (
+      <SafeArea>
+        <Header
+          title="New Chat"
+          leftAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+        />
+        <View style={styles.center}>
+          <Text style={styles.noIdentityText}>
+            Set up an identity in the Profile tab to start chatting.
+          </Text>
+        </View>
+      </SafeArea>
+    )
+  }
+
   async function handleCreate(): Promise<void> {
     if (!selectedConfig) return
 
@@ -152,5 +168,16 @@ const styles = StyleSheet.create({
   },
   createButton: {
     marginTop: spacing.xl,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  noIdentityText: {
+    ...typography.body,
+    color: colors.textTertiary,
+    textAlign: 'center',
   },
 })

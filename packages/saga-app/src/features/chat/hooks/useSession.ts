@@ -35,6 +35,13 @@ export function useSession(): UseSessionResult {
       }
     }
 
+    // Check singleton (shared across all hook instances) when this
+    // hook has no local cache, e.g. a second component calling useSession.
+    if (!sessionRef.current && hubAuthManager.isAuthenticated()) {
+      const existing = hubAuthManager.getToken()
+      if (existing) return existing
+    }
+
     setAuthenticating(true)
     setError(null)
 

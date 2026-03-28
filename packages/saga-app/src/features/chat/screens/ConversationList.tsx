@@ -46,7 +46,14 @@ export function ConversationList({ navigation }: Props): React.JSX.Element {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => remove(item.id),
+        onPress: async () => {
+          try {
+            await remove(item.id)
+          } catch {
+            Alert.alert('Delete failed', 'Unable to delete this conversation. Please try again.')
+            refresh()
+          }
+        },
       },
     ])
   }

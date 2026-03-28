@@ -52,7 +52,7 @@ describe('HubAuthManager.authenticate()', () => {
 
     const signMessage = jest.fn().mockResolvedValue('fake-wallet-signature')
 
-    await hubAuthManager.authenticate('0xWalletAddress', signMessage)
+    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', signMessage)
 
     expect(mockFetch).toHaveBeenCalledTimes(2)
 
@@ -80,7 +80,7 @@ describe('HubAuthManager.authenticate()', () => {
   it('throws ApiError when challenge endpoint fails', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 503 })
 
-    const err = await hubAuthManager.authenticate('0xWalletAddress', jest.fn()).catch(e => e)
+    const err = await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn()).catch(e => e)
 
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(503)
@@ -95,7 +95,7 @@ describe('HubAuthManager.authenticate()', () => {
       .mockResolvedValueOnce({ ok: false, status: 401 })
 
     const err = await hubAuthManager
-      .authenticate('0xWalletAddress', jest.fn().mockResolvedValue('sig'))
+      .authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
       .catch(e => e)
 
     expect(err).toBeInstanceOf(ApiError)
@@ -119,7 +119,7 @@ describe('HubAuthManager.isAuthenticated()', () => {
         json: () => Promise.resolve({ token: 'test-session-token-123' }),
       })
 
-    await hubAuthManager.authenticate('0xWalletAddress', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
 
     expect(hubAuthManager.isAuthenticated()).toBe(true)
   })
@@ -137,7 +137,7 @@ describe('HubAuthManager.logout()', () => {
         json: () => Promise.resolve({ token: 'test-session-token-123' }),
       })
 
-    await hubAuthManager.authenticate('0xWalletAddress', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWalletAddress', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     expect(hubAuthManager.isAuthenticated()).toBe(true)
 
     hubAuthManager.logout()
@@ -168,7 +168,7 @@ describe('authenticatedFetch()', () => {
         json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
       })
 
-    await hubAuthManager.authenticate('0xWallet', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     mockFetch.mockReset()
 
     mockFetch.mockResolvedValueOnce({
@@ -196,7 +196,7 @@ describe('authenticatedFetch()', () => {
         json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
       })
 
-    await hubAuthManager.authenticate('0xWallet', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     mockFetch.mockReset()
 
     mockFetch.mockResolvedValueOnce({
@@ -222,7 +222,7 @@ describe('authenticatedFetch()', () => {
         json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
       })
 
-    await hubAuthManager.authenticate('0xWallet', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     mockFetch.mockReset()
 
     mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
@@ -245,7 +245,7 @@ describe('authenticatedFetch()', () => {
         json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
       })
 
-    await hubAuthManager.authenticate('0xWallet', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     mockFetch.mockReset()
 
     mockFetch.mockResolvedValueOnce({ ok: true, status: 204 })
@@ -266,7 +266,7 @@ describe('authenticatedFetch()', () => {
         json: () => Promise.resolve({ token: 'test-auth-token-abc' }),
       })
 
-    await hubAuthManager.authenticate('0xWallet', jest.fn().mockResolvedValue('sig'))
+    await hubAuthManager.authenticate('0xWallet', 'eip155:8453', jest.fn().mockResolvedValue('sig'))
     mockFetch.mockReset()
 
     mockFetch.mockResolvedValueOnce({
