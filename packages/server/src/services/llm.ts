@@ -45,7 +45,7 @@ export function buildGatewayBaseUrl(env: Env, provider: string): string | null {
 }
 
 /**
- * Create an AI SDK LanguageModelV1 instance for the given provider/model.
+ * Create an AI SDK LanguageModel instance for the given provider/model.
  * Routes through AI Gateway when configured.
  */
 export function createModel(

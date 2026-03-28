@@ -265,12 +265,14 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       .where(eq(chatConversations.id, conversationId))
   }
 
-  // Load conversation history from D1 for context
+  // Load recent conversation history from D1 for context (cap at 50 messages)
+  const MAX_HISTORY = 50
   const dbMessages = await db
-    .select()
+    .select({ role: chatMessages.role, content: chatMessages.content })
     .from(chatMessages)
     .where(eq(chatMessages.conversationId, conversationId))
     .orderBy(chatMessages.createdAt)
+    .limit(MAX_HISTORY)
 
   const messages: ModelMessage[] = dbMessages.map(m => ({
     role: m.role as 'user' | 'assistant' | 'system',
@@ -297,6 +299,15 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
   const { readable, writable } = new TransformStream()
   const writer = writable.getWriter()
 
+  // Swallow write errors caused by client disconnect (readable side canceled)
+  const safeWrite = async (data: Uint8Array) => {
+    try {
+      await writer.write(data)
+    } catch {
+      // Client disconnected; nothing to send
+    }
+  }
+
   ;(async () => {
     try {
       const result = streamText({
@@ -305,14 +316,15 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
         ...(conversation.systemPrompt && { system: conversation.systemPrompt }),
       })
 
-      let fullText = ''
+      const chunks: string[] = []
       for await (const chunk of result.textStream) {
-        fullText += chunk
-        await writer.write(
+        chunks.push(chunk)
+        await safeWrite(
           encoder.encode(`data: ${JSON.stringify({ type: 'text-delta', textDelta: chunk })}\n\n`)
         )
       }
 
+      const fullText = chunks.join('')
       const usage = await result.usage
       const finishReason = await result.finishReason
       const latencyMs = Date.now() - startTime
@@ -335,7 +347,7 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       })
 
       // Send finish event
-      await writer.write(
+      await safeWrite(
         encoder.encode(
           `data: ${JSON.stringify({
             type: 'finish',
@@ -350,15 +362,19 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
         )
       )
 
-      await writer.write(encoder.encode('data: [DONE]\n\n'))
+      await safeWrite(encoder.encode('data: [DONE]\n\n'))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Stream failed'
-      await writer.write(
+      await safeWrite(
         encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
       )
-      await writer.write(encoder.encode('data: [DONE]\n\n'))
+      await safeWrite(encoder.encode('data: [DONE]\n\n'))
     } finally {
-      await writer.close()
+      try {
+        await writer.close()
+      } catch {
+        // Already closed or client disconnected
+      }
     }
   })()
 

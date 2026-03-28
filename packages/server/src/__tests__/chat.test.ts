@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { vi } from 'vitest'
+import { vi, beforeEach, describe, expect, it } from 'vitest'
 import { streamText } from 'ai'
 
 vi.mock('ai', () => ({
@@ -19,8 +19,6 @@ vi.mock('@ai-sdk/openai', () => ({
 vi.mock('@ai-sdk/google', () => ({
   createGoogleGenerativeAI: vi.fn(() => vi.fn(() => ({ modelId: 'mock-model' }))),
 }))
-
-import { beforeEach, describe, expect, it } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { app } from '../index'
 import { createMockEnv, runMigrations } from './test-helpers'
