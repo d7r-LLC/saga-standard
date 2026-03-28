@@ -91,6 +91,14 @@ export type {
 } from './layers'
 
 export type { SagaDocument, SignedSagaDocument, ConsentMessage } from './saga-document'
+export type {
+  SagaConfig,
+  SagaConfigAgent,
+  SagaConfigHub,
+  SagaConfigSync,
+  SagaConfigIdentity,
+  SagaConfigCollectors,
+} from './saga-config'
 export type { PartialSagaDocument } from './partial'
 
 // ── Compliance types (Section 15.5–15.9, 16A) ───────────────────────

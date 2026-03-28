@@ -3,6 +3,7 @@
 
 // Core types and registry
 export type { SagaCollector, CollectorDetection, CollectorScan, ExtractOptions } from './types'
+export { loadSagaConfig } from './config'
 export {
   registerCollector,
   createCollector,
