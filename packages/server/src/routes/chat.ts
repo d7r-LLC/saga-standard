@@ -16,8 +16,8 @@ import { HANDLE_REGEX, parseIntParam } from '../utils'
 
 /** Create AMS client if configured, or null */
 function getAmsClient(env: Env) {
-  if (!env.AMS_BASE_URL || !env.AMS_AUTH_TOKEN) return null
-  return createAmsClient(env.AMS_BASE_URL, env.AMS_AUTH_TOKEN)
+  if (!env.AMS_BASE_URL) return null
+  return createAmsClient(env.AMS_BASE_URL, env.AMS_AUTH_TOKEN ?? '')
 }
 
 const MAX_HISTORY = 50
@@ -26,11 +26,21 @@ async function loadD1Messages(
   db: ReturnType<typeof drizzle>,
   conversationId: string
 ): Promise<ModelMessage[]> {
+  // Count total so we can skip old messages in long conversations
+  const countResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId))
+
+  const total = countResult[0]?.count ?? 0
+  const skip = Math.max(0, total - MAX_HISTORY)
+
   const dbMessages = await db
     .select({ role: chatMessages.role, content: chatMessages.content })
     .from(chatMessages)
     .where(eq(chatMessages.conversationId, conversationId))
     .orderBy(chatMessages.createdAt)
+    .offset(skip)
     .limit(MAX_HISTORY)
 
   return dbMessages.map(m => ({

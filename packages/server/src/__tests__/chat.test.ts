@@ -549,6 +549,10 @@ describe('Chat API', () => {
     })
 
     it('loads conversation history as context for streamText', async () => {
+      // Disable AMS so this test exercises the D1 fallback path
+      env.AMS_BASE_URL = ''
+      env.AMS_AUTH_TOKEN = ''
+
       const createRes = await req('POST', '/v1/chat/conversations', {
         headers: authHeader(token),
         body: {
@@ -1026,6 +1030,39 @@ describe('Chat API', () => {
         headers: authHeader(token),
       })
       expect(getRes.status).toBe(404)
+    })
+
+    it('works without AMS configured (D1-only fallback)', async () => {
+      // Clear AMS env vars so getAmsClient returns null
+      env.AMS_BASE_URL = ''
+      env.AMS_AUTH_TOKEN = ''
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      expect(createRes.status).toBe(201)
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      // Send a message — should use D1 context, not AMS
+      const msgRes = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-key' },
+        body: { content: 'Hello' },
+      })
+      expect(msgRes.status).toBe(200)
+
+      // Delete — should succeed without AMS cleanup
+      const delRes = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(delRes.status).toBe(204)
+
+      // AMS client should never have been created
+      expect(createAmsClient).not.toHaveBeenCalled()
     })
 
     it("cannot delete another wallet's conversation", async () => {

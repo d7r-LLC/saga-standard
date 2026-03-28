@@ -18,7 +18,6 @@
     "@ai-sdk/anthropic": "^3.0.64",
     "@ai-sdk/google": "^3.0.53",
     "@ai-sdk/openai": "^3.0.48",
-    "@epicdm/flowstate-agents-memory-client": "^0.1.0",
     "@epicdm/saga-sdk": "workspace:*",
     "@saga-standard/contracts": "workspace:*",
     "ai": "^6.0.141",

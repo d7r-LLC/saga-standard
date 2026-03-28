@@ -13,10 +13,10 @@ export interface AmsClient {
  * Create an AMS (Agent Memory Service) HTTP client.
  * Provides session-based working memory management for chat conversations.
  */
-export function createAmsClient(baseUrl: string, authToken: string): AmsClient {
-  const headers = {
+export function createAmsClient(baseUrl: string, authToken?: string): AmsClient {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${authToken}`,
+    ...(authToken && { Authorization: `Bearer ${authToken}` }),
   }
 
   return {
