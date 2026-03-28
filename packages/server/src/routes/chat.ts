@@ -4,10 +4,13 @@
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { and, desc, eq, sql } from 'drizzle-orm'
+import { streamText } from 'ai'
+import type { ModelMessage } from 'ai'
 import type { Env } from '../bindings'
 import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
+import { resolveApiKey, getProviderEnvKey, createModel, estimateCost } from '../services/llm'
 import { HANDLE_REGEX, parseIntParam } from '../utils'
 
 export const chatRoutes = new Hono<{
@@ -184,16 +187,14 @@ chatRoutes.get('/conversations/:id', requireAuth, async c => {
 })
 
 /**
- * POST /v1/chat/conversations/:id/messages — Save a user message
- * Phase 1: non-streaming, just persists the message.
- * Phase 2 will upgrade this to return SSE streaming LLM response.
+ * POST /v1/chat/conversations/:id/messages — Send user message and stream LLM response via SSE.
  */
 chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
   const session = c.get('session')
   const conversationId = c.req.param('id') as string
   const wallet = session.walletAddress.toLowerCase()
 
-  let body: { content: string }
+  let body: { content: string; apiKey?: string }
   try {
     body = await c.req.json()
   } catch {
@@ -220,10 +221,28 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
   }
 
   const conversation = convRows[0]
-  const msgId = generateId('msg')
-  const now = new Date().toISOString()
 
-  // Save user message
+  // Resolve API key: header > body > env > 400
+  const apiKey = resolveApiKey({
+    header: c.req.header('X-LLM-API-Key'),
+    bodyApiKey: body.apiKey,
+    envApiKey: getProviderEnvKey(conversation.provider, c.env),
+  })
+
+  if (!apiKey) {
+    return c.json(
+      {
+        error: `No API key available for provider "${conversation.provider}". Provide via X-LLM-API-Key header, apiKey body field, or configure server environment.`,
+        code: 'API_KEY_REQUIRED',
+      },
+      400
+    )
+  }
+
+  const now = new Date().toISOString()
+  const msgId = generateId('msg')
+
+  // Save user message to D1
   await db.insert(chatMessages).values({
     id: msgId,
     conversationId,
@@ -246,18 +265,126 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       .where(eq(chatConversations.id, conversationId))
   }
 
-  return c.json(
-    {
-      message: {
-        id: msgId,
-        conversationId,
-        role: 'user',
-        content: body.content,
-        createdAt: now,
+  // Load recent conversation history from D1 for context (cap at 50 messages)
+  const MAX_HISTORY = 50
+  const dbMessages = await db
+    .select({ role: chatMessages.role, content: chatMessages.content })
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId))
+    .orderBy(chatMessages.createdAt)
+    .limit(MAX_HISTORY)
+
+  const messages: ModelMessage[] = dbMessages.map(m => ({
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+  }))
+
+  // Create AI SDK model
+  let model
+  try {
+    model = createModel(conversation.provider, conversation.model, apiKey, c.env)
+  } catch (err) {
+    return c.json(
+      {
+        error: err instanceof Error ? err.message : 'Failed to create LLM provider',
+        code: 'PROVIDER_ERROR',
       },
+      400
+    )
+  }
+
+  // Stream response via SSE
+  const startTime = Date.now()
+  const encoder = new TextEncoder()
+  const { readable, writable } = new TransformStream()
+  const writer = writable.getWriter()
+
+  // Swallow write errors caused by client disconnect (readable side canceled)
+  const safeWrite = async (data: Uint8Array) => {
+    try {
+      await writer.write(data)
+    } catch {
+      // Client disconnected; nothing to send
+    }
+  }
+
+  ;(async () => {
+    try {
+      const result = streamText({
+        model,
+        messages,
+        ...(conversation.systemPrompt && { system: conversation.systemPrompt }),
+      })
+
+      const chunks: string[] = []
+      for await (const chunk of result.textStream) {
+        chunks.push(chunk)
+        await safeWrite(
+          encoder.encode(`data: ${JSON.stringify({ type: 'text-delta', textDelta: chunk })}\n\n`)
+        )
+      }
+
+      const fullText = chunks.join('')
+      const usage = await result.usage
+      const finishReason = await result.finishReason
+      const latencyMs = Date.now() - startTime
+      const promptTokens = usage.inputTokens ?? 0
+      const completionTokens = usage.outputTokens ?? 0
+      const totalTokens = promptTokens + completionTokens
+      const costUsd = estimateCost(conversation.model, promptTokens, completionTokens)
+
+      // Save assistant message to D1
+      await db.insert(chatMessages).values({
+        id: generateId('msg'),
+        conversationId,
+        role: 'assistant',
+        content: fullText,
+        tokensPrompt: promptTokens,
+        tokensCompletion: completionTokens,
+        costUsd,
+        latencyMs,
+        createdAt: new Date().toISOString(),
+      })
+
+      // Send finish event
+      await safeWrite(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            type: 'finish',
+            finishReason,
+            usage: {
+              inputTokens: promptTokens,
+              outputTokens: completionTokens,
+              totalTokens,
+            },
+            cost: { totalCostUSD: costUsd, model: conversation.model },
+          })}\n\n`
+        )
+      )
+
+      await safeWrite(encoder.encode('data: [DONE]\n\n'))
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Stream failed'
+      await safeWrite(
+        encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
+      )
+      await safeWrite(encoder.encode('data: [DONE]\n\n'))
+    } finally {
+      try {
+        await writer.close()
+      } catch {
+        // Already closed or client disconnected
+      }
+    }
+  })()
+
+  return new Response(readable, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
     },
-    201
-  )
+  })
 })
 
 /**

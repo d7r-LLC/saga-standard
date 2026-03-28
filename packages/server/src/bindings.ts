@@ -49,4 +49,19 @@ export interface Env {
 
   /** Operator wallet private key (Wrangler secret). Used for outbound federation signing. */
   OPERATOR_PRIVATE_KEY?: string
+
+  /** Cloudflare account ID (for AI Gateway URL construction) */
+  CF_ACCOUNT_ID?: string
+
+  /** AI Gateway name (e.g. "saga-hub"). When set, LLM requests route through AI Gateway. */
+  CF_GATEWAY_NAME?: string
+
+  /** Default Anthropic API key (used when no BYOK key is provided) */
+  ANTHROPIC_API_KEY?: string
+
+  /** Default OpenAI API key */
+  OPENAI_API_KEY?: string
+
+  /** Default Google AI API key */
+  GOOGLE_AI_API_KEY?: string
 }
