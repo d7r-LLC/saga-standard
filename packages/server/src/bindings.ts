@@ -64,4 +64,10 @@ export interface Env {
 
   /** Default Google AI API key */
   GOOGLE_AI_API_KEY?: string
+
+  /** Base URL for the Agent Memory Server (context management) */
+  AMS_BASE_URL?: string
+
+  /** Auth token for AMS (optional, enables bearer auth) */
+  AMS_AUTH_TOKEN?: string
 }

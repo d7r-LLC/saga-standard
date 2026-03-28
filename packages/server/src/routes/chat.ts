@@ -11,7 +11,43 @@ import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
 import { resolveApiKey, getProviderEnvKey, createModel, estimateCost } from '../services/llm'
+import { createAmsClient } from '../services/ams'
 import { HANDLE_REGEX, parseIntParam } from '../utils'
+
+/** Create AMS client if configured, or null */
+function getAmsClient(env: Env) {
+  if (!env.AMS_BASE_URL) return null
+  return createAmsClient(env.AMS_BASE_URL, env.AMS_AUTH_TOKEN ?? '')
+}
+
+const MAX_HISTORY = 50
+
+async function loadD1Messages(
+  db: ReturnType<typeof drizzle>,
+  conversationId: string
+): Promise<ModelMessage[]> {
+  // Count total so we can skip old messages in long conversations
+  const countResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId))
+
+  const total = countResult[0]?.count ?? 0
+  const skip = Math.max(0, total - MAX_HISTORY)
+
+  const dbMessages = await db
+    .select({ role: chatMessages.role, content: chatMessages.content })
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId))
+    .orderBy(chatMessages.createdAt)
+    .offset(skip)
+    .limit(MAX_HISTORY)
+
+  return dbMessages.map(m => ({
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+  }))
+}
 
 export const chatRoutes = new Hono<{
   Bindings: Env
@@ -58,6 +94,22 @@ chatRoutes.post('/conversations', requireAuth, async c => {
     createdAt: now,
     updatedAt: now,
   })
+
+  // Initialize AMS session (best-effort, don't block conversation creation)
+  const ams = getAmsClient(c.env)
+  let amsSessionId: string | null = null
+  if (ams) {
+    try {
+      const session = await ams.initSession(id, body.agentHandle, body.systemPrompt)
+      amsSessionId = session.sessionId
+      await db
+        .update(chatConversations)
+        .set({ amsSessionId })
+        .where(eq(chatConversations.id, id))
+    } catch {
+      // AMS unavailable; conversation works without it
+    }
+  }
 
   return c.json(
     {
@@ -265,19 +317,31 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
       .where(eq(chatConversations.id, conversationId))
   }
 
-  // Load recent conversation history from D1 for context (cap at 50 messages)
-  const MAX_HISTORY = 50
-  const dbMessages = await db
-    .select({ role: chatMessages.role, content: chatMessages.content })
-    .from(chatMessages)
-    .where(eq(chatMessages.conversationId, conversationId))
-    .orderBy(chatMessages.createdAt)
-    .limit(MAX_HISTORY)
+  // Build context messages: try AMS first, fall back to D1
+  const ams = getAmsClient(c.env)
+  const amsSessionId = conversation.amsSessionId
+  let messages: ModelMessage[]
+  let amsAvailable = false
 
-  const messages: ModelMessage[] = dbMessages.map(m => ({
-    role: m.role as 'user' | 'assistant' | 'system',
-    content: m.content,
-  }))
+  if (ams && amsSessionId) {
+    try {
+      // Sync user message to AMS
+      await ams.addMessage(amsSessionId, 'user', body.content)
+
+      // Get context-managed messages from AMS
+      const contextMessages = await ams.getContextMessages(amsSessionId)
+      messages = contextMessages.map(m => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      }))
+      amsAvailable = true
+    } catch {
+      // AMS failed; fall back to D1
+      messages = await loadD1Messages(db, conversationId)
+    }
+  } else {
+    messages = await loadD1Messages(db, conversationId)
+  }
 
   // Create AI SDK model
   let model
@@ -346,6 +410,15 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
         createdAt: new Date().toISOString(),
       })
 
+      // Sync assistant message to AMS (best-effort)
+      if (ams && amsSessionId && amsAvailable) {
+        try {
+          await ams.addMessage(amsSessionId, 'assistant', fullText)
+        } catch {
+          // AMS sync failure doesn't affect the response
+        }
+      }
+
       // Send finish event
       await safeWrite(
         encoder.encode(
@@ -399,13 +472,24 @@ chatRoutes.delete('/conversations/:id', requireAuth, async c => {
 
   // Verify ownership
   const rows = await db
-    .select({ id: chatConversations.id })
+    .select({ id: chatConversations.id, amsSessionId: chatConversations.amsSessionId })
     .from(chatConversations)
     .where(and(eq(chatConversations.id, id), eq(chatConversations.walletAddress, wallet)))
     .limit(1)
 
   if (rows.length === 0) {
     return c.json({ error: 'Conversation not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Remove AMS session (best-effort)
+  const ams = getAmsClient(c.env)
+  const conversation = rows[0]
+  if (ams && conversation.amsSessionId) {
+    try {
+      await ams.removeSession(conversation.amsSessionId)
+    } catch {
+      // AMS cleanup failure doesn't block deletion
+    }
   }
 
   // Delete messages first, then conversation
