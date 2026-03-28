@@ -608,6 +608,142 @@ describe('Chat API', () => {
       })
       expect(res.status).toBe(404)
     })
+
+    it('returns 400 when no API key is available', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      // POST message without any API key source
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'Hello' },
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; code: string }
+      expect(body.code).toBe('API_KEY_REQUIRED')
+      expect(body.error).toContain('anthropic')
+    })
+
+    it('sends SSE error event when provider stream fails', async () => {
+      const usageRej = Promise.reject(new Error('Authentication failed'))
+      const finishRej = Promise.reject(new Error('Authentication failed'))
+      const textRej = Promise.reject(new Error('Authentication failed'))
+      // Prevent unhandled rejection warnings for promises that will never be awaited
+      usageRej.catch(() => {})
+      finishRej.catch(() => {})
+      textRej.catch(() => {})
+
+      vi.mocked(streamText).mockReturnValue({
+        textStream: (async function* () {
+          throw new Error('Authentication failed: invalid API key')
+        })(),
+        usage: usageRej,
+        finishReason: finishRej,
+        text: textRej,
+      } as ReturnType<typeof streamText>)
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Hello' },
+      })
+      // SSE headers are already sent, so status is 200
+      expect(res.status).toBe(200)
+
+      const body = await res.text()
+      const events = parseSSEEvents(body)
+      const errorEvent = events.find(e => e.type === 'error')
+      expect(errorEvent).toBeTruthy()
+      expect(errorEvent!.error).toContain('Authentication failed')
+    })
+
+    it('saves user message even when streaming fails', async () => {
+      const usageRej = Promise.reject(new Error('Provider unavailable'))
+      const finishRej = Promise.reject(new Error('Provider unavailable'))
+      const textRej = Promise.reject(new Error('Provider unavailable'))
+      usageRej.catch(() => {})
+      finishRej.catch(() => {})
+      textRej.catch(() => {})
+
+      vi.mocked(streamText).mockReturnValue({
+        textStream: (async function* () {
+          throw new Error('Provider unavailable')
+        })(),
+        usage: usageRej,
+        finishReason: finishRej,
+        text: textRej,
+      } as ReturnType<typeof streamText>)
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'This should still be saved' },
+      })
+      await res.text() // consume SSE stream (which will contain error)
+
+      // Verify user message was persisted despite streaming failure
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      const body = (await getRes.json()) as { messages: Record<string, unknown>[] }
+      const userMsg = body.messages.find(m => m.role === 'user')
+      expect(userMsg).toBeTruthy()
+      expect(userMsg!.content).toBe('This should still be saved')
+    })
+
+    it('returns 400 for unsupported provider', async () => {
+      // Create conversation with unsupported provider via direct DB insert
+      const db = (await import('drizzle-orm/d1')).drizzle(env.DB)
+      const { chatConversations: convTable } = await import('../db/schema')
+      const convId = 'conv_unsupported_test'
+      const now = new Date().toISOString()
+      await db.insert(convTable).values({
+        id: convId,
+        agentHandle: 'alice.saga',
+        walletAddress: WALLET.toLowerCase(),
+        provider: 'unsupported-llm',
+        model: 'some-model',
+        title: null,
+        systemPrompt: null,
+        amsSessionId: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      const res = await req('POST', `/v1/chat/conversations/${convId}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Hello' },
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; code: string }
+      expect(body.code).toBe('PROVIDER_ERROR')
+      expect(body.error).toContain('Unsupported provider')
+    })
   })
 
   describe('DELETE /v1/chat/conversations/:id', () => {
