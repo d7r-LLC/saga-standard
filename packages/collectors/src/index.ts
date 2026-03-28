@@ -57,14 +57,27 @@ export { detectFlowstateMemory } from './flowstate-memory'
 export { scanFlowstateMemory } from './flowstate-memory'
 export { FlowstateMemoryClient } from './flowstate-memory'
 
+// project-claude collector
+export { ProjectClaudeCollector } from './project-claude'
+export {
+  detectProjectClaude,
+  scanProjectClaude,
+  parseAgentProfiles,
+  parseRules,
+  parseProjectSettings,
+  parseCommands,
+} from './project-claude'
+
 // Auto-register built-in collectors
 import { registerCollector } from './registry'
 import { ClaudeCodeCollector } from './claude-code'
 import { OpenClawCollector } from './openclaw'
 import { ClaudeMemCollector } from './claude-mem'
 import { FlowstateMemoryCollector } from './flowstate-memory'
+import { ProjectClaudeCollector } from './project-claude'
 
 registerCollector('claude-code', () => new ClaudeCodeCollector())
 registerCollector('openclaw', () => new OpenClawCollector())
 registerCollector('claude-mem', () => new ClaudeMemCollector())
 registerCollector('flowstate-memory', () => new FlowstateMemoryCollector())
+registerCollector('project-claude', () => new ProjectClaudeCollector())
