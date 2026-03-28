@@ -489,6 +489,8 @@ export function createMockEnv(): Env {
     RELAY_ROOM: {} as unknown as DurableObjectNamespace,
     SERVER_NAME: 'Test SAGA Server',
     LOCAL_DIRECTORY_ID: '',
+    AMS_BASE_URL: '',
+    AMS_AUTH_TOKEN: '',
   }
 }
 
