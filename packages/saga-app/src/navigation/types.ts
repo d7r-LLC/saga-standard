@@ -13,7 +13,9 @@ export type DocumentsStackParamList = {
 }
 
 export type DirectoryStackParamList = {
-  DirectorySearch: undefined
+  DirectoryHome: undefined
+  EntityDetail: { handle: string; entityType: 'agent' | 'org' }
+  DirectoryList: undefined
 }
 
 export type WalletStackParamList = {
