@@ -241,4 +241,172 @@ describe('Chat API', () => {
       expect(res.status).toBe(404)
     })
   })
+
+  describe('POST /v1/chat/conversations/:id/messages', () => {
+    it('saves a user message', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'What is the SAGA standard?' },
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { message: Record<string, unknown> }
+      expect(body.message.id).toMatch(/^msg_/)
+      expect(body.message.role).toBe('user')
+      expect(body.message.content).toBe('What is the SAGA standard?')
+      expect(body.message.createdAt).toBeTruthy()
+    })
+
+    it('auto-sets conversation title from first message', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'Help me review the staking contract for security vulnerabilities' },
+      })
+
+      // Fetch conversation to check title
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      const body = (await getRes.json()) as { conversation: { title: string } }
+      expect(body.conversation.title).toBe(
+        'Help me review the staking contract for security vulnerabilities'
+      )
+    })
+
+    it('does not overwrite title on subsequent messages', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'First message sets the title' },
+      })
+      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'Second message should not change title' },
+      })
+
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      const body = (await getRes.json()) as { conversation: { title: string } }
+      expect(body.conversation.title).toBe('First message sets the title')
+    })
+
+    it('rejects empty content', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: '' },
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 404 for non-existent conversation', async () => {
+      const res = await req('POST', '/v1/chat/conversations/conv_doesnotexist/messages', {
+        headers: authHeader(token),
+        body: { content: 'Hello' },
+      })
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('DELETE /v1/chat/conversations/:id', () => {
+    it('deletes conversation and its messages', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      // Add a message
+      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'Hello' },
+      })
+
+      // Delete
+      const delRes = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(delRes.status).toBe(204)
+
+      // Verify gone
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(getRes.status).toBe(404)
+    })
+
+    it('returns 404 for non-existent conversation', async () => {
+      const res = await req('DELETE', '/v1/chat/conversations/conv_doesnotexist', {
+        headers: authHeader(token),
+      })
+      expect(res.status).toBe(404)
+    })
+
+    it("cannot delete another wallet's conversation", async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      // Change owner
+      const db = (await import('drizzle-orm/d1')).drizzle(env.DB)
+      const { chatConversations: convTable } = await import('../db/schema')
+      await db
+        .update(convTable)
+        .set({ walletAddress: '0xdifferentwallet' })
+        .where((await import('drizzle-orm')).eq(convTable.id, conversation.id))
+
+      const res = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(res.status).toBe(404)
+    })
+  })
 })
