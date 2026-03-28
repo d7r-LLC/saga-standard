@@ -804,6 +804,131 @@ describe('Chat API', () => {
       expect(body.code).toBe('PROVIDER_ERROR')
       expect(body.error).toContain('Unsupported provider')
     })
+
+    it('uses AMS context messages when available', async () => {
+      const amsMessages = [
+        { role: 'system', content: 'Summary of earlier conversation...' },
+        { role: 'user', content: 'Latest question' },
+      ]
+      const mockAms = {
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue(amsMessages),
+        removeSession: vi.fn().mockResolvedValue(undefined),
+      }
+      vi.mocked(createAmsClient).mockReturnValue(mockAms)
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['Response']) as ReturnType<typeof streamText>
+      )
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Latest question' },
+      })
+      await res.text()
+
+      // AMS addMessage should have been called for the user message
+      expect(mockAms.addMessage).toHaveBeenCalledWith(
+        expect.any(String),
+        'user',
+        'Latest question'
+      )
+
+      // streamText should receive the AMS-managed context, not raw D1 messages
+      const calls = vi.mocked(streamText).mock.calls
+      const passedMessages = (calls[0][0] as { messages: Array<{ role: string }> }).messages
+      expect(passedMessages).toEqual(amsMessages)
+    })
+
+    it('falls back to D1 messages when AMS fails', async () => {
+      const mockAms = {
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+        addMessage: vi.fn().mockRejectedValue(new Error('AMS down')),
+        getContextMessages: vi.fn().mockRejectedValue(new Error('AMS down')),
+        removeSession: vi.fn().mockResolvedValue(undefined),
+      }
+      vi.mocked(createAmsClient).mockReturnValue(mockAms)
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['Fallback response']) as ReturnType<typeof streamText>
+      )
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Hello from fallback' },
+      })
+      expect(res.status).toBe(200)
+      await res.text()
+
+      // Should still call streamText with D1 messages as fallback
+      const calls = vi.mocked(streamText).mock.calls
+      expect(calls).toHaveLength(1)
+      const passedMessages = (calls[0][0] as { messages: Array<{ role: string; content: string }> }).messages
+      expect(passedMessages.some(m => m.content === 'Hello from fallback')).toBe(true)
+    })
+
+    it('syncs assistant message to AMS after stream completes', async () => {
+      const mockAms = {
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue([
+          { role: 'user', content: 'Hello' },
+        ]),
+        removeSession: vi.fn().mockResolvedValue(undefined),
+      }
+      vi.mocked(createAmsClient).mockReturnValue(mockAms)
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['The answer is 42']) as ReturnType<typeof streamText>
+      )
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Hello' },
+      })
+      await res.text()
+
+      // addMessage called twice: once for user, once for assistant
+      const addCalls = mockAms.addMessage.mock.calls
+      expect(addCalls.length).toBeGreaterThanOrEqual(2)
+      const assistantCall = addCalls.find((c: string[]) => c[1] === 'assistant')
+      expect(assistantCall).toBeTruthy()
+      expect(assistantCall![2]).toBe('The answer is 42')
+    })
   })
 
   describe('DELETE /v1/chat/conversations/:id', () => {
@@ -843,6 +968,64 @@ describe('Chat API', () => {
         headers: authHeader(token),
       })
       expect(res.status).toBe(404)
+    })
+
+    it('removes AMS session on delete', async () => {
+      const mockRemoveSession = vi.fn().mockResolvedValue(undefined)
+      vi.mocked(createAmsClient).mockReturnValue({
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue([]),
+        removeSession: mockRemoveSession,
+      })
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const delRes = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(delRes.status).toBe(204)
+      expect(mockRemoveSession).toHaveBeenCalled()
+    })
+
+    it('still deletes conversation when AMS remove fails', async () => {
+      vi.mocked(createAmsClient).mockReturnValue({
+        healthCheck: vi.fn().mockResolvedValue(true),
+        initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        getContextMessages: vi.fn().mockResolvedValue([]),
+        removeSession: vi.fn().mockRejectedValue(new Error('AMS down')),
+      })
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const delRes = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(delRes.status).toBe(204)
+
+      // Verify D1 deletion happened regardless
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      expect(getRes.status).toBe(404)
     })
 
     it("cannot delete another wallet's conversation", async () => {
