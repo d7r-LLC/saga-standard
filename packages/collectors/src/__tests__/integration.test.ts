@@ -26,10 +26,12 @@ afterEach(() => {
 })
 
 describe('Integration: Collector → Assembly pipeline', () => {
-  it('registry contains both built-in collectors', () => {
+  it('registry contains all built-in collectors', () => {
     const sources = listCollectorSources()
     expect(sources).toContain('claude-code')
     expect(sources).toContain('openclaw')
+    expect(sources).toContain('claude-mem')
+    expect(sources).toContain('flowstate-memory')
   })
 
   it('creates collectors from registry', () => {
@@ -41,14 +43,23 @@ describe('Integration: Collector → Assembly pipeline', () => {
   })
 
   it('detectCollectors finds installed sources', async () => {
-    // Create both .claude and .openclaw dirs
+    // Create fixture directories for all local collectors
     mkdirSync(join(homeDir, '.claude'), { recursive: true })
     mkdirSync(join(homeDir, '.openclaw', 'workspace'), { recursive: true })
+    const cmDir = join(homeDir, '.claude-mem')
+    mkdirSync(cmDir, { recursive: true })
+    writeFileSync(join(cmDir, 'claude-mem.db'), '')
 
     const detected = await detectCollectors(homeDir)
-    expect(detected).toHaveLength(2)
-    expect(detected.map(d => d.source).sort()).toEqual(['claude-code', 'openclaw'])
-    expect(detected.every(d => d.found)).toBe(true)
+    const found = detected.filter(d => d.found)
+    const foundSources = found.map(d => d.source)
+    // All file-based collectors found via test fixtures
+    expect(foundSources).toContain('claude-code')
+    expect(foundSources).toContain('openclaw')
+    expect(foundSources).toContain('claude-mem')
+    expect(foundSources).toContain('project-claude')
+    // flowstate-memory returns found:false (no running HTTP service)
+    expect(detected.find(d => d.source === 'flowstate-memory')?.found).toBe(false)
   })
 
   it('assembles partials from Claude Code + OpenClaw into a SagaDocument', async () => {
