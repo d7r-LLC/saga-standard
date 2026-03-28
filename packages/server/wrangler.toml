@@ -19,6 +19,9 @@ INDEXER_CHAIN = "eip155:84532"
 INDEXER_START_BLOCK = "39400000"
 # Federation: set to your directoryId to enable cross-directory routing (opt-in)
 LOCAL_DIRECTORY_ID = ""
+# AI Gateway (set CF_GATEWAY_NAME to enable; API keys are secrets)
+CF_ACCOUNT_ID = "63396a5b2b279efdc0e1618233dcdc17"
+CF_GATEWAY_NAME = ""
 
 # ── Local development ────────────────────────────────────────────────
 
