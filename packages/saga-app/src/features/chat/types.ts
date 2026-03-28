@@ -24,6 +24,12 @@ export interface Message {
   createdAt: string
 }
 
+export interface SessionToken {
+  token: string
+  expiresAt: string
+  walletAddress: string
+}
+
 export interface CreateConversationParams {
   agentHandle: string
   provider: string
