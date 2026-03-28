@@ -34,3 +34,11 @@ export async function getConversation(
 export async function deleteConversation(id: string): Promise<void> {
   await authenticatedFetch<void>('DELETE', `/v1/chat/conversations/${id}`)
 }
+
+export async function sendMessage(conversationId: string, content: string): Promise<void> {
+  await authenticatedFetch<void>(
+    'POST',
+    `/v1/chat/conversations/${conversationId}/messages`,
+    { content }
+  )
+}

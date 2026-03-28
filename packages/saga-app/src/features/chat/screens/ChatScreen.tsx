@@ -1,21 +1,132 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import React from 'react'
-import { StyleSheet, Text, View } from 'react-native'
-import { colors, typography } from '../../../core/theme'
+import React, { useCallback, useEffect, useState } from 'react'
+import { FlatList, StyleSheet, Text, View } from 'react-native'
+import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { Header } from '../../../components/Header'
+import { LoadingSpinner } from '../../../components/LoadingSpinner'
+import { SafeArea } from '../../../components/SafeArea'
+import { colors, spacing, typography } from '../../../core/theme'
+import type { MessagesStackParamList } from '../../../navigation/types'
+import { getConversation, sendMessage } from '../api/chat'
+import { ChatInput } from '../components/ChatInput'
+import { MessageBubble } from '../components/MessageBubble'
+import type { Message } from '../types'
 
-export function ChatScreen(): React.JSX.Element {
+type Props = NativeStackScreenProps<MessagesStackParamList, 'ChatScreen'>
+
+export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
+  const { conversationId, title: routeTitle } = route.params
+
+  const [messages, setMessages] = useState<Message[]>([])
+  const [conversationTitle, setConversationTitle] = useState<string | null>(routeTitle ?? null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+
+  const loadConversation = useCallback(async () => {
+    try {
+      const data = await getConversation(conversationId)
+      setMessages(data.messages)
+      setConversationTitle(data.conversation.title)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load conversation')
+    } finally {
+      setLoading(false)
+    }
+  }, [conversationId])
+
+  useEffect(() => {
+    loadConversation()
+  }, [loadConversation])
+
+  const handleSend = useCallback(
+    async (text: string) => {
+      const optimisticMessage: Message = {
+        id: `temp_${Date.now()}`,
+        conversationId,
+        role: 'user',
+        content: text,
+        tokensPrompt: null,
+        tokensCompletion: null,
+        costUsd: null,
+        latencyMs: null,
+        createdAt: new Date().toISOString(),
+      }
+
+      setMessages(prev => [...prev, optimisticMessage])
+      setSending(true)
+
+      try {
+        await sendMessage(conversationId, text)
+        const data = await getConversation(conversationId)
+        setMessages(data.messages)
+        setConversationTitle(data.conversation.title)
+      } catch {
+        // Keep the optimistic message visible so the user sees what they typed
+      } finally {
+        setSending(false)
+      }
+    },
+    [conversationId]
+  )
+
+  const headerTitle = conversationTitle ?? 'Chat'
+
+  const renderItem = useCallback(
+    ({ item }: { item: Message }) => (
+      <MessageBubble
+        role={item.role}
+        content={item.content}
+        testID={`message-${item.id}`}
+      />
+    ),
+    []
+  )
+
+  const reversedMessages = [...messages].reverse()
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Chat</Text>
-      <Text style={styles.subtitle}>Coming soon</Text>
-    </View>
+    <SafeArea>
+      <Header
+        title={headerTitle}
+        leftAction={{ label: 'Back', onPress: () => navigation.goBack() }}
+      />
+      {loading ? (
+        <LoadingSpinner message="Loading messages..." />
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={reversedMessages}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          inverted
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+      <ChatInput onSend={handleSend} disabled={sending} />
+    </SafeArea>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  text: { ...typography.h2, color: colors.textPrimary },
-  subtitle: { ...typography.bodySmall, color: colors.textTertiary, marginTop: 8 },
+  listContent: {
+    paddingVertical: spacing.sm,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.error,
+    textAlign: 'center',
+  },
 })
