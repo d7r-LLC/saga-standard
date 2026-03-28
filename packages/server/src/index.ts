@@ -17,6 +17,7 @@ import { keyRoutes } from './routes/keys'
 import { groupRoutes } from './routes/groups'
 import { policyRoutes } from './routes/policies'
 import { directoryRoutes } from './routes/directories'
+import { chatRoutes } from './routes/chat'
 import { RelayRoom } from './relay/relay-room'
 import { runIndexer } from './indexer/chain-indexer'
 
@@ -49,6 +50,7 @@ app.get('/', c => {
       groups: '/v1/groups',
       policies: '/v1/orgs/:orgId/policy',
       directories: '/v1/directories',
+      chat: '/v1/chat/conversations',
     },
   })
 })
@@ -65,6 +67,8 @@ app.route('/v1/directories', directoryRoutes)
 app.route('/v1/groups', groupRoutes)
 app.route('/v1', serverInfoRoute)
 app.route('/v1', relayRoutes)
+
+app.route('/v1/chat', chatRoutes)
 
 // Document routes are nested under agents
 app.route('/v1/agents', documentRoutes)
