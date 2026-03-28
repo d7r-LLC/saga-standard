@@ -8,7 +8,7 @@ import type { Env } from '../bindings'
 import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
-import { parseIntParam } from '../utils'
+import { HANDLE_REGEX, parseIntParam } from '../utils'
 
 export const chatRoutes = new Hono<{
   Bindings: Env
@@ -20,18 +20,23 @@ export const chatRoutes = new Hono<{
  */
 chatRoutes.post('/conversations', requireAuth, async c => {
   const session = c.get('session')
-  const body = await c.req.json<{
-    agentHandle: string
-    provider: string
-    model: string
-    systemPrompt?: string
-  }>()
+
+  let body: { agentHandle: string; provider: string; model: string; systemPrompt?: string }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body', code: 'INVALID_REQUEST' }, 400)
+  }
 
   if (!body.agentHandle || !body.provider || !body.model) {
     return c.json(
       { error: 'agentHandle, provider, and model are required', code: 'INVALID_REQUEST' },
       400
     )
+  }
+
+  if (!HANDLE_REGEX.test(body.agentHandle)) {
+    return c.json({ error: 'Invalid agentHandle format', code: 'INVALID_REQUEST' }, 400)
   }
 
   const db = drizzle(c.env.DB)
@@ -188,7 +193,12 @@ chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
   const conversationId = c.req.param('id') as string
   const wallet = session.walletAddress.toLowerCase()
 
-  const body = await c.req.json<{ content: string }>()
+  let body: { content: string }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body', code: 'INVALID_REQUEST' }, 400)
+  }
 
   if (!body.content) {
     return c.json({ error: 'content is required', code: 'INVALID_REQUEST' }, 400)
