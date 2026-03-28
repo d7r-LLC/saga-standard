@@ -26,10 +26,11 @@ afterEach(() => {
 })
 
 describe('Integration: Collector → Assembly pipeline', () => {
-  it('registry contains both built-in collectors', () => {
+  it('registry contains all built-in collectors', () => {
     const sources = listCollectorSources()
     expect(sources).toContain('claude-code')
     expect(sources).toContain('openclaw')
+    expect(sources).toContain('claude-mem')
   })
 
   it('creates collectors from registry', () => {
@@ -41,13 +42,16 @@ describe('Integration: Collector → Assembly pipeline', () => {
   })
 
   it('detectCollectors finds installed sources', async () => {
-    // Create both .claude and .openclaw dirs
+    // Create .claude, .openclaw, and .claude-mem dirs
     mkdirSync(join(homeDir, '.claude'), { recursive: true })
     mkdirSync(join(homeDir, '.openclaw', 'workspace'), { recursive: true })
+    const cmDir = join(homeDir, '.claude-mem')
+    mkdirSync(cmDir, { recursive: true })
+    writeFileSync(join(cmDir, 'claude-mem.db'), '')
 
     const detected = await detectCollectors(homeDir)
-    expect(detected).toHaveLength(2)
-    expect(detected.map(d => d.source).sort()).toEqual(['claude-code', 'openclaw'])
+    expect(detected).toHaveLength(3)
+    expect(detected.map(d => d.source).sort()).toEqual(['claude-code', 'claude-mem', 'openclaw'])
     expect(detected.every(d => d.found)).toBe(true)
   })
 

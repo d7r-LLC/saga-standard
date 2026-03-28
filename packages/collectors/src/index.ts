@@ -41,10 +41,22 @@ export {
   exportMemoryFromSqlite,
 } from './openclaw'
 
+// claude-mem collector
+export { ClaudeMemCollector } from './claude-mem'
+export {
+  detectClaudeMem,
+  scanClaudeMem,
+  parseObservations,
+  parseSessions,
+  aggregateKnowledge,
+} from './claude-mem'
+
 // Auto-register built-in collectors
 import { registerCollector } from './registry'
 import { ClaudeCodeCollector } from './claude-code'
 import { OpenClawCollector } from './openclaw'
+import { ClaudeMemCollector } from './claude-mem'
 
 registerCollector('claude-code', () => new ClaudeCodeCollector())
 registerCollector('openclaw', () => new OpenClawCollector())
+registerCollector('claude-mem', () => new ClaudeMemCollector())
