@@ -2,13 +2,14 @@
 // Copyright 2026 d7r LLC
 
 import React from 'react'
-import { Pressable, StyleSheet, View, ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
+import type { StyleProp, ViewStyle } from 'react-native'
 import { borderRadius, colors, spacing } from '../core/theme'
 
 interface CardProps {
   children: React.ReactNode
   onPress?: () => void
-  style?: ViewStyle
+  style?: StyleProp<ViewStyle>
 }
 
 export function Card({ children, onPress, style }: CardProps): React.JSX.Element {

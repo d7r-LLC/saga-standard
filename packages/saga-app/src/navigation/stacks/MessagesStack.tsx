@@ -3,36 +3,19 @@
 
 import React from 'react'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { StyleSheet, Text, View } from 'react-native'
-import { colors, typography } from '../../core/theme'
 import type { MessagesStackParamList } from '../types'
-
-function MessagesListScreen(): React.JSX.Element {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Messages</Text>
-      <Text style={styles.subtitle}>Coming in Phase 6</Text>
-    </View>
-  )
-}
+import { ConversationList } from '../../features/chat/screens/ConversationList'
+import { NewChat } from '../../features/chat/screens/NewChat'
+import { ChatScreen } from '../../features/chat/screens/ChatScreen'
 
 const Stack = createNativeStackNavigator<MessagesStackParamList>()
 
 export function MessagesStack(): React.JSX.Element {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="MessagesList" component={MessagesListScreen} />
+      <Stack.Screen name="ConversationList" component={ConversationList} />
+      <Stack.Screen name="NewChat" component={NewChat} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
     </Stack.Navigator>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  text: { ...typography.h2, color: colors.textPrimary },
-  subtitle: { ...typography.bodySmall, color: colors.textTertiary, marginTop: 8 },
-})
