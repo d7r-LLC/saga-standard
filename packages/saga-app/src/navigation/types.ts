@@ -5,7 +5,9 @@ import type { NavigatorScreenParams } from '@react-navigation/native'
 
 // Tab screens
 export type MessagesStackParamList = {
-  MessagesList: undefined
+  ConversationList: undefined
+  NewChat: undefined
+  ChatScreen: { conversationId: string; title?: string }
 }
 
 export type DocumentsStackParamList = {

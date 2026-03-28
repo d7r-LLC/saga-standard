@@ -2,6 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { useCallback, useRef, useState } from 'react'
+import type { Account, Chain, Transport } from 'viem'
+import type { WalletClient } from 'viem'
 import { useStorage } from '../../../core/providers/StorageProvider'
 import { useWalletSigner } from '../../wallet/hooks/useWalletSigner'
 import { requestChallenge, verifyChallenge } from '../api/session'
@@ -41,7 +43,9 @@ export function useSession(): UseSessionResult {
 
       const { challenge } = await requestChallenge(wallet.address, wallet.chain)
       const client = await getWalletClient()
-      const signature = await client.signMessage({ message: challenge })
+      const signature = await (client as WalletClient<Transport, Chain, Account>).signMessage({
+        message: challenge,
+      })
       const session = await verifyChallenge(wallet.address, wallet.chain, signature, challenge)
 
       sessionRef.current = { token: session.token, expiresAt: session.expiresAt }
