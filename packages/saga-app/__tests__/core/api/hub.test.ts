@@ -80,9 +80,7 @@ describe('HubAuthManager.authenticate()', () => {
   it('throws ApiError when challenge endpoint fails', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 503 })
 
-    const err = await hubAuthManager
-      .authenticate('0xWalletAddress', jest.fn())
-      .catch(e => e)
+    const err = await hubAuthManager.authenticate('0xWalletAddress', jest.fn()).catch(e => e)
 
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(503)
@@ -151,7 +149,7 @@ describe('HubAuthManager.logout()', () => {
 
 describe('authenticatedFetch()', () => {
   it('throws ApiError(401) when not authenticated', async () => {
-    const err = await authenticatedFetch('GET', '/v1/chat/rooms').catch(e => e)
+    const err = (await authenticatedFetch('GET', '/v1/chat/rooms').catch(e => e)) as ApiError
 
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(401)
@@ -229,7 +227,7 @@ describe('authenticatedFetch()', () => {
 
     mockFetch.mockResolvedValueOnce({ ok: false, status: 403 })
 
-    const err = await authenticatedFetch('GET', '/v1/chat/rooms').catch(e => e)
+    const err = (await authenticatedFetch('GET', '/v1/chat/rooms').catch(e => e)) as ApiError
 
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(403)
