@@ -31,6 +31,7 @@ describe('Integration: Collector → Assembly pipeline', () => {
     expect(sources).toContain('claude-code')
     expect(sources).toContain('openclaw')
     expect(sources).toContain('claude-mem')
+    expect(sources).toContain('flowstate-memory')
   })
 
   it('creates collectors from registry', () => {
@@ -50,9 +51,11 @@ describe('Integration: Collector → Assembly pipeline', () => {
     writeFileSync(join(cmDir, 'claude-mem.db'), '')
 
     const detected = await detectCollectors(homeDir)
-    expect(detected).toHaveLength(3)
-    expect(detected.map(d => d.source).sort()).toEqual(['claude-code', 'claude-mem', 'openclaw'])
-    expect(detected.every(d => d.found)).toBe(true)
+    const found = detected.filter(d => d.found)
+    expect(found).toHaveLength(3)
+    expect(found.map(d => d.source).sort()).toEqual(['claude-code', 'claude-mem', 'openclaw'])
+    // flowstate-memory returns found:false (no running HTTP service)
+    expect(detected.find(d => d.source === 'flowstate-memory')?.found).toBe(false)
   })
 
   it('assembles partials from Claude Code + OpenClaw into a SagaDocument', async () => {
