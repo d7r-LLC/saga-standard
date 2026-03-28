@@ -61,17 +61,23 @@ export function DirectoryHome({ navigation }: Props): React.JSX.Element {
         />
       </View>
       <View style={styles.filterRow}>
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterTab, filter === f && styles.filterTabActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTERS.map(f => {
+          const label = f.charAt(0).toUpperCase() + f.slice(1)
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterTab, filter === f && styles.filterTabActive]}
+              onPress={() => setFilter(f)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === f }}
+              accessibilityLabel={label}
+            >
+              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
       {error ? (
         <View style={styles.center}>

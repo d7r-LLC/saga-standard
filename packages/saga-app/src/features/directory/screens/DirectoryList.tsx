@@ -17,7 +17,10 @@ import type { DirectorySummary } from '../types'
 
 type Props = NativeStackScreenProps<DirectoryStackParamList, 'DirectoryList'>
 
-const STATUS_MAP: Record<string, 'connected' | 'disconnected' | 'error' | 'syncing'> = {
+const STATUS_MAP: Record<
+  DirectorySummary['status'],
+  'connected' | 'disconnected' | 'error' | 'syncing'
+> = {
   active: 'connected',
   suspended: 'syncing',
   flagged: 'error',

@@ -27,6 +27,7 @@ export function useDirectorySearch(): UseDirectorySearchResult {
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const pageRef = useRef(1)
+  const requestIdRef = useRef(0)
 
   // Debounce query by 300ms
   useEffect(() => {
@@ -36,17 +37,20 @@ export function useDirectorySearch(): UseDirectorySearchResult {
 
   const fetchResults = useCallback(
     async (q: string, f: SearchFilter, page: number, append: boolean) => {
+      const requestId = ++requestIdRef.current
       setLoading(true)
       setError(null)
       try {
         const result = await searchDirectory(q, f, page)
+        if (requestIdRef.current !== requestId) return
         const items: EntityCardData[] = [...result.agents, ...result.orgs]
         setResults(prev => (append ? [...prev, ...items] : items))
         setHasMore(page * PAGE_SIZE < Math.max(result.totalAgents, result.totalOrgs))
       } catch (err: unknown) {
+        if (requestIdRef.current !== requestId) return
         setError(err instanceof Error ? err.message : String(err))
       } finally {
-        setLoading(false)
+        if (requestIdRef.current === requestId) setLoading(false)
       }
     },
     []

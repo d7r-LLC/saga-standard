@@ -16,9 +16,19 @@ import type {
 export const HUB_URL = 'https://saga-hub.d7r-LLC.workers.dev'
 export const PAGE_SIZE = 20
 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message?: string
+  ) {
+    super(message ?? `Server error: ${status}`)
+    this.name = 'ApiError'
+  }
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`Server error: ${res.status}`)
+  if (!res.ok) throw new ApiError(res.status)
   return res.json() as Promise<T>
 }
 
@@ -88,7 +98,7 @@ export async function resolveHandle(handle: string): Promise<ResolvedEntity | nu
   try {
     return await fetchJson<ResolvedEntity>(`${HUB_URL}/v1/resolve/${encodeURIComponent(handle)}`)
   } catch (err) {
-    if (err instanceof Error && err.message === 'Server error: 404') return null
+    if (err instanceof ApiError && err.status === 404) return null
     throw err
   }
 }

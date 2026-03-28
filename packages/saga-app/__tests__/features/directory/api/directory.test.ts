@@ -2,6 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import {
+  ApiError,
   HUB_URL,
   getAgent,
   getDirectories,
@@ -85,10 +86,13 @@ describe('searchDirectory', () => {
     expect(mockFetch.mock.calls[0][0]).not.toContain('search=')
   })
 
-  it('throws on server error', async () => {
+  it('throws ApiError with status on server error', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
 
-    await expect(searchDirectory('x', 'agents', 1)).rejects.toThrow('Server error: 500')
+    const err = await searchDirectory('x', 'agents', 1).catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(500)
+    expect(err.message).toBe('Server error: 500')
   })
 })
 
@@ -111,10 +115,12 @@ describe('getAgent', () => {
     expect(result.handle).toBe('alice')
   })
 
-  it('throws on 404', async () => {
+  it('throws ApiError on 404', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
 
-    await expect(getAgent('unknown')).rejects.toThrow('Server error: 404')
+    const err = await getAgent('unknown').catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(404)
   })
 })
 
@@ -177,9 +183,11 @@ describe('resolveHandle', () => {
     expect(result).toBeNull()
   })
 
-  it('throws on non-404 errors', async () => {
+  it('throws ApiError on non-404 errors', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 500 })
 
-    await expect(resolveHandle('x')).rejects.toThrow('Server error: 500')
+    const err = await resolveHandle('x').catch(e => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(500)
   })
 })

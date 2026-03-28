@@ -64,7 +64,7 @@ export function EntityDetail({ route, navigation }: Props): React.JSX.Element {
         />
         <ListItem title="Chain" subtitle={entity.chain} />
 
-        {entity.tokenId && <ListItem title="Token ID" subtitle={entity.tokenId} />}
+        {entity.tokenId != null && <ListItem title="Token ID" subtitle={String(entity.tokenId)} />}
         {entity.contractAddress && (
           <ListItem
             title="Contract Address"

@@ -6,7 +6,7 @@ export interface AgentSummary {
   walletAddress: string
   chain: string
   entityType: 'agent'
-  tokenId: string | null
+  tokenId: number | null
   registeredAt: string
 }
 
@@ -16,7 +16,7 @@ export interface OrgSummary {
   walletAddress: string
   chain: string
   entityType: 'org'
-  tokenId: string | null
+  tokenId: number | null
   registeredAt: string
 }
 
@@ -32,7 +32,6 @@ export interface AgentDetail extends AgentSummary {
 }
 
 export interface OrgDetail extends OrgSummary {
-  publicKey: string | null
   tbaAddress: string | null
   contractAddress: string | null
   mintTxHash: string | null
@@ -64,4 +63,46 @@ export interface DirectoriesResult {
   total: number
 }
 
-export type ResolvedEntity = AgentDetail | OrgDetail
+export interface ResolvedAgent {
+  entityType: 'agent'
+  handle: string
+  walletAddress: string
+  chain: string
+  tokenId: number | null
+  tbaAddress: string | null
+  homeHubUrl: string | null
+  contractAddress: string | null
+  mintTxHash: string | null
+  registeredAt: string
+  directoryId?: string
+}
+
+export interface ResolvedOrg {
+  entityType: 'org'
+  handle: string
+  name: string
+  walletAddress: string
+  chain: string
+  tokenId: number | null
+  tbaAddress: string | null
+  contractAddress: string | null
+  mintTxHash: string | null
+  registeredAt: string
+}
+
+export interface ResolvedDirectory {
+  entityType: 'directory'
+  directoryId: string
+  url: string
+  operatorWallet: string
+  conformanceLevel: string
+  status: string
+  chain: string
+  tokenId: number | null
+  tbaAddress: string | null
+  contractAddress: string | null
+  mintTxHash: string | null
+  registeredAt: string
+}
+
+export type ResolvedEntity = ResolvedAgent | ResolvedOrg | ResolvedDirectory
