@@ -22,6 +22,8 @@ LOCAL_DIRECTORY_ID = ""
 # AI Gateway (set CF_GATEWAY_NAME to enable; API keys are secrets)
 CF_ACCOUNT_ID = "63396a5b2b279efdc0e1618233dcdc17"
 CF_GATEWAY_NAME = ""
+# Agent Memory Server (set to enable context management; unset = D1 fallback)
+AMS_BASE_URL = ""
 
 # ── Local development ────────────────────────────────────────────────
 

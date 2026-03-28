@@ -422,6 +422,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.48
         version: 3.0.48(zod@4.3.6)
+      '@epicdm/flowstate-agents-memory-client':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@epicdm/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -1495,6 +1498,9 @@ packages:
 
   '@emnapi/runtime@1.9.1':
     resolution: {integrity: sha512-VYi5+ZVLhpgK4hQ0TAjiQiZ6ol0oe4mBx7mVv7IflsiEp0OWoVsp/+f9Vc1hOhE0TtkORVrI1GvzyreqpgWtkA==}
+
+  '@epicdm/flowstate-agents-memory-client@0.1.0':
+    resolution: {integrity: sha512-Mxsu0Ik/1Bh2xm2K5agJCN/qlPeobptyyuzwFLrksl9wAHEF7anNRe7vJJ6IwkL/3Ujz/BHyqUll2V/eCMejfQ==}
 
   '@epicdm/flowstate-crypto@1.0.0':
     resolution: {integrity: sha512-JxPBC8C604MxLeL8TkArV0oZBLjAigMx3KuQqiBpI7DRriJzesEz/2TDpvJ9xIcV/ENpwaksqo6HkWAo0M2KIA==}
@@ -9734,6 +9740,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@epicdm/flowstate-agents-memory-client@0.1.0': {}
 
   '@epicdm/flowstate-crypto@1.0.0': {}
 
