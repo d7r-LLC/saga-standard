@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const agents = sqliteTable('agents', {
   id: text('id').primaryKey(),
@@ -113,4 +113,29 @@ export const replicationPolicies = sqliteTable('replication_policies', {
   orgId: text('org_id').primaryKey(),
   policyJson: text('policy_json').notNull(),
   updatedAt: text('updated_at').notNull(),
+})
+
+export const chatConversations = sqliteTable('chat_conversations', {
+  id: text('id').primaryKey(),
+  agentHandle: text('agent_handle').notNull(),
+  walletAddress: text('wallet_address').notNull(),
+  title: text('title'),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  systemPrompt: text('system_prompt'),
+  amsSessionId: text('ams_session_id'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const chatMessages = sqliteTable('chat_messages', {
+  id: text('id').primaryKey(),
+  conversationId: text('conversation_id').notNull(),
+  role: text('role').notNull(),
+  content: text('content').notNull(),
+  tokensPrompt: integer('tokens_prompt'),
+  tokensCompletion: integer('tokens_completion'),
+  costUsd: real('cost_usd'),
+  latencyMs: integer('latency_ms'),
+  createdAt: text('created_at').notNull(),
 })
