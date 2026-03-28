@@ -51,15 +51,18 @@ export function createMessageStream(
           usage: parsed.usage,
           cost: parsed.cost,
         })
+        es.close()
         break
       case 'error':
         callbacks.onError(parsed.error)
+        es.close()
         break
     }
   })
 
   es.addEventListener('error', (event: { message?: string }) => {
     callbacks.onError(event.message ?? 'Stream connection error')
+    es.close()
   })
 
   return {

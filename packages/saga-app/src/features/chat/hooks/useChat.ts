@@ -31,6 +31,7 @@ export function useChat(conversationId: string): UseChatResult {
 
   const streamRef = useRef<StreamHandle | null>(null)
   const accumulatedTextRef = useRef('')
+  const sendingRef = useRef(false)
 
   // Load conversation on mount
   useEffect(() => {
@@ -69,6 +70,7 @@ export function useChat(conversationId: string): UseChatResult {
 
   const finalizePartialText = useCallback(() => {
     const partial = accumulatedTextRef.current
+    accumulatedTextRef.current = ''
     if (partial) {
       setMessages(prev => [
         ...prev,
@@ -89,6 +91,7 @@ export function useChat(conversationId: string): UseChatResult {
 
   const send = useCallback(
     async (text: string) => {
+      if (sendingRef.current) return
       setError(null)
 
       try {
@@ -116,42 +119,56 @@ export function useChat(conversationId: string): UseChatResult {
 
       setMessages(prev => [...prev, optimistic])
       setSending(true)
+      sendingRef.current = true
       accumulatedTextRef.current = ''
       setStreamingText('')
 
-      const stream = createMessageStream(conversationId, text, {
-        onTextDelta: (delta: string) => {
-          accumulatedTextRef.current += delta
-          setStreamingText(accumulatedTextRef.current)
-        },
-        onFinish: (data) => {
-          const finalText = accumulatedTextRef.current
-          setMessages(prev => [
-            ...prev,
-            {
-              id: `msg_${Date.now()}`,
-              conversationId,
-              role: 'assistant',
-              content: finalText,
-              tokensPrompt: data.usage.inputTokens,
-              tokensCompletion: data.usage.outputTokens,
-              costUsd: data.cost.totalCostUSD,
-              latencyMs: null,
-              createdAt: new Date().toISOString(),
-            },
-          ])
-          setStreamingText(null)
-          setSending(false)
-          streamRef.current = null
-        },
-        onError: (errorMsg: string) => {
-          finalizePartialText()
-          setStreamingText(null)
-          setError(errorMsg)
-          setSending(false)
-          streamRef.current = null
-        },
-      })
+      let stream: StreamHandle
+      try {
+        stream = createMessageStream(conversationId, text, {
+          onTextDelta: (delta: string) => {
+            accumulatedTextRef.current += delta
+            setStreamingText(accumulatedTextRef.current)
+          },
+          onFinish: (data) => {
+            const finalText = accumulatedTextRef.current
+            accumulatedTextRef.current = ''
+            setMessages(prev => [
+              ...prev,
+              {
+                id: `msg_${Date.now()}`,
+                conversationId,
+                role: 'assistant',
+                content: finalText,
+                tokensPrompt: data.usage.inputTokens,
+                tokensCompletion: data.usage.outputTokens,
+                costUsd: data.cost.totalCostUSD,
+                latencyMs: null,
+                createdAt: new Date().toISOString(),
+              },
+            ])
+            setStreamingText(null)
+            setSending(false)
+            sendingRef.current = false
+            streamRef.current = null
+          },
+          onError: (errorMsg: string) => {
+            finalizePartialText()
+            setStreamingText(null)
+            setError(errorMsg)
+            setSending(false)
+            sendingRef.current = false
+            streamRef.current = null
+          },
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to start streaming'
+        setStreamingText(null)
+        setSending(false)
+        sendingRef.current = false
+        setError(message)
+        return
+      }
 
       streamRef.current = stream
     },
@@ -162,10 +179,11 @@ export function useChat(conversationId: string): UseChatResult {
     if (streamRef.current) {
       streamRef.current.close()
       streamRef.current = null
+      finalizePartialText()
     }
-    finalizePartialText()
     setStreamingText(null)
     setSending(false)
+    sendingRef.current = false
   }, [finalizePartialText])
 
   const clearError = useCallback(() => {

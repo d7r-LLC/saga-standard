@@ -108,7 +108,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('New message')
+      await result.current.send('New message')
     })
 
     expect(result.current.sending).toBe(true)
@@ -134,7 +134,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -154,7 +154,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -186,7 +186,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -211,7 +211,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -230,7 +230,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -255,7 +255,7 @@ describe('useChat', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     await act(async () => {
-      result.current.send('Hello')
+      await result.current.send('Hello')
     })
 
     act(() => {
@@ -277,9 +277,29 @@ describe('useChat', () => {
     expect(result.current.title).toBeNull()
 
     await act(async () => {
-      result.current.send('My first message to this conversation')
+      await result.current.send('My first message to this conversation')
     })
 
     expect(result.current.title).toBe('My first message to this conversation')
+  })
+
+  it('recovers when createMessageStream throws', async () => {
+    mockCreateMessageStream.mockImplementationOnce(() => {
+      throw new Error('EventSource init failed')
+    })
+
+    const { result } = renderHook(() => useChat('conv-1'))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.send('Hello')
+    })
+
+    expect(result.current.sending).toBe(false)
+    expect(result.current.streamingText).toBeNull()
+    expect(result.current.error).toBe('EventSource init failed')
+    // Optimistic user message still present
+    expect(result.current.messages).toHaveLength(3)
   })
 })
