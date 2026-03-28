@@ -1,6 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
+import { vi } from 'vitest'
+import { streamText } from 'ai'
+
+vi.mock('ai', () => ({
+  streamText: vi.fn(),
+}))
+
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => vi.fn(() => ({ modelId: 'mock-model' }))),
+}))
+
+vi.mock('@ai-sdk/openai', () => ({
+  createOpenAI: vi.fn(() => vi.fn(() => ({ modelId: 'mock-model' }))),
+}))
+
+vi.mock('@ai-sdk/google', () => ({
+  createGoogleGenerativeAI: vi.fn(() => vi.fn(() => ({ modelId: 'mock-model' }))),
+}))
+
 import { beforeEach, describe, expect, it } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { app } from '../index'
@@ -51,6 +70,35 @@ function authHeader(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` }
 }
 
+/** Create a mock streamText return value */
+function createMockStreamResult(
+  chunks: string[],
+  usage = { promptTokens: 10, completionTokens: 20, totalTokens: 30 }
+) {
+  return {
+    textStream: (async function* () {
+      for (const chunk of chunks) {
+        yield chunk
+      }
+    })(),
+    usage: Promise.resolve(usage),
+    finishReason: Promise.resolve('stop' as const),
+    text: Promise.resolve(chunks.join('')),
+  }
+}
+
+/** Parse SSE response body into event objects */
+function parseSSEEvents(body: string): Array<Record<string, unknown>> {
+  return body
+    .split('\n\n')
+    .filter(line => line.startsWith('data: '))
+    .map(line => {
+      const data = line.slice(6) // strip 'data: '
+      if (data === '[DONE]') return { type: 'done' }
+      return JSON.parse(data) as Record<string, unknown>
+    })
+}
+
 describe('Chat API', () => {
   let token: string
 
@@ -58,6 +106,11 @@ describe('Chat API', () => {
     env = createMockEnv()
     await runMigrations(env.DB)
     token = await getSessionToken()
+    vi.mocked(streamText).mockReset()
+    // Default mock so any test that reaches streaming doesn't crash
+    vi.mocked(streamText).mockReturnValue(
+      createMockStreamResult(['OK']) as ReturnType<typeof streamText>
+    )
   })
 
   describe('POST /v1/chat/conversations', () => {
@@ -187,10 +240,11 @@ describe('Chat API', () => {
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
       // Add a message
-      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+      const msgRes = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'Hello, how are you?' },
       })
+      await msgRes.text() // consume SSE stream
 
       // Get conversation
       const res = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
@@ -203,7 +257,8 @@ describe('Chat API', () => {
       }
       expect(body.conversation.id).toBe(conversation.id)
       expect(body.conversation.provider).toBe('anthropic')
-      expect(body.messages).toHaveLength(1)
+      // Should have user message + assistant message from stream
+      expect(body.messages.length).toBeGreaterThanOrEqual(1)
       expect(body.messages[0].role).toBe('user')
       expect(body.messages[0].content).toBe('Hello, how are you?')
     })
@@ -243,7 +298,11 @@ describe('Chat API', () => {
   })
 
   describe('POST /v1/chat/conversations/:id/messages', () => {
-    it('saves a user message', async () => {
+    it('saves a user message and streams SSE response', async () => {
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['Hello', ' world']) as ReturnType<typeof streamText>
+      )
+
       const createRes = await req('POST', '/v1/chat/conversations', {
         headers: authHeader(token),
         body: {
@@ -255,15 +314,37 @@ describe('Chat API', () => {
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
       const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'What is the SAGA standard?' },
       })
-      expect(res.status).toBe(201)
-      const body = (await res.json()) as { message: Record<string, unknown> }
-      expect(body.message.id).toMatch(/^msg_/)
-      expect(body.message.role).toBe('user')
-      expect(body.message.content).toBe('What is the SAGA standard?')
-      expect(body.message.createdAt).toBeTruthy()
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('text/event-stream')
+
+      const body = await res.text()
+      const events = parseSSEEvents(body)
+
+      // Should have text-delta events
+      const deltas = events.filter(e => e.type === 'text-delta')
+      expect(deltas).toHaveLength(2)
+      expect(deltas[0].textDelta).toBe('Hello')
+      expect(deltas[1].textDelta).toBe(' world')
+
+      // Should have finish event
+      const finish = events.find(e => e.type === 'finish')
+      expect(finish).toBeTruthy()
+
+      // Should have [DONE]
+      const done = events.find(e => e.type === 'done')
+      expect(done).toBeTruthy()
+
+      // User message should be persisted
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      const getBody = (await getRes.json()) as { messages: Record<string, unknown>[] }
+      const userMsg = getBody.messages.find(m => m.role === 'user')
+      expect(userMsg).toBeTruthy()
+      expect(userMsg!.content).toBe('What is the SAGA standard?')
     })
 
     it('auto-sets conversation title from first message', async () => {
@@ -277,10 +358,11 @@ describe('Chat API', () => {
       })
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
-      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'Help me review the staking contract for security vulnerabilities' },
       })
+      await res.text() // consume SSE stream
 
       // Fetch conversation to check title
       const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
@@ -303,20 +385,202 @@ describe('Chat API', () => {
       })
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
-      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+      const res1 = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'First message sets the title' },
       })
-      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+      await res1.text() // consume SSE stream
+
+      // Reset mock for second call (generator is consumed)
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['OK']) as ReturnType<typeof streamText>
+      )
+
+      const res2 = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'Second message should not change title' },
       })
+      await res2.text() // consume SSE stream
 
       const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
         headers: authHeader(token),
       })
       const body = (await getRes.json()) as { conversation: { title: string } }
       expect(body.conversation.title).toBe('First message sets the title')
+    })
+
+    it('saves assistant message to D1 with usage metadata', async () => {
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['The SAGA standard is...'], {
+          promptTokens: 15,
+          completionTokens: 25,
+          totalTokens: 40,
+        }) as ReturnType<typeof streamText>
+      )
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'What is SAGA?' },
+      })
+      await res.text() // consume SSE stream
+
+      // Check assistant message in DB
+      const getRes = await req('GET', `/v1/chat/conversations/${conversation.id}`, {
+        headers: authHeader(token),
+      })
+      const body = (await getRes.json()) as { messages: Record<string, unknown>[] }
+      const assistantMsg = body.messages.find(m => m.role === 'assistant')
+      expect(assistantMsg).toBeTruthy()
+      expect(assistantMsg!.content).toBe('The SAGA standard is...')
+      expect(assistantMsg!.tokensPrompt).toBe(15)
+      expect(assistantMsg!.tokensCompletion).toBe(25)
+      expect(assistantMsg!.costUsd).toBeGreaterThan(0)
+      expect(assistantMsg!.latencyMs).toBeGreaterThanOrEqual(0)
+    })
+
+    it('includes cost and model in finish event', async () => {
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['Response'], {
+          promptTokens: 10,
+          completionTokens: 20,
+          totalTokens: 30,
+        }) as ReturnType<typeof streamText>
+      )
+
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Hello' },
+      })
+      const body = await res.text()
+      const events = parseSSEEvents(body)
+
+      const finish = events.find(e => e.type === 'finish') as Record<string, unknown>
+      expect(finish).toBeTruthy()
+      expect(finish.finishReason).toBe('stop')
+
+      const usage = finish.usage as Record<string, unknown>
+      expect(usage.inputTokens).toBe(10)
+      expect(usage.outputTokens).toBe(20)
+      expect(usage.totalTokens).toBe(30)
+
+      const cost = finish.cost as Record<string, unknown>
+      expect(cost.totalCostUSD).toBeGreaterThan(0)
+      expect(cost.model).toBe('claude-sonnet-4-5-20250514')
+    })
+
+    it('loads conversation history as context for streamText', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      // First message
+      const res1 = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'First question' },
+      })
+      await res1.text()
+
+      // Reset mock for second call
+      vi.mocked(streamText).mockReturnValue(
+        createMockStreamResult(['Second answer']) as ReturnType<typeof streamText>
+      )
+
+      // Second message
+      const res2 = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Follow-up question' },
+      })
+      await res2.text()
+
+      // Verify streamText was called with full history on the second call
+      const calls = vi.mocked(streamText).mock.calls
+      expect(calls).toHaveLength(2)
+
+      const secondCallArgs = calls[1][0] as { messages: Array<{ role: string; content: string }> }
+      // Should include: user "First question", assistant "OK" (from first mock), user "Follow-up question"
+      expect(secondCallArgs.messages.length).toBeGreaterThanOrEqual(3)
+      expect(secondCallArgs.messages[0]).toEqual({
+        role: 'user',
+        content: 'First question',
+      })
+      expect(secondCallArgs.messages[1]).toEqual({
+        role: 'assistant',
+        content: 'OK',
+      })
+      expect(secondCallArgs.messages[2]).toEqual({
+        role: 'user',
+        content: 'Follow-up question',
+      })
+    })
+
+    it('passes system prompt to streamText when conversation has one', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+          systemPrompt: 'You are a helpful coding assistant.',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
+        body: { content: 'Write a function' },
+      })
+      await res.text()
+
+      const calls = vi.mocked(streamText).mock.calls
+      expect(calls).toHaveLength(1)
+      const args = calls[0][0] as { system?: string }
+      expect(args.system).toBe('You are a helpful coding assistant.')
+    })
+
+    it('resolves API key from body apiKey field', async () => {
+      const createRes = await req('POST', '/v1/chat/conversations', {
+        headers: authHeader(token),
+        body: {
+          agentHandle: 'alice.saga',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-5-20250514',
+        },
+      })
+      const { conversation } = (await createRes.json()) as { conversation: { id: string } }
+
+      const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: authHeader(token),
+        body: { content: 'Hello', apiKey: 'test-body-api-key-fake' },
+      })
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('text/event-stream')
+      await res.text() // consume stream
     })
 
     it('rejects empty content', async () => {
@@ -331,7 +595,7 @@ describe('Chat API', () => {
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
       const res = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: '' },
       })
       expect(res.status).toBe(400)
@@ -339,7 +603,7 @@ describe('Chat API', () => {
 
     it('returns 404 for non-existent conversation', async () => {
       const res = await req('POST', '/v1/chat/conversations/conv_doesnotexist/messages', {
-        headers: authHeader(token),
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'Hello' },
       })
       expect(res.status).toBe(404)
@@ -359,10 +623,11 @@ describe('Chat API', () => {
       const { conversation } = (await createRes.json()) as { conversation: { id: string } }
 
       // Add a message
-      await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
-        headers: authHeader(token),
+      const msgRes = await req('POST', `/v1/chat/conversations/${conversation.id}/messages`, {
+        headers: { ...authHeader(token), 'X-LLM-API-Key': 'test-api-key-fake' },
         body: { content: 'Hello' },
       })
+      await msgRes.text() // consume SSE stream
 
       // Delete
       const delRes = await req('DELETE', `/v1/chat/conversations/${conversation.id}`, {
