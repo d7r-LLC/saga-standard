@@ -4,7 +4,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import type { LanguageModelV1 } from 'ai'
+import type { LanguageModel } from 'ai'
 import type { Env } from '../bindings'
 
 /**
@@ -53,7 +53,7 @@ export function createModel(
   modelId: string,
   apiKey: string,
   env: Env
-): LanguageModelV1 {
+): LanguageModel {
   const baseURL = buildGatewayBaseUrl(env, provider) ?? undefined
 
   switch (provider) {
