@@ -48,3 +48,35 @@ export const CHAT_PROVIDERS: ChatConfig[] = [
   { provider: 'openai', model: 'gpt-4o', label: 'GPT-4o' },
   { provider: 'google', model: 'gemini-2.0-flash', label: 'Gemini Flash' },
 ]
+
+export interface StreamUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
+export interface StreamCost {
+  totalCostUSD: number
+  model: string
+}
+
+export interface StreamFinishData {
+  finishReason: string
+  usage: StreamUsage
+  cost: StreamCost
+}
+
+export type StreamEvent =
+  | { type: 'text-delta'; textDelta: string }
+  | { type: 'finish'; finishReason: string; usage: StreamUsage; cost: StreamCost }
+  | { type: 'error'; error: string }
+
+export interface StreamCallbacks {
+  onTextDelta: (text: string) => void
+  onFinish: (data: StreamFinishData) => void
+  onError: (error: string) => void
+}
+
+export interface StreamHandle {
+  close: () => void
+}

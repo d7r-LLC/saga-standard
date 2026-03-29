@@ -2,47 +2,40 @@
 // Copyright 2026 d7r LLC
 
 import React from 'react'
-import { fireEvent, render, waitFor } from '@testing-library/react-native'
+import { fireEvent, render } from '@testing-library/react-native'
 import { ChatScreen } from '../../../../src/features/chat/screens/ChatScreen'
-import type { Conversation, Message } from '../../../../src/features/chat/types'
 
-const mockGetConversation = jest.fn()
-const mockSendMessage = jest.fn()
-const mockGetToken = jest.fn().mockResolvedValue('test-token-123')
-const mockClearSession = jest.fn()
-
-jest.mock('../../../../src/features/chat/api/chat', () => ({
-  getConversation: (...args: unknown[]) => mockGetConversation(...args),
-  sendMessage: (...args: unknown[]) => mockSendMessage(...args),
-}))
-
-jest.mock('../../../../src/features/chat/hooks/useSession', () => ({
-  useSession: () => ({
-    token: 'test-token-123',
-    isAuthenticated: true,
-    authenticating: false,
-    error: null,
-    getToken: mockGetToken,
-    clearSession: mockClearSession,
-  }),
-}))
-
-const MOCK_CONVERSATION: Conversation = {
-  id: 'conv-test-1',
-  agentHandle: 'alice.saga',
-  provider: 'anthropic',
-  model: 'claude-sonnet-4-5-20250514',
-  title: 'Test Chat Title',
-  systemPrompt: null,
-  createdAt: '2026-03-28T00:00:00Z',
-  updatedAt: '2026-03-28T00:00:00Z',
+let mockUseChat: {
+  messages: Array<{
+    id: string
+    conversationId: string
+    role: 'user' | 'assistant' | 'system'
+    content: string
+    tokensPrompt: number | null
+    tokensCompletion: number | null
+    costUsd: number | null
+    latencyMs: number | null
+    createdAt: string
+  }>
+  streamingText: string | null
+  title: string | null
+  loading: boolean
+  error: string | null
+  sending: boolean
+  send: jest.Mock
+  stop: jest.Mock
+  clearError: jest.Mock
 }
 
-const MOCK_MESSAGES: Message[] = [
+jest.mock('../../../../src/features/chat/hooks/useChat', () => ({
+  useChat: () => mockUseChat,
+}))
+
+const MOCK_MESSAGES = [
   {
     id: 'msg-1',
-    conversationId: 'conv-test-1',
-    role: 'user',
+    conversationId: 'conv-1',
+    role: 'user' as const,
     content: 'Hello there',
     tokensPrompt: 5,
     tokensCompletion: null,
@@ -52,8 +45,8 @@ const MOCK_MESSAGES: Message[] = [
   },
   {
     id: 'msg-2',
-    conversationId: 'conv-test-1',
-    role: 'assistant',
+    conversationId: 'conv-1',
+    role: 'assistant' as const,
     content: 'Hi! How can I help?',
     tokensPrompt: null,
     tokensCompletion: 10,
@@ -88,7 +81,7 @@ function createNavigation(params?: { conversationId?: string; title?: string }):
       key: 'ChatScreen-test',
       name: 'ChatScreen' as const,
       params: {
-        conversationId: params?.conversationId ?? 'conv-test-1',
+        conversationId: params?.conversationId ?? 'conv-1',
         title: params?.title,
       },
     },
@@ -97,17 +90,23 @@ function createNavigation(params?: { conversationId?: string; title?: string }):
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockGetConversation.mockResolvedValue({
-    conversation: MOCK_CONVERSATION,
+  mockUseChat = {
     messages: MOCK_MESSAGES,
-  })
-  mockSendMessage.mockResolvedValue(undefined)
+    streamingText: null,
+    title: 'Test Chat Title',
+    loading: false,
+    error: null,
+    sending: false,
+    send: jest.fn(),
+    stop: jest.fn(),
+    clearError: jest.fn(),
+  }
 })
 
 describe('ChatScreen', () => {
-  it('shows loading spinner initially', () => {
-    // Never resolves so we stay in loading state
-    mockGetConversation.mockReturnValue(new Promise(() => {}))
+  it('shows loading spinner when loading', () => {
+    mockUseChat.loading = true
+    mockUseChat.messages = []
 
     const props = createNavigation()
     const { getByText } = render(<ChatScreen {...props} />)
@@ -115,143 +114,99 @@ describe('ChatScreen', () => {
     expect(getByText('Loading messages...')).toBeTruthy()
   })
 
-  it('displays messages after loading', async () => {
+  it('displays messages after loading', () => {
     const props = createNavigation()
     const { getByText } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Hello there')).toBeTruthy()
-      expect(getByText('Hi! How can I help?')).toBeTruthy()
-    })
+    expect(getByText('Hello there')).toBeTruthy()
+    expect(getByText('Hi! How can I help?')).toBeTruthy()
   })
 
-  it('shows conversation title in header', async () => {
+  it('shows conversation title in header', () => {
     const props = createNavigation()
     const { getByText } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Test Chat Title')).toBeTruthy()
-    })
+    expect(getByText('Test Chat Title')).toBeTruthy()
   })
 
-  it('back button calls navigation.goBack()', async () => {
-    const props = createNavigation()
+  it('falls back to route title when hook title is null', () => {
+    mockUseChat.title = null
+    const props = createNavigation({ title: 'Route Title' })
     const { getByText } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Test Chat Title')).toBeTruthy()
-    })
+    expect(getByText('Route Title')).toBeTruthy()
+  })
+
+  it('back button calls navigation.goBack()', () => {
+    const props = createNavigation()
+    const { getByText } = render(<ChatScreen {...props} />)
 
     fireEvent.press(getByText('Back'))
     expect(mockGoBack).toHaveBeenCalledTimes(1)
   })
 
-  it('sending a message adds optimistic user message and calls sendMessage', async () => {
+  it('calls send when a message is submitted', () => {
     const props = createNavigation()
-    const { getByText, getByLabelText } = render(<ChatScreen {...props} />)
+    const { getByLabelText } = render(<ChatScreen {...props} />)
 
-    // Wait for messages to load
-    await waitFor(() => {
-      expect(getByText('Hello there')).toBeTruthy()
-    })
-
-    // Type and send a message
     const input = getByLabelText('Message input')
     fireEvent.changeText(input, 'New message')
 
     const sendButton = getByLabelText('Send message')
     fireEvent.press(sendButton)
 
-    // Optimistic message should appear
-    await waitFor(() => {
-      expect(getByText('New message')).toBeTruthy()
-    })
-
-    expect(mockSendMessage).toHaveBeenCalledWith('conv-test-1', 'New message')
+    expect(mockUseChat.send).toHaveBeenCalledWith('New message')
   })
 
-  it('refreshes messages after send completes', async () => {
-    const updatedMessages = [
-      ...MOCK_MESSAGES,
-      {
-        id: 'msg-3',
-        conversationId: 'conv-test-1',
-        role: 'user' as const,
-        content: 'Follow-up',
-        tokensPrompt: 5,
-        tokensCompletion: null,
-        costUsd: null,
-        latencyMs: null,
-        createdAt: '2026-03-28T00:02:00Z',
-      },
-      {
-        id: 'msg-4',
-        conversationId: 'conv-test-1',
-        role: 'assistant' as const,
-        content: 'Got it!',
-        tokensPrompt: null,
-        tokensCompletion: 8,
-        costUsd: null,
-        latencyMs: 150,
-        createdAt: '2026-03-28T00:02:01Z',
-      },
-    ]
-
-    // First call: initial load
-    mockGetConversation.mockResolvedValueOnce({
-      conversation: MOCK_CONVERSATION,
-      messages: MOCK_MESSAGES,
-    })
-    // Second call: after send (refresh)
-    mockGetConversation.mockResolvedValueOnce({
-      conversation: MOCK_CONVERSATION,
-      messages: updatedMessages,
-    })
+  it('shows streaming message when streamingText is set', () => {
+    mockUseChat.streamingText = 'Streaming response...'
 
     const props = createNavigation()
-    const { getByText, getByLabelText } = render(<ChatScreen {...props} />)
+    const { getByTestId } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Hello there')).toBeTruthy()
-    })
-
-    const input = getByLabelText('Message input')
-    fireEvent.changeText(input, 'Follow-up')
-
-    const sendButton = getByLabelText('Send message')
-    fireEvent.press(sendButton)
-
-    // After refresh, the server-returned assistant reply should appear
-    await waitFor(() => {
-      expect(getByText('Got it!')).toBeTruthy()
-    })
-
-    // getConversation called twice: initial load + post-send refresh
-    expect(mockGetConversation).toHaveBeenCalledTimes(2)
+    expect(getByTestId('streaming-message')).toBeTruthy()
   })
 
-  it('shows error text when loading fails', async () => {
-    mockGetConversation.mockRejectedValueOnce(new Error('Network failure'))
+  it('shows stop button when streaming', () => {
+    mockUseChat.streamingText = 'Partial text'
+
+    const props = createNavigation()
+    const { getByLabelText } = render(<ChatScreen {...props} />)
+
+    const stopButton = getByLabelText('Stop generation')
+    fireEvent.press(stopButton)
+
+    expect(mockUseChat.stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows inline error when error occurs during chat', () => {
+    mockUseChat.error = 'Stream interrupted'
 
     const props = createNavigation()
     const { getByText } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Network failure')).toBeTruthy()
-    })
+    expect(getByText('Stream interrupted')).toBeTruthy()
+    // Messages should still be visible
+    expect(getByText('Hello there')).toBeTruthy()
   })
 
-  it('shows fallback Chat title when conversation title is null', async () => {
-    mockGetConversation.mockResolvedValueOnce({
-      conversation: { ...MOCK_CONVERSATION, title: null },
-      messages: [],
-    })
+  it('shows full error screen when error on initial load', () => {
+    mockUseChat.loading = false
+    mockUseChat.messages = []
+    mockUseChat.error = 'Network failure'
 
     const props = createNavigation()
     const { getByText } = render(<ChatScreen {...props} />)
 
-    await waitFor(() => {
-      expect(getByText('Chat')).toBeTruthy()
-    })
+    expect(getByText('Network failure')).toBeTruthy()
+  })
+
+  it('shows Chat fallback when all titles are null', () => {
+    mockUseChat.title = null
+
+    const props = createNavigation()
+    const { getByText } = render(<ChatScreen {...props} />)
+
+    expect(getByText('Chat')).toBeTruthy()
   })
 })

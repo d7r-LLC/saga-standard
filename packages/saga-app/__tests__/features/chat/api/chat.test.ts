@@ -6,34 +6,19 @@ import {
   deleteConversation,
   getConversation,
   listConversations,
-  sendMessage,
 } from '../../../../src/features/chat/api/chat'
 import type { Conversation, Message } from '../../../../src/features/chat/types'
 
 jest.mock('../../../../src/core/api/hub', () => ({
   authenticatedFetch: jest.fn(),
-  hubAuthManager: {
-    getToken: jest.fn(),
-  },
   HUB_URL: 'http://localhost:8787',
-  ApiError: class ApiError extends Error {
-    status: number
-    constructor(status: number, message?: string) {
-      super(message ?? `Server error: ${status}`)
-      this.status = status
-      this.name = 'ApiError'
-    }
-  },
 }))
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { authenticatedFetch, hubAuthManager } = require('../../../../src/core/api/hub') as {
+const { authenticatedFetch } = require('../../../../src/core/api/hub') as {
   authenticatedFetch: jest.MockedFunction<
     (method: string, path: string, body?: unknown) => Promise<unknown>
   >
-  hubAuthManager: {
-    getToken: jest.MockedFunction<() => string | null>
-  }
 }
 
 const mockConversation: Conversation = {
@@ -59,19 +44,8 @@ const mockMessage: Message = {
   createdAt: '2026-03-28T00:00:00Z',
 }
 
-const mockFetch = jest.fn()
-const originalFetch = globalThis.fetch
-
-beforeAll(() => {
-  globalThis.fetch = mockFetch as unknown as typeof fetch
-})
-afterAll(() => {
-  globalThis.fetch = originalFetch
-})
 beforeEach(() => {
   authenticatedFetch.mockReset()
-  hubAuthManager.getToken.mockReset()
-  mockFetch.mockReset()
 })
 
 describe('createConversation()', () => {
@@ -219,56 +193,5 @@ describe('deleteConversation()', () => {
     await deleteConversation('conv-xyz-999')
 
     expect(authenticatedFetch).toHaveBeenCalledWith('DELETE', '/v1/chat/conversations/conv-xyz-999')
-  })
-})
-
-describe('sendMessage()', () => {
-  it('sends POST with Bearer auth and content body', async () => {
-    hubAuthManager.getToken.mockReturnValue('test-token-123')
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve('data: {"done": true}\n'),
-    })
-
-    await sendMessage('conv-123', 'Hello world')
-
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const [url, opts] = mockFetch.mock.calls[0]
-    expect(url).toBe('http://localhost:8787/v1/chat/conversations/conv-123/messages')
-    expect(opts.method).toBe('POST')
-    expect(opts.headers.Authorization).toBe('Bearer test-token-123')
-    expect(opts.headers['Content-Type']).toBe('application/json')
-    expect(JSON.parse(opts.body)).toEqual({ content: 'Hello world' })
-  })
-
-  it('consumes the SSE response body via res.text()', async () => {
-    hubAuthManager.getToken.mockReturnValue('test-token-123')
-    const textFn = jest.fn().mockResolvedValue('data: {"done": true}\n')
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      text: textFn,
-    })
-
-    await sendMessage('conv-123', 'Test message')
-
-    expect(textFn).toHaveBeenCalledTimes(1)
-  })
-
-  it('throws ApiError(401) when not authenticated', async () => {
-    hubAuthManager.getToken.mockReturnValue(null)
-
-    await expect(sendMessage('conv-123', 'Hello')).rejects.toThrow('Not authenticated')
-  })
-
-  it('throws ApiError on non-ok response', async () => {
-    hubAuthManager.getToken.mockReturnValue('test-token-123')
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    })
-
-    await expect(sendMessage('conv-123', 'Hello')).rejects.toThrow('Server error: 500')
   })
 })

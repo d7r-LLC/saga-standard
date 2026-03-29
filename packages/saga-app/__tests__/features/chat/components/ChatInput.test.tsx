@@ -50,4 +50,40 @@ describe('ChatInput', () => {
 
     expect(onSend).not.toHaveBeenCalled()
   })
+
+  it('shows stop button when streaming is true', () => {
+    const { getByLabelText } = render(
+      <ChatInput onSend={jest.fn()} onStop={jest.fn()} streaming />
+    )
+
+    expect(getByLabelText('Stop generation')).toBeTruthy()
+  })
+
+  it('calls onStop when stop button is pressed', () => {
+    const onStop = jest.fn()
+    const { getByLabelText } = render(
+      <ChatInput onSend={jest.fn()} onStop={onStop} streaming />
+    )
+
+    fireEvent.press(getByLabelText('Stop generation'))
+
+    expect(onStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables text input when streaming', () => {
+    const { getByLabelText } = render(
+      <ChatInput onSend={jest.fn()} onStop={jest.fn()} streaming />
+    )
+
+    const input = getByLabelText('Message input')
+    expect(input.props.editable).toBe(false)
+  })
+
+  it('shows send button when not streaming', () => {
+    const { getByLabelText } = render(
+      <ChatInput onSend={jest.fn()} onStop={jest.fn()} />
+    )
+
+    expect(getByLabelText('Send message')).toBeTruthy()
+  })
 })

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { FlatList, StyleSheet, Text, View } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { Header } from '../../../components/Header'
@@ -9,84 +9,61 @@ import { LoadingSpinner } from '../../../components/LoadingSpinner'
 import { SafeArea } from '../../../components/SafeArea'
 import { colors, spacing, typography } from '../../../core/theme'
 import type { MessagesStackParamList } from '../../../navigation/types'
-import { getConversation, sendMessage } from '../api/chat'
 import { ChatInput } from '../components/ChatInput'
 import { MessageBubble } from '../components/MessageBubble'
-import { useSession } from '../hooks/useSession'
+import { StreamingMessage } from '../components/StreamingMessage'
+import { useChat } from '../hooks/useChat'
 import type { Message } from '../types'
 
 type Props = NativeStackScreenProps<MessagesStackParamList, 'ChatScreen'>
 
+const STREAMING_ID = '__streaming__'
+
 export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
   const { conversationId, title: routeTitle } = route.params
-  const { getToken } = useSession()
+  const {
+    messages,
+    streamingText,
+    title,
+    loading,
+    error,
+    sending,
+    send,
+    stop,
+  } = useChat(conversationId)
 
-  const [messages, setMessages] = useState<Message[]>([])
-  const [conversationTitle, setConversationTitle] = useState<string | null>(routeTitle ?? null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [sending, setSending] = useState(false)
+  const headerTitle = title ?? routeTitle ?? 'Chat'
 
-  const loadConversation = useCallback(async () => {
-    try {
-      await getToken()
-      const data = await getConversation(conversationId)
-      setMessages(data.messages)
-      setConversationTitle(data.conversation.title)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load conversation')
-    } finally {
-      setLoading(false)
+  const displayItems = useMemo(() => {
+    const items: (Message | { id: string; __streaming: true; text: string })[] = [
+      ...messages,
+    ]
+    if (streamingText !== null) {
+      items.push({ id: STREAMING_ID, __streaming: true, text: streamingText })
     }
-  }, [conversationId, getToken])
-
-  useEffect(() => {
-    loadConversation()
-  }, [loadConversation])
-
-  const handleSend = useCallback(
-    async (text: string) => {
-      const optimisticMessage: Message = {
-        id: `temp_${Date.now()}`,
-        conversationId,
-        role: 'user',
-        content: text,
-        tokensPrompt: null,
-        tokensCompletion: null,
-        costUsd: null,
-        latencyMs: null,
-        createdAt: new Date().toISOString(),
-      }
-
-      setMessages(prev => [...prev, optimisticMessage])
-      setSending(true)
-
-      try {
-        await getToken()
-        await sendMessage(conversationId, text)
-        const data = await getConversation(conversationId)
-        setMessages(data.messages)
-        setConversationTitle(data.conversation.title)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to send message')
-      } finally {
-        setSending(false)
-      }
-    },
-    [conversationId, getToken]
-  )
-
-  const headerTitle = conversationTitle ?? 'Chat'
+    return items.reverse()
+  }, [messages, streamingText])
 
   const renderItem = useCallback(
-    ({ item }: { item: Message }) => (
-      <MessageBubble role={item.role} content={item.content} testID={`message-${item.id}`} />
-    ),
+    ({ item }: { item: (typeof displayItems)[number] }) => {
+      if ('__streaming' in item) {
+        return <StreamingMessage text={item.text} testID="streaming-message" />
+      }
+      return (
+        <MessageBubble
+          role={item.role}
+          content={item.content}
+          testID={`message-${item.id}`}
+        />
+      )
+    },
     []
   )
 
-  const reversedMessages = useMemo(() => [...messages].reverse(), [messages])
+  const keyExtractor = useCallback(
+    (item: (typeof displayItems)[number]) => item.id,
+    []
+  )
 
   return (
     <SafeArea>
@@ -96,20 +73,32 @@ export function ChatScreen({ navigation, route }: Props): React.JSX.Element {
       />
       {loading ? (
         <LoadingSpinner message="Loading messages..." />
-      ) : error ? (
+      ) : error && messages.length === 0 ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
-        <FlatList
-          data={reversedMessages}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          inverted
-          contentContainerStyle={styles.listContent}
-        />
+        <>
+          <FlatList
+            data={displayItems}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            inverted
+            contentContainerStyle={styles.listContent}
+          />
+          {error && (
+            <View style={styles.inlineError}>
+              <Text style={styles.inlineErrorText}>{error}</Text>
+            </View>
+          )}
+        </>
       )}
-      <ChatInput onSend={handleSend} disabled={sending} />
+      <ChatInput
+        onSend={send}
+        onStop={stop}
+        disabled={sending && streamingText === null}
+        streaming={streamingText !== null}
+      />
     </SafeArea>
   )
 }
@@ -126,6 +115,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.body,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  inlineError: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: `${colors.error}15`,
+  },
+  inlineErrorText: {
+    ...typography.bodySmall,
     color: colors.error,
     textAlign: 'center',
   },

@@ -7,18 +7,22 @@ import { borderRadius, colors, spacing, typography } from '../../../core/theme'
 
 interface ChatInputProps {
   onSend: (text: string) => void
+  onStop?: () => void
   disabled?: boolean
+  streaming?: boolean
   placeholder?: string
 }
 
 export function ChatInput({
   onSend,
+  onStop,
   disabled = false,
+  streaming = false,
   placeholder = 'Type a message...',
 }: ChatInputProps): React.JSX.Element {
   const [text, setText] = useState('')
 
-  const canSend = text.trim().length > 0 && !disabled
+  const canSend = text.trim().length > 0 && !disabled && !streaming
 
   function handleSend() {
     if (!canSend) return
@@ -36,18 +40,31 @@ export function ChatInput({
         placeholderTextColor={colors.textTertiary}
         multiline
         maxLength={4000}
-        editable={!disabled}
+        editable={!disabled && !streaming}
         accessibilityLabel="Message input"
       />
-      <Pressable
-        onPress={handleSend}
-        disabled={!canSend}
-        style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-        accessibilityLabel="Send message"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.sendIcon, !canSend && styles.sendIconDisabled]}>{'>'}</Text>
-      </Pressable>
+      {streaming ? (
+        <Pressable
+          onPress={onStop}
+          style={styles.stopButton}
+          accessibilityLabel="Stop generation"
+          accessibilityRole="button"
+        >
+          <View style={styles.stopIcon} />
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={handleSend}
+          disabled={!canSend}
+          style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+          accessibilityLabel="Send message"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.sendIcon, !canSend && styles.sendIconDisabled]}>
+            {'>'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   )
 }
@@ -92,5 +109,19 @@ const styles = StyleSheet.create({
   },
   sendIconDisabled: {
     color: colors.textTertiary,
+  },
+  stopButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopIcon: {
+    width: 14,
+    height: 14,
+    backgroundColor: colors.textInverse,
+    borderRadius: 2,
   },
 })
