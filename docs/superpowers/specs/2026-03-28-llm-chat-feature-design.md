@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_av8wkuQkHb`
+
 # LLM Chat Feature — Design Spec
 
 ## Overview

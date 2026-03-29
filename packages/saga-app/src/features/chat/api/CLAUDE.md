@@ -5,9 +5,13 @@
 
 ### Mar 28, 2026
 
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #38817 | 11:53 AM | 🔄 | Chat Session API Refactored to Use Shared Hub Configuration | ~238 |
-| #38345 | 9:49 AM | 🟣 | Phase 4: Mobile Chat API Client Layer Implementation | ~351 |
-| #38329 | 9:48 AM | 🟣 | Chat API Client Wrapper Functions | ~323 |
+| ID     | Time     | T   | Title                                                                              | Read |
+| ------ | -------- | --- | ---------------------------------------------------------------------------------- | ---- |
+| #38967 | 12:27 PM | 🔵  | Session API layer refactored to use centralized hub module                         | ~349 |
+| #38804 | 11:52 AM | 🟣  | Chat Session API — Development/Production Hub URL Configuration                    | ~420 |
+| #38582 | 10:14 AM | 🔄  | sendMessage function refactored to use top-level imports instead of dynamic import | ~312 |
+| #38494 | 10:02 AM | 🟣  | Chat API Client — Conversation CRUD Endpoints                                      | ~302 |
+| #38343 | 9:49 AM  | 🔵  | Phase 4 Mobile Chat UI — Client Implementation Started                             | ~307 |
+| #38337 | 9:48 AM  | 🟣  | Session API Client Implemented                                                     | ~296 |
+
 </claude-mem-context>

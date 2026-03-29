@@ -20,35 +20,46 @@ beforeEach(() => {
   db.exec(`
     CREATE TABLE sdk_sessions (
       id INTEGER PRIMARY KEY,
-      session_id TEXT NOT NULL,
+      content_session_id TEXT,
+      memory_session_id TEXT NOT NULL,
       project TEXT,
+      user_prompt TEXT,
       started_at TEXT NOT NULL,
-      ended_at TEXT,
-      model TEXT
+      started_at_epoch INTEGER,
+      completed_at TEXT,
+      completed_at_epoch INTEGER,
+      status TEXT,
+      worker_port INTEGER,
+      prompt_counter INTEGER
     );
     CREATE TABLE session_summaries (
       id INTEGER PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      summary TEXT,
-      created_at TEXT NOT NULL
+      memory_session_id TEXT NOT NULL,
+      project TEXT,
+      request TEXT,
+      investigated TEXT,
+      learned TEXT,
+      completed TEXT,
+      next_steps TEXT,
+      files_read TEXT,
+      files_edited TEXT,
+      notes TEXT,
+      prompt_number INTEGER,
+      created_at TEXT NOT NULL,
+      created_at_epoch INTEGER,
+      discovery_tokens INTEGER
     )
   `)
 
   db.prepare(
-    `INSERT INTO sdk_sessions (session_id, project, started_at, ended_at, model) VALUES (?, ?, ?, ?, ?)`
-  ).run(
-    's1',
-    'saga-standard',
-    '2026-03-01T09:00:00Z',
-    '2026-03-01T10:00:00Z',
-    'claude-sonnet-4-5-20250514'
-  )
+    `INSERT INTO sdk_sessions (memory_session_id, project, started_at, completed_at, status) VALUES (?, ?, ?, ?, ?)`
+  ).run('s1', 'saga-standard', '2026-03-01T09:00:00Z', '2026-03-01T10:00:00Z', 'completed')
   db.prepare(
-    `INSERT INTO sdk_sessions (session_id, project, started_at, ended_at, model) VALUES (?, ?, ?, ?, ?)`
-  ).run('s2', 'saga-standard', '2026-03-02T09:00:00Z', null, 'claude-sonnet-4-5-20250514')
+    `INSERT INTO sdk_sessions (memory_session_id, project, started_at, completed_at, status) VALUES (?, ?, ?, ?, ?)`
+  ).run('s2', 'saga-standard', '2026-03-02T09:00:00Z', null, 'active')
 
   db.prepare(
-    `INSERT INTO session_summaries (session_id, summary, created_at) VALUES (?, ?, ?)`
+    `INSERT INTO session_summaries (memory_session_id, request, created_at) VALUES (?, ?, ?)`
   ).run('s1', 'Implemented auth flow', '2026-03-01T10:00:00Z')
 
   db.close()

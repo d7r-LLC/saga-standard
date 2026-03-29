@@ -5,9 +5,18 @@
 
 ### Mar 27, 2026
 
-| ID     | Time     | T   | Title                                                   | Read |
-| ------ | -------- | --- | ------------------------------------------------------- | ---- |
-| #31918 | 12:38 AM | 🔵  | SAGA Server Environment Bindings - Cloudflare Resources | ~366 |
-| #31881 | 12:36 AM | 🔵  | SAGA Server Main Application - Hono Router Setup        | ~422 |
+| ID     | Time     | T   | Title                                                                        | Read |
+| ------ | -------- | --- | ---------------------------------------------------------------------------- | ---- |
+| #36308 | 7:35 PM  | 🔵  | SAGA Server Architecture — Complete Route, Middleware, and Binding Structure | ~811 |
+| #31918 | 12:38 AM | 🔵  | SAGA Server Environment Bindings - Cloudflare Resources                      | ~366 |
+| #31881 | 12:36 AM | 🔵  | SAGA Server Main Application - Hono Router Setup                             | ~422 |
+
+### Mar 28, 2026
+
+| ID     | Time    | T   | Title                                                                 | Read |
+| ------ | ------- | --- | --------------------------------------------------------------------- | ---- |
+| #36478 | 4:39 AM | 🔵  | Server Environment Bindings Configuration for Cloudflare Workers      | ~510 |
+| #36472 | "       | 🔵  | Server Cloudflare Workers Environment Bindings Configuration Reviewed | ~468 |
+| #36471 | "       | 🔵  | SAGA Reference Hub Server — 18-Route API with Relay & Indexing        | ~455 |
 
 </claude-mem-context>

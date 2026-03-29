@@ -21,31 +21,70 @@ beforeEach(() => {
   db.exec(`
     CREATE TABLE observations (
       id INTEGER PRIMARY KEY,
+      memory_session_id TEXT,
+      project TEXT,
+      text TEXT,
       type TEXT NOT NULL,
       title TEXT,
-      narrative TEXT,
+      subtitle TEXT,
       facts TEXT,
+      narrative TEXT,
       concepts TEXT,
+      files_read TEXT,
+      files_modified TEXT,
+      prompt_number INTEGER,
       created_at TEXT NOT NULL,
-      updated_at TEXT,
-      project TEXT,
-      session_id TEXT
+      created_at_epoch INTEGER,
+      discovery_tokens INTEGER
     )
   `)
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO observations (id, type, title, narrative, facts, concepts, created_at, project)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(1, 'discovery', 'Found caching pattern', 'Discovered Redis caching approach', '["Redis is fast","TTL is 60s"]', '["redis","caching"]', '2026-03-01T00:00:00Z', 'my-project')
+  `
+  ).run(
+    1,
+    'discovery',
+    'Found caching pattern',
+    'Discovered Redis caching approach',
+    '["Redis is fast","TTL is 60s"]',
+    '["redis","caching"]',
+    '2026-03-01T00:00:00Z',
+    'my-project'
+  )
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO observations (id, type, title, narrative, facts, concepts, created_at, project)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(2, 'bugfix', 'Fixed auth timeout', 'Token refresh was failing', '["Token expiry was wrong"]', '["auth"]', '2026-03-02T00:00:00Z', 'my-project')
+  `
+  ).run(
+    2,
+    'bugfix',
+    'Fixed auth timeout',
+    'Token refresh was failing',
+    '["Token expiry was wrong"]',
+    '["auth"]',
+    '2026-03-02T00:00:00Z',
+    'my-project'
+  )
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO observations (id, type, title, narrative, facts, concepts, created_at, project)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(3, 'pattern', 'TDD workflow', 'Write test first then implement', '["Red-green-refactor"]', '["testing","tdd"]', '2026-03-03T00:00:00Z', 'my-project')
+  `
+  ).run(
+    3,
+    'pattern',
+    'TDD workflow',
+    'Write test first then implement',
+    '["Red-green-refactor"]',
+    '["testing","tdd"]',
+    '2026-03-03T00:00:00Z',
+    'my-project'
+  )
 
   db.close()
 })

@@ -5,10 +5,18 @@
 
 ### Mar 28, 2026
 
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #38823 | 11:54 AM | 🔴 | ChatScreen Error Handling Improved with User Feedback | ~306 |
-| #38808 | 11:53 AM | 🟣 | ConversationList Screen — Chat Conversation Browser | ~511 |
-| #38452 | 9:57 AM | ✅ | Phase 4: NewChat Screen Placeholder Created | ~281 |
-| #38435 | 9:56 AM | 🟣 | Conversation List Screen — Chat UI Component with Pull-to-Refresh and Delete | ~433 |
+| ID     | Time     | T   | Title                                                                                                  | Read |
+| ------ | -------- | --- | ------------------------------------------------------------------------------------------------------ | ---- |
+| #38807 | 11:53 AM | 🔵  | ConversationList Screen Implementation Complete                                                        | ~489 |
+| #38589 | 10:14 AM | 🔴  | ChatScreen useCallback dependency array fixed                                                          | ~292 |
+| #38587 | "        | 🔴  | ChatScreen: ensure fresh auth token before sending message                                             | ~267 |
+| #38584 | "        | 🟣  | ChatScreen integrated with useSession hook for authenticated message sending                           | ~233 |
+| #38570 | 10:12 AM | 🟣  | ConversationList Screen Implemented                                                                    | ~465 |
+| #38558 | 10:09 AM | 🔵  | NewChat screen implementation differs from plan specification                                          | ~400 |
+| #38557 | "        | 🟣  | ConversationList screen displays chat conversations with creation, deletion, and smart date formatting | ~464 |
+| #38495 | 10:02 AM | 🔵  | ChatScreen Component Placeholder in Phase 4 Client Implementation                                      | ~297 |
+| #38484 | 10:00 AM | 🟣  | Phase 4 Chat UI: NewChat Screen Implemented                                                            | ~423 |
+| #38419 | 9:54 AM  | 🟣  | Phase 4 Client Chat UI: ConversationList and Chat Screens Created                                      | ~359 |
+| #38417 | 9:53 AM  | 🟣  | Chat UI Screens — NewChat Placeholder Screen Created                                                   | ~344 |
+
 </claude-mem-context>

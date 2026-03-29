@@ -7,6 +7,8 @@
 
 | ID     | Time     | T   | Title                                                               | Read |
 | ------ | -------- | --- | ------------------------------------------------------------------- | ---- |
+| #33780 | 9:42 AM  | 🔵  | SAGAOrgIdentity Contract — ERC-721 Organization Identity NFTs       | ~378 |
+| #33777 | "        | 🔵  | SAGA Agent Identity Smart Contract Interface                        | ~433 |
 | #31873 | 12:35 AM | 🔵  | SAGATBAHelper Smart Contract - Token Bound Account Integration      | ~330 |
 | #31872 | "        | 🔵  | SAGAOrgIdentity Smart Contract - Organization Identity NFTs         | ~336 |
 | #31871 | "        | 🔵  | SAGAHandleRegistry Smart Contract - Decentralized Identity Registry | ~411 |

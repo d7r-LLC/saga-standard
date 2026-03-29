@@ -6,16 +6,18 @@ import Database from 'better-sqlite3'
 import type { RecentTask, TaskHistorySummary } from '@epicdm/saga-sdk'
 
 interface SessionRow {
-  session_id: string
+  memory_session_id: string
   project: string | null
   started_at: string
-  ended_at: string | null
-  model: string | null
+  completed_at: string | null
+  status: string | null
 }
 
 interface SummaryRow {
-  session_id: string
-  summary: string | null
+  memory_session_id: string
+  request: string | null
+  completed: string | null
+  learned: string | null
 }
 
 export interface ParsedSessions {
@@ -37,16 +39,17 @@ export function parseSessions(dbPath: string): ParsedSessions {
 
     const sessions = db
       .prepare(
-        'SELECT session_id, project, started_at, ended_at, model FROM sdk_sessions ORDER BY started_at DESC'
+        'SELECT memory_session_id, project, started_at, completed_at, status FROM sdk_sessions ORDER BY started_at DESC'
       )
       .all() as SessionRow[]
 
     const summaryMap = new Map<string, string>()
     const summaries = db
-      .prepare('SELECT session_id, summary FROM session_summaries')
+      .prepare('SELECT memory_session_id, request, completed, learned FROM session_summaries')
       .all() as SummaryRow[]
     for (const s of summaries) {
-      if (s.summary) summaryMap.set(s.session_id, s.summary)
+      const parts = [s.request, s.completed, s.learned].filter(Boolean)
+      if (parts.length > 0) summaryMap.set(s.memory_session_id, parts[0] as string)
     }
 
     let totalCompleted = 0
@@ -55,7 +58,7 @@ export function parseSessions(dbPath: string): ParsedSessions {
     let lastTaskAt: string | undefined
 
     const recentTasks: RecentTask[] = sessions.map(session => {
-      const isComplete = session.ended_at !== null
+      const isComplete = session.completed_at !== null
       if (isComplete) totalCompleted++
       else totalInProgress++
 
@@ -63,10 +66,10 @@ export function parseSessions(dbPath: string): ParsedSessions {
       if (!lastTaskAt || session.started_at > lastTaskAt) lastTaskAt = session.started_at
 
       return {
-        taskId: `claude-mem-${session.session_id}`,
-        title: summaryMap.get(session.session_id) ?? `Session ${session.session_id}`,
+        taskId: `claude-mem-${session.memory_session_id}`,
+        title: summaryMap.get(session.memory_session_id) ?? `Session ${session.memory_session_id}`,
         status: isComplete ? 'completed' : 'in-progress',
-        completedAt: session.ended_at ?? undefined,
+        completedAt: session.completed_at ?? undefined,
         organizationId: session.project ?? undefined,
       }
     })

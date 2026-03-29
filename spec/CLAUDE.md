@@ -7,9 +7,17 @@
 
 | ID     | Time    | T   | Title                                                                   | Read |
 | ------ | ------- | --- | ----------------------------------------------------------------------- | ---- |
+| #33240 | 5:44 AM | 🔵  | SAGA v1.0 Specification Structure and Design Principles                 | ~548 |
 | #32539 | 2:26 AM | ✅  | Fixed Relative Link to SAGA Execution Model in Terminology Section      | ~234 |
 | #32538 | "       | ✅  | SAGA-v1.0.md Updated with Runtime and Execution Environment Terminology | ~505 |
 | #32339 | 2:03 AM | 🔵  | Environment Bindings Layer in SAGA Spec                                 | ~365 |
 | #32320 | 2:01 AM | 🔵  | SAGA-v1.0.md Spec Structure and Current Terminology                     | ~498 |
+
+### Mar 28, 2026
+
+| ID     | Time    | T   | Title                                                                            | Read |
+| ------ | ------- | --- | -------------------------------------------------------------------------------- | ---- |
+| #36819 | 6:05 AM | 🔵  | SAGA Collectors Must Integrate with SAGA-Compliant Directory System Architecture | ~648 |
+| #36742 | 5:26 AM | 🔵  | SAGA 1.0 Specification: Portable AI Agent State Standard                         | ~567 |
 
 </claude-mem-context>

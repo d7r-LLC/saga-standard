@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_q-5zzDLU1Z`
+
 # Phase 5: Directory + Discovery — Design
 
 **Date:** 2026-03-27

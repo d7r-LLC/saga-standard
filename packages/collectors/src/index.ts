@@ -69,6 +69,25 @@ export {
   parseCommands,
 } from './project-claude'
 
+// Scope mapper
+export {
+  FlowstateScopeMapper,
+  readFlowstateConfig,
+  resolveNearestFlowstateConfig,
+  extractObservationIds,
+  scanForClaudeMdReferences,
+  buildProjectPathMap,
+  getDistinctProjects,
+  resolveProjectScope,
+} from './scope-mapper'
+export type {
+  FlowstateScope,
+  ClaudeMdReference,
+  FlowstateConfig,
+  ScopeMappingResult,
+  ScopeMapperOptions,
+} from './scope-mapper'
+
 // Auto-register built-in collectors
 import { registerCollector } from './registry'
 import { ClaudeCodeCollector } from './claude-code'

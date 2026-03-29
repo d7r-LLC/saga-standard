@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_KN9_dqHKa-`
+
 # Phase 3: AMS Integration + Context Management Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -14,21 +16,22 @@
 
 ### File Structure
 
-| File | Action | Responsibility |
-|------|--------|---------------|
-| `packages/server/package.json` | Modify | Add `@epicdm/flowstate-agents-memory-client` dependency |
-| `packages/server/src/bindings.ts` | Modify | Add `AMS_BASE_URL` and `AMS_AUTH_TOKEN` env vars |
-| `packages/server/wrangler.toml` | Modify | Add `AMS_BASE_URL` var placeholder |
-| `packages/server/src/services/memory.ts` | Create | AMS client factory and fallback helpers |
-| `packages/server/src/__tests__/memory.test.ts` | Create | Unit tests for memory service |
-| `packages/server/src/routes/chat.ts` | Modify | Integrate AMS sync into create, message, and delete handlers |
-| `packages/server/src/__tests__/chat.test.ts` | Modify | Add AMS integration tests and fallback tests |
+| File                                           | Action | Responsibility                                               |
+| ---------------------------------------------- | ------ | ------------------------------------------------------------ |
+| `packages/server/package.json`                 | Modify | Add `@epicdm/flowstate-agents-memory-client` dependency      |
+| `packages/server/src/bindings.ts`              | Modify | Add `AMS_BASE_URL` and `AMS_AUTH_TOKEN` env vars             |
+| `packages/server/wrangler.toml`                | Modify | Add `AMS_BASE_URL` var placeholder                           |
+| `packages/server/src/services/memory.ts`       | Create | AMS client factory and fallback helpers                      |
+| `packages/server/src/__tests__/memory.test.ts` | Create | Unit tests for memory service                                |
+| `packages/server/src/routes/chat.ts`           | Modify | Integrate AMS sync into create, message, and delete handlers |
+| `packages/server/src/__tests__/chat.test.ts`   | Modify | Add AMS integration tests and fallback tests                 |
 
 ---
 
 ### Task 1: Add dependency and env vars
 
 **Files:**
+
 - Modify: `packages/server/package.json`
 - Modify: `packages/server/src/bindings.ts:4-67`
 - Modify: `packages/server/wrangler.toml:10-24`
@@ -79,6 +82,7 @@ EOF
 ### Task 2: Create memory service module with tests
 
 **Files:**
+
 - Create: `packages/server/src/services/memory.ts`
 - Create: `packages/server/src/__tests__/memory.test.ts`
 
@@ -91,7 +95,13 @@ Create `packages/server/src/__tests__/memory.test.ts`:
 // Copyright 2026 d7r LLC
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createMemoryClient, syncUserMessage, syncAssistantMessage, getContextMessages, removeConversationMemory } from '../services/memory'
+import {
+  createMemoryClient,
+  syncUserMessage,
+  syncAssistantMessage,
+  getContextMessages,
+  removeConversationMemory,
+} from '../services/memory'
 import type { Env } from '../bindings'
 
 // Mock the AMS client module
@@ -111,7 +121,9 @@ vi.mock('@epicdm/flowstate-agents-memory-client', () => {
 
 function getMockClient() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('@epicdm/flowstate-agents-memory-client') as { __mockClient: Record<string, ReturnType<typeof vi.fn>> }
+  const mod = require('@epicdm/flowstate-agents-memory-client') as {
+    __mockClient: Record<string, ReturnType<typeof vi.fn>>
+  }
   return mod.__mockClient
 }
 
@@ -140,7 +152,10 @@ describe('Memory Service', () => {
 
     it('passes authToken when AMS_AUTH_TOKEN is set', () => {
       const { AgentMemoryClient } = require('@epicdm/flowstate-agents-memory-client')
-      const env = { AMS_BASE_URL: 'http://localhost:8000', AMS_AUTH_TOKEN: 'test-token-fake' } as Env
+      const env = {
+        AMS_BASE_URL: 'http://localhost:8000',
+        AMS_AUTH_TOKEN: 'test-token-fake',
+      } as Env
       createMemoryClient(env)
       expect(AgentMemoryClient).toHaveBeenCalledWith(
         expect.objectContaining({ baseUrl: 'http://localhost:8000', authToken: 'test-token-fake' })
@@ -156,7 +171,13 @@ describe('Memory Service', () => {
       const client = createMemoryClient(env)!
 
       await syncUserMessage(client, 'conv_123', 'alice.saga', 'Hello world')
-      expect(mock.addMessage).toHaveBeenCalledWith('conv_123', 'alice.saga', 'user', 'Hello world', undefined)
+      expect(mock.addMessage).toHaveBeenCalledWith(
+        'conv_123',
+        'alice.saga',
+        'user',
+        'Hello world',
+        undefined
+      )
     })
 
     it('returns false when addMessage fails', async () => {
@@ -188,7 +209,13 @@ describe('Memory Service', () => {
       const client = createMemoryClient(env)!
 
       await syncAssistantMessage(client, 'conv_123', 'alice.saga', 'Response text')
-      expect(mock.addMessage).toHaveBeenCalledWith('conv_123', 'alice.saga', 'assistant', 'Response text', undefined)
+      expect(mock.addMessage).toHaveBeenCalledWith(
+        'conv_123',
+        'alice.saga',
+        'assistant',
+        'Response text',
+        undefined
+      )
     })
   })
 
@@ -206,7 +233,13 @@ describe('Memory Service', () => {
       const env = { AMS_BASE_URL: 'http://localhost:8000' } as Env
       const client = createMemoryClient(env)!
 
-      const result = await getContextMessages(client, 'conv_123', 'alice.saga', 'New question', 'claude-sonnet-4-5-20250514')
+      const result = await getContextMessages(
+        client,
+        'conv_123',
+        'alice.saga',
+        'New question',
+        'claude-sonnet-4-5-20250514'
+      )
       expect(result).not.toBeNull()
       expect(result!.messages).toHaveLength(2)
     })
@@ -217,7 +250,13 @@ describe('Memory Service', () => {
       const env = { AMS_BASE_URL: 'http://localhost:8000' } as Env
       const client = createMemoryClient(env)!
 
-      const result = await getContextMessages(client, 'conv_123', 'alice.saga', 'New question', 'model')
+      const result = await getContextMessages(
+        client,
+        'conv_123',
+        'alice.saga',
+        'New question',
+        'model'
+      )
       expect(result).toBeNull()
     })
 
@@ -388,6 +427,7 @@ EOF
 ### Task 3: Integrate AMS into conversation creation
 
 **Files:**
+
 - Modify: `packages/server/src/routes/chat.ts:1-77`
 - Modify: `packages/server/src/__tests__/chat.test.ts`
 
@@ -411,7 +451,11 @@ vi.mock('@epicdm/flowstate-agents-memory-client', () => {
       removeWorkingMemory: mockRemoveWorkingMemory,
     })),
     AmsRole: { USER: 'user', ASSISTANT: 'assistant', SYSTEM: 'system' },
-    __mocks: { addMessage: mockAddMessage, getMemoryPrompt: mockGetMemoryPrompt, removeWorkingMemory: mockRemoveWorkingMemory },
+    __mocks: {
+      addMessage: mockAddMessage,
+      getMemoryPrompt: mockGetMemoryPrompt,
+      removeWorkingMemory: mockRemoveWorkingMemory,
+    },
   }
 })
 ```
@@ -483,28 +527,31 @@ Expected: FAIL (AMS addMessage not called)
 In `packages/server/src/routes/chat.ts`, add the import:
 
 ```typescript
-import { createMemoryClient, syncUserMessage, syncAssistantMessage, getContextMessages, removeConversationMemory } from '../services/memory'
+import {
+  createMemoryClient,
+  syncUserMessage,
+  syncAssistantMessage,
+  getContextMessages,
+  removeConversationMemory,
+} from '../services/memory'
 import { AmsRole } from '@epicdm/flowstate-agents-memory-client'
 ```
 
 Then, in the `POST /conversations` handler, after the D1 insert and before the return, add AMS session initialization:
 
 ```typescript
-  // Initialize AMS session if configured
-  const memoryClient = createMemoryClient(c.env)
-  if (memoryClient && body.systemPrompt) {
-    try {
-      await memoryClient.addMessage(id, body.agentHandle, AmsRole.SYSTEM, body.systemPrompt)
-    } catch {
-      // AMS init failure is non-fatal
-    }
+// Initialize AMS session if configured
+const memoryClient = createMemoryClient(c.env)
+if (memoryClient && body.systemPrompt) {
+  try {
+    await memoryClient.addMessage(id, body.agentHandle, AmsRole.SYSTEM, body.systemPrompt)
+  } catch {
+    // AMS init failure is non-fatal
   }
+}
 
-  // Set amsSessionId (same as conversation ID)
-  await db
-    .update(chatConversations)
-    .set({ amsSessionId: id })
-    .where(eq(chatConversations.id, id))
+// Set amsSessionId (same as conversation ID)
+await db.update(chatConversations).set({ amsSessionId: id }).where(eq(chatConversations.id, id))
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -562,10 +609,12 @@ EOF
 ### Task 4: Integrate AMS into message sending (context management + sync)
 
 **Files:**
+
 - Modify: `packages/server/src/routes/chat.ts:192-388` (POST messages handler)
 - Modify: `packages/server/src/__tests__/chat.test.ts`
 
 This is the core integration. The message handler needs to:
+
 1. Sync user message to AMS
 2. Try `getMemoryPrompt()` for context; fall back to D1 history
 3. After stream completes, sync assistant message to AMS
@@ -606,7 +655,9 @@ it('uses AMS getMemoryPrompt for context when available', async () => {
   // streamText should have received the AMS-managed messages
   const calls = vi.mocked(streamText).mock.calls
   expect(calls.length).toBeGreaterThanOrEqual(1)
-  const lastCall = calls[calls.length - 1][0] as { messages: Array<{ role: string; content: string }> }
+  const lastCall = calls[calls.length - 1][0] as {
+    messages: Array<{ role: string; content: string }>
+  }
   expect(lastCall.messages).toHaveLength(3)
   expect(lastCall.messages[0].content).toBe('Previous question')
 })
@@ -670,9 +721,7 @@ it('syncs user and assistant messages to AMS', async () => {
   await res.text()
 
   // Check addMessage was called for user message sync
-  const userCalls = amsMocks.addMessage.mock.calls.filter(
-    (call: unknown[]) => call[2] === 'user'
-  )
+  const userCalls = amsMocks.addMessage.mock.calls.filter((call: unknown[]) => call[2] === 'user')
   expect(userCalls.length).toBeGreaterThanOrEqual(1)
   expect(userCalls[userCalls.length - 1][3]).toBe('Test message')
 
@@ -690,35 +739,35 @@ it('syncs user and assistant messages to AMS', async () => {
 Replace the D1 history loading section and add AMS sync calls in `packages/server/src/routes/chat.ts`. The modified handler section (after saving user message and title update, before model creation):
 
 ```typescript
-  // Sync user message to AMS (non-blocking, failure is non-fatal)
-  const memoryClient = createMemoryClient(c.env)
-  if (memoryClient) {
-    await syncUserMessage(memoryClient, conversationId, conversation.agentHandle, body.content)
-  }
+// Sync user message to AMS (non-blocking, failure is non-fatal)
+const memoryClient = createMemoryClient(c.env)
+if (memoryClient) {
+  await syncUserMessage(memoryClient, conversationId, conversation.agentHandle, body.content)
+}
 
-  // Get context messages: try AMS first, fall back to D1
-  let messages: ModelMessage[]
-  if (memoryClient) {
-    const amsContext = await getContextMessages(
-      memoryClient,
-      conversationId,
-      conversation.agentHandle,
-      body.content,
-      conversation.model
-    )
-    if (amsContext) {
-      messages = amsContext.messages.map(m => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }))
-    } else {
-      // AMS failed, fall back to D1 history
-      messages = await loadD1History(db, conversationId)
-    }
+// Get context messages: try AMS first, fall back to D1
+let messages: ModelMessage[]
+if (memoryClient) {
+  const amsContext = await getContextMessages(
+    memoryClient,
+    conversationId,
+    conversation.agentHandle,
+    body.content,
+    conversation.model
+  )
+  if (amsContext) {
+    messages = amsContext.messages.map(m => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }))
   } else {
-    // AMS not configured, use D1 history
+    // AMS failed, fall back to D1 history
     messages = await loadD1History(db, conversationId)
   }
+} else {
+  // AMS not configured, use D1 history
+  messages = await loadD1History(db, conversationId)
+}
 ```
 
 Add a helper function at the bottom of the file (before the export or at module level):
@@ -749,10 +798,10 @@ Remove the old inline D1 history loading block (lines 268-280 in current file) s
 In the streaming IIFE, after saving the assistant message to D1, add AMS sync:
 
 ```typescript
-      // Sync assistant response to AMS
-      if (memoryClient) {
-        await syncAssistantMessage(memoryClient, conversationId, conversation.agentHandle, fullText)
-      }
+// Sync assistant response to AMS
+if (memoryClient) {
+  await syncAssistantMessage(memoryClient, conversationId, conversation.agentHandle, fullText)
+}
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
@@ -816,6 +865,7 @@ EOF
 ### Task 5: Integrate AMS cleanup into conversation deletion
 
 **Files:**
+
 - Modify: `packages/server/src/routes/chat.ts:390-416` (DELETE handler)
 - Modify: `packages/server/src/__tests__/chat.test.ts`
 
@@ -851,21 +901,21 @@ it('removes AMS working memory on delete', async () => {
 In the DELETE handler in `chat.ts`, after verifying ownership and before deleting from D1, add:
 
 ```typescript
-  // Clean up AMS working memory (non-fatal if it fails)
-  const memoryClient = createMemoryClient(c.env)
-  if (memoryClient) {
-    await removeConversationMemory(memoryClient, id, rows[0].agentHandle ?? '')
-  }
+// Clean up AMS working memory (non-fatal if it fails)
+const memoryClient = createMemoryClient(c.env)
+if (memoryClient) {
+  await removeConversationMemory(memoryClient, id, rows[0].agentHandle ?? '')
+}
 ```
 
 Note: The existing DELETE handler only selects `{ id: chatConversations.id }`. Update the select to also include `agentHandle`:
 
 ```typescript
-  const rows = await db
-    .select({ id: chatConversations.id, agentHandle: chatConversations.agentHandle })
-    .from(chatConversations)
-    .where(and(eq(chatConversations.id, id), eq(chatConversations.walletAddress, wallet)))
-    .limit(1)
+const rows = await db
+  .select({ id: chatConversations.id, agentHandle: chatConversations.agentHandle })
+  .from(chatConversations)
+  .where(and(eq(chatConversations.id, id), eq(chatConversations.walletAddress, wallet)))
+  .limit(1)
 ```
 
 - [ ] **Step 3: Write test for delete when AMS fails (should still delete from D1)**
@@ -921,6 +971,7 @@ EOF
 ### Task 6: Integration verification
 
 **Files:**
+
 - No new files
 
 - [ ] **Step 1: Run full server test suite**

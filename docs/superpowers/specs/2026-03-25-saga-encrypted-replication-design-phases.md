@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_61le-GAZZP`
+
 # SAGA Encrypted Replication — Implementation Phases
 
 > **Parent spec**: [SAGA Encrypted Memory Replication & Messaging Design](./2026-03-25-saga-encrypted-replication-design.md)

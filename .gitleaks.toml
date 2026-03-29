@@ -15,7 +15,8 @@ useDefault = true
   # Plans and docs may contain example patterns
   paths = [
     '''\.plans/''',
-    '''docs/'''
+    '''docs/''',
+    '''Podfile\.lock'''
   ]
 
   # Vault encryption algorithm identifiers in test fixtures are not secrets

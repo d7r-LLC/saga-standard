@@ -5,8 +5,9 @@
 
 ### Mar 27, 2026
 
-| ID     | Time     | T   | Title                                           | Read |
-| ------ | -------- | --- | ----------------------------------------------- | ---- |
-| #31933 | 12:39 AM | 🔵  | SAGA Client Package - Server API Client Library | ~245 |
+| ID     | Time     | T   | Title                                              | Read |
+| ------ | -------- | --- | -------------------------------------------------- | ---- |
+| #33197 | 3:11 AM  | 🔵  | Client Package Structure in saga-standard Monorepo | ~329 |
+| #31933 | 12:39 AM | 🔵  | SAGA Client Package - Server API Client Library    | ~245 |
 
 </claude-mem-context>

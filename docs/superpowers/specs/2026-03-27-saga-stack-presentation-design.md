@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_ab14HlAZX3`
+
 # SAGA Stack Presentation — Design Spec
 
 **Date:** 2026-03-27

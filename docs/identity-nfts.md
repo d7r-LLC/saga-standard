@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_D4UcUtrz5T`
+
 # SAGA Identity NFTs
 
 SAGA identity NFTs provide verifiable, on-chain proof of agent and organization identity. When an agent registers on-chain, it receives an ERC-721 NFT that permanently links its handle to a wallet address, with an ERC-6551 Token Bound Account (TBA) that can hold assets and sign messages on the agent's behalf.

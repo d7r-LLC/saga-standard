@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest"]
+    },
+    "epic-flowstate": {
+      "type": "http",
+      "url": "http://localhost:7080/mcp/mcp",
+      "oauth": {
+        "clientId": "claude-code",
+        "callbackPort": 8932
+      }
+    }
+  }
+}

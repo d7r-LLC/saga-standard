@@ -6,7 +6,7 @@ import Database from 'better-sqlite3'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { detectCollectors, listCollectorSources, createCollector } from '../registry'
+import { createCollector, listCollectorSources } from '../registry'
 
 // Force imports to trigger auto-registration
 import '../index'
@@ -50,21 +50,38 @@ describe('claude-mem full pipeline', () => {
     const db = new Database(dbPath)
     db.exec(`
       CREATE TABLE observations (
-        id INTEGER PRIMARY KEY, type TEXT NOT NULL, title TEXT,
-        narrative TEXT, facts TEXT, concepts TEXT,
-        created_at TEXT NOT NULL, updated_at TEXT, project TEXT, session_id TEXT
+        id INTEGER PRIMARY KEY, memory_session_id TEXT, project TEXT,
+        text TEXT, type TEXT NOT NULL, title TEXT, subtitle TEXT,
+        facts TEXT, narrative TEXT, concepts TEXT,
+        files_read TEXT, files_modified TEXT, prompt_number INTEGER,
+        created_at TEXT NOT NULL, created_at_epoch INTEGER, discovery_tokens INTEGER
       );
       CREATE TABLE sdk_sessions (
-        id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, project TEXT,
-        started_at TEXT NOT NULL, ended_at TEXT, model TEXT
+        id INTEGER PRIMARY KEY, content_session_id TEXT, memory_session_id TEXT NOT NULL,
+        project TEXT, user_prompt TEXT, started_at TEXT NOT NULL,
+        started_at_epoch INTEGER, completed_at TEXT, completed_at_epoch INTEGER,
+        status TEXT, worker_port INTEGER, prompt_counter INTEGER
       );
       CREATE TABLE session_summaries (
-        id INTEGER PRIMARY KEY, session_id TEXT NOT NULL,
-        summary TEXT, created_at TEXT NOT NULL
+        id INTEGER PRIMARY KEY, memory_session_id TEXT NOT NULL, project TEXT,
+        request TEXT, investigated TEXT, learned TEXT, completed TEXT,
+        next_steps TEXT, files_read TEXT, files_edited TEXT, notes TEXT,
+        prompt_number INTEGER, created_at TEXT NOT NULL,
+        created_at_epoch INTEGER, discovery_tokens INTEGER
       )
     `)
-    db.prepare(`INSERT INTO observations (id, type, title, narrative, facts, concepts, created_at, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(1, 'discovery', 'Test discovery', 'Found something', '["fact1"]', '["typescript"]', '2026-03-01T00:00:00Z', 'proj')
+    db.prepare(
+      `INSERT INTO observations (id, type, title, narrative, facts, concepts, created_at, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      1,
+      'discovery',
+      'Test discovery',
+      'Found something',
+      '["fact1"]',
+      '["typescript"]',
+      '2026-03-01T00:00:00Z',
+      'proj'
+    )
     db.close()
 
     const collector = createCollector('claude-mem')

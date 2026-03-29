@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "projectName": "saga-standard",
+  "projectType": "monorepo",
+  "codebaseId": "code_u2uLspkjqe",
+  "orgId": "org_9f3omFEY2H",
+  "workspaceId": "work_RfO9myuOP8",
+  "vault": {
+    "name": "flowstate-development",
+    "type": "1password"
+  },
+  "repository": {
+    "url": "https://github.com/d7r-LLC/saga-standard.git",
+    "provider": "github"
+  },
+  "dependencies": {
+    "node": "20.x",
+    "packageManager": "pnpm",
+    "docker": false
+  },
+  "createdAt": "2026-03-28T20:11:49.070Z",
+  "lastUpdated": "2026-03-28T20:11:49.070Z"
+}

@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_wgvLA_Va-l`
+
 # SAGA Sync Protocol: Federated RxDB-Based Knowledge Synchronization
 
 > **For agentic workers:** RECOMMENDED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

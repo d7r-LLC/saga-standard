@@ -14,7 +14,7 @@ interface ObservationRow {
   concepts: string | null
   created_at: string
   project: string | null
-  session_id: string | null
+  memory_session_id: string | null
 }
 
 export interface ParsedObservations {
@@ -58,7 +58,7 @@ export function parseObservations(dbPath: string, options?: ParseOptions): Parse
     db = new Database(dbPath, { readonly: true })
 
     let query =
-      'SELECT id, type, title, narrative, facts, concepts, created_at, project, session_id FROM observations'
+      'SELECT id, type, title, narrative, facts, concepts, created_at, project, memory_session_id FROM observations'
     const params: unknown[] = []
 
     if (options?.since) {

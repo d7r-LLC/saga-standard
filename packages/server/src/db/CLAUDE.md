@@ -5,8 +5,16 @@
 
 ### Mar 27, 2026
 
-| ID     | Time     | T   | Title                                             | Read |
-| ------ | -------- | --- | ------------------------------------------------- | ---- |
-| #31921 | 12:38 AM | 🔵  | SAGA Server Database Schema - Complete Data Model | ~534 |
+| ID     | Time     | T   | Title                                                                        | Read  |
+| ------ | -------- | --- | ---------------------------------------------------------------------------- | ----- |
+| #36308 | 7:35 PM  | 🔵  | SAGA Server Architecture — Complete Route, Middleware, and Binding Structure | ~811  |
+| #35576 | 4:45 PM  | 🔵  | SAGA Server Database Schema Complete with All Entity Tables                  | ~1425 |
+| #31921 | 12:38 AM | 🔵  | SAGA Server Database Schema - Complete Data Model                            | ~534  |
+
+### Mar 28, 2026
+
+| ID     | Time    | T   | Title                                                      | Read |
+| ------ | ------- | --- | ---------------------------------------------------------- | ---- |
+| #36882 | 6:17 AM | ✅  | Phase 1 Chat CRUD Database Schema Extended with New Tables | ~265 |
 
 </claude-mem-context>

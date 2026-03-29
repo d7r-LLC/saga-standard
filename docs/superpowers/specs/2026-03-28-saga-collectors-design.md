@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_dO_GKK9NFc`
+
 # SAGA Memory Data Flow: Collectors, Sync, and Real-Time Replication
 
 **Date:** 2026-03-28

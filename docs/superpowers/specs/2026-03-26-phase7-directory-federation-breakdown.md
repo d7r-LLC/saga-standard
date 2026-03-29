@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_VVM6frzMUC`
+
 # Phase 7: Directory NFT & Cross-Directory Federation — Sub-Phase Breakdown
 
 **Parent spec:** `docs/superpowers/specs/2026-03-25-saga-encrypted-replication-design-phases.md` (Phase 7)

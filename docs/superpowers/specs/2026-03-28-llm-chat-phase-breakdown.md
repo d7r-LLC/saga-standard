@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_9UNghGguHR`
+
 # LLM Chat Feature — Phase Breakdown
 
 > **Parent spec:** `docs/superpowers/specs/2026-03-28-llm-chat-feature-design.md`

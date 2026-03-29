@@ -5,7 +5,13 @@
 
 ### Mar 28, 2026
 
-| ID | Time | T | Title | Read |
-|----|------|---|-------|------|
-| #38326 | 9:47 AM | 🔵 | Chat Feature Type Definitions and Provider Configuration | ~468 |
+| ID     | Time    | T   | Title                                                                                                   | Read |
+| ------ | ------- | --- | ------------------------------------------------------------------------------------------------------- | ---- |
+| #39694 | 2:36 PM | 🔵  | Phase 5 Client Streaming — Complete Type System for Chat Streaming, Conversations, and Token Accounting | ~560 |
+| #38343 | 9:49 AM | 🔵  | Phase 4 Mobile Chat UI — Client Implementation Started                                                  | ~307 |
+| #38331 | 9:48 AM | 🟣  | Phase 4 Chat Types Definition                                                                           | ~331 |
+| #38323 | 9:47 AM | 🟣  | Task 1 completed: Chat feature types committed                                                          | ~273 |
+| #38320 | "       | 🟣  | Phase 4 Client Chat UI: Chat feature type definitions created                                           | ~410 |
+| #38315 | 9:46 AM | 🟣  | Chat feature types and provider configuration created                                                   | ~319 |
+
 </claude-mem-context>

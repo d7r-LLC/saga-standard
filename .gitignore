@@ -42,6 +42,9 @@ pnpm-debug.log*
 .saga-partials/
 .saga/deploys/
 
+# Collector exports (contains local user data)
+exports/
+
 # Plans / scratch
 .plans/
 
@@ -49,3 +52,4 @@ pnpm-debug.log*
 
 # Worktrees
 .worktrees/
+.superpowers/

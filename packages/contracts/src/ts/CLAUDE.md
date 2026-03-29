@@ -7,6 +7,9 @@
 
 | ID     | Time     | T   | Title                                                                     | Read |
 | ------ | -------- | --- | ------------------------------------------------------------------------- | ---- |
+| #33796 | 9:43 AM  | 🔵  | Phase 3 On-Chain Identity Codebase Analysis Complete                      | ~554 |
+| #33765 | 9:41 AM  | 🔵  | Smart Contract Addresses and Deployment Configuration                     | ~317 |
+| #33764 | "        | 🔵  | Smart Contracts Package TypeScript Interface                              | ~390 |
 | #31878 | 12:36 AM | 🔵  | SAGA TBA Address Computation - Off-Chain Deterministic Account Resolution | ~360 |
 | #31877 | "        | 🔵  | SAGA Contracts Deployment Addresses Configuration                         | ~336 |
 | #31876 | "        | 🔵  | SAGA Contracts Client Config Helpers - Viem Integration                   | ~230 |

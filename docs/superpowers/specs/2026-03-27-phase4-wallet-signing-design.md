@@ -1,3 +1,5 @@
+> **FlowState Document:** `docu_g44ZznVdrI`
+
 # Phase 4: Wallet Signing + Live Minting — Design
 
 **Date:** 2026-03-27

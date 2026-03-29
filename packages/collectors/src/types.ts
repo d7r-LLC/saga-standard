@@ -30,6 +30,8 @@ export interface ExtractOptions {
   maxMemoryEntries?: number
   /** Override the home directory (for testing) */
   homeDir?: string
+  /** Optional FlowState scope to attach to extracted data */
+  flowstateScope?: import('./scope-mapper/types').FlowstateScope
 }
 
 /** A collector that can detect, scan, and extract agent data from a local source */
