@@ -7,13 +7,38 @@ import type { Env } from '../bindings'
 export interface SessionData {
   walletAddress: string
   chain: string
+  /** When the token was issued (used by per-wallet revocation in Phase 2). */
+  issuedAt: string
   expiresAt: string
+  /** Opaque token string. Set on the in-memory copy so handlers can self-identify. */
+  token?: string
+}
+
+/**
+ * KV key for the per-wallet session-revocation sentinel. When set, every
+ * session whose `issuedAt` precedes the sentinel timestamp is rejected by
+ * `requireAuth`. Used by `DELETE /v1/auth/sessions` to revoke all of a
+ * wallet's outstanding tokens after wallet-key rotation.
+ *
+ * The wallet address is lowercased to match the canonical form stored on
+ * sessions.
+ */
+export function sessionRevocationKey(walletAddress: string): string {
+  return `session:revoked:${walletAddress.toLowerCase()}`
 }
 
 /**
  * Bearer token auth middleware.
- * Reads token from Authorization header, looks up session in KV.
- * Sets c.set('session', sessionData) on success.
+ *
+ * Order of checks (each must pass):
+ *   1. `Authorization: Bearer <token>` header present.
+ *   2. Token exists in `SESSIONS` KV.
+ *   3. Session has not passed its TTL.
+ *   4. Wallet has not been globally revoked AFTER this session was issued
+ *      (Phase 2 finding A-High#5 — adds rotation-style revocation without
+ *      requiring per-token enumeration in KV).
+ *
+ * On success, sets `c.set('session', session)` for downstream handlers.
  */
 export async function requireAuth(
   c: Context<{ Bindings: Env; Variables: { session: SessionData } }>,
@@ -37,6 +62,28 @@ export async function requireAuth(
     return c.json({ error: 'Session expired', code: 'SESSION_EXPIRED' }, 401)
   }
 
+  // Per-wallet revocation check (Phase 2 — A-High#5).
+  //
+  // Comparison is `>=` (not `>`) so a session issued at exactly the
+  // revocation moment (same millisecond) is also killed. This closes a
+  // narrow timing edge case where sub-millisecond execution could let a
+  // pre-revocation session survive on equal timestamps. New sessions are
+  // unaffected: they're issued strictly after the revocation timestamp.
+  //
+  // If `session.issuedAt` is missing (pre-deploy sessions issued before the
+  // Phase 2 change added the field), we treat the session as older than ANY
+  // revocation sentinel and reject. This ensures the revoke-all primitive
+  // works against legacy sessions that haven't expired yet.
+  const revocationTs = await c.env.SESSIONS.get(sessionRevocationKey(session.walletAddress))
+  if (revocationTs) {
+    if (!session.issuedAt || revocationTs >= session.issuedAt) {
+      return c.json({ error: 'Session revoked', code: 'SESSION_REVOKED' }, 401)
+    }
+  }
+
+  // Attach the bearer token so handlers (e.g. DELETE /v1/auth/sessions/:token)
+  // can self-identify which token issued the request.
+  session.token = token
   c.set('session', session)
   return next()
 }

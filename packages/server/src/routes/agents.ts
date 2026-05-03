@@ -8,7 +8,7 @@ import type { Env } from '../bindings'
 import { agents, documents, organizations } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
 import type { SessionData } from '../middleware/auth'
-import { HANDLE_REGEX, parseIntParam } from '../utils'
+import { HANDLE_REGEX, isValidEd25519PublicKey, parseIntParam } from '../utils'
 
 export const agentRoutes = new Hono<{
   Bindings: Env
@@ -50,6 +50,19 @@ agentRoutes.post('/', requireAuth, async c => {
     return c.json(
       { error: 'Wallet address must match authenticated session', code: 'WALLET_MISMATCH' },
       403
+    )
+  }
+
+  // Phase 2 (O-Med#3): if a publicKey is provided, validate it's a real
+  // 32-byte Ed25519 key in standard base64. Empty / malformed keys are
+  // rejected so they don't propagate into agent metadata + relay routing.
+  if (body.publicKey !== undefined && !isValidEd25519PublicKey(body.publicKey)) {
+    return c.json(
+      {
+        error: 'publicKey must be a base64-encoded 32-byte Ed25519 public key (44 chars, padded)',
+        code: 'INVALID_PUBLIC_KEY',
+      },
+      400
     )
   }
 

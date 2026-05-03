@@ -7,12 +7,26 @@ import { and, eq } from 'drizzle-orm'
 import { verifyMessage } from 'viem'
 import type { Env } from '../bindings'
 import { authChallenges } from '../db/schema'
-import { generateId } from '../middleware/auth'
+import { type SessionData, generateId, requireAuth, sessionRevocationKey } from '../middleware/auth'
 
-const SESSION_TTL_SECONDS = 3600 // 1 hour
+// Session TTL reduced 1h → 15min in Phase 2 (A-High#5). Refresh-token flow
+// is the planned follow-up — for now, callers re-authenticate via challenge
+// + verify when their session expires.
+const SESSION_TTL_SECONDS = 900 // 15 minutes
 const CHALLENGE_TTL_SECONDS = 300 // 5 minutes
 
-export const authRoutes = new Hono<{ Bindings: Env }>()
+// Revocation sentinel TTL: must outlive the longest session that could still
+// exist in KV — including any pre-deploy 1-hour sessions issued before this
+// change rolled out. We use 1 hour + 60s margin so the sentinel covers every
+// possible legacy session AND the new 15-min sessions. Once a sentinel is set,
+// the wallet's old sessions will all expire naturally before the sentinel
+// decays, preventing revival.
+const REVOCATION_SENTINEL_TTL_SECONDS = 3600 + 60
+
+export const authRoutes = new Hono<{
+  Bindings: Env
+  Variables: { session: SessionData }
+}>()
 
 /**
  * POST /v1/auth/challenge
@@ -106,15 +120,21 @@ authRoutes.post('/verify', async c => {
     return c.json({ error: 'Invalid signature', code: 'INVALID_SIGNATURE' }, 401)
   }
 
-  // Issue session token
+  // Issue session token. Capture a single `nowMs` reading so issuedAt and
+  // expiresAt are derived from the same clock — avoids a few-ms skew that
+  // would otherwise make the (expiresAt - issuedAt === SESSION_TTL_SECONDS)
+  // contract flaky.
   const token = `saga_sess_${generateId('tok')}`
-  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString()
+  const nowMs = Date.now()
+  const issuedAt = new Date(nowMs).toISOString()
+  const expiresAt = new Date(nowMs + SESSION_TTL_SECONDS * 1000).toISOString()
 
   await c.env.SESSIONS.put(
     token,
     JSON.stringify({
       walletAddress: normalizedAddress,
       chain: body.chain,
+      issuedAt,
       expiresAt,
     }),
     { expirationTtl: SESSION_TTL_SECONDS }
@@ -122,9 +142,77 @@ authRoutes.post('/verify', async c => {
 
   return c.json({
     token,
+    issuedAt,
     expiresAt,
     walletAddress: normalizedAddress,
   })
+})
+
+/**
+ * DELETE /v1/auth/sessions/:token
+ * Revoke a single session token.
+ *
+ * Authorization rules:
+ *   - The caller must be authenticated.
+ *   - They may only revoke a token belonging to their own wallet (or their
+ *     own current bearer token, which is the same thing).
+ *
+ * Phase 2 (A-High#5): self-revocation primitive so a user who notices a
+ * leaked or compromised token can kill it before TTL expiry.
+ */
+authRoutes.delete('/sessions/:token', requireAuth, async c => {
+  const session = c.get('session')
+  const targetToken = c.req.param('token') as string
+
+  if (!targetToken) {
+    return c.json({ error: 'token is required', code: 'INVALID_REQUEST' }, 400)
+  }
+
+  // Look up the target session. If it doesn't exist, return 404 to avoid
+  // leaking which tokens existed.
+  const targetJson = await c.env.SESSIONS.get(targetToken)
+  if (!targetJson) {
+    return c.json({ error: 'Token not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const targetSession = JSON.parse(targetJson) as SessionData
+  if (targetSession.walletAddress.toLowerCase() !== session.walletAddress.toLowerCase()) {
+    // Don't reveal cross-wallet token existence; same response shape as 404.
+    return c.json({ error: 'Token not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  await c.env.SESSIONS.delete(targetToken)
+  return c.json({ revoked: true, token: targetToken })
+})
+
+/**
+ * DELETE /v1/auth/sessions
+ * Revoke ALL sessions for the authenticated wallet (post-rotation primitive).
+ *
+ * KV does not expose efficient enumeration by prefix, so instead of deleting
+ * each token row we set a per-wallet sentinel `session:revoked:<wallet>` to
+ * the current timestamp. The `requireAuth` middleware compares each session's
+ * `issuedAt` to this sentinel and rejects sessions issued before it.
+ *
+ * The sentinel is given a TTL slightly larger than the session TTL, so once
+ * every pre-revocation session has expired naturally the sentinel decays and
+ * future re-authentications are not affected.
+ */
+authRoutes.delete('/sessions', requireAuth, async c => {
+  const session = c.get('session')
+  const ts = new Date().toISOString()
+
+  await c.env.SESSIONS.put(sessionRevocationKey(session.walletAddress), ts, {
+    expirationTtl: REVOCATION_SENTINEL_TTL_SECONDS,
+  })
+
+  // Also delete the caller's CURRENT token immediately to give a hard 401 on
+  // their next request rather than waiting for the middleware to compare.
+  if (session.token) {
+    await c.env.SESSIONS.delete(session.token)
+  }
+
+  return c.json({ revoked: true, walletAddress: session.walletAddress, revokedAt: ts })
 })
 
 /**

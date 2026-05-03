@@ -313,8 +313,14 @@ export class RelayRoom {
   }
 
   private async handleRelaySend(ws: WebSocket, msg: { envelope: unknown }): Promise<void> {
+    // Phase 2 (O-Med#2): explicit auth gate at the top of every authenticated
+    // handler. The attachment partitions pre-auth from post-auth state, but we
+    // re-check `authenticated === true` AND the presence of a non-empty handle
+    // before doing ANY message processing, including envelope parsing or
+    // recipient resolution. Defense in depth — even if a future refactor changes
+    // the attachment shape, no work happens on an unauthenticated connection.
     const senderState = this.getAuthenticatedState(ws)
-    if (!senderState) {
+    if (!senderState || !senderState.handle) {
       this.sendJson(ws, { type: 'error', error: 'Not authenticated' })
       return
     }

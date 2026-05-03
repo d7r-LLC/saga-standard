@@ -204,11 +204,201 @@ describe('SAGA Reference Server', () => {
       })
       expect(secondVerify.status).toBe(400)
     })
+
+    // === Phase 2 — server auth & session hardening (2026-05-03) ===
+
+    it('issues 15-minute session TTLs', async () => {
+      // Phase 2 (A-High#5): TTL was reduced from 1h to 15min so leaked tokens
+      // expire faster. expiresAt - issuedAt must equal 900_000 ms.
+      const challengeRes = await req('POST', '/v1/auth/challenge', {
+        body: { walletAddress: WALLET, chain: CHAIN },
+      })
+      const { challenge } = (await challengeRes.json()) as { challenge: string }
+      const signature = await testAccount.signMessage({ message: challenge })
+      const verifyRes = await req('POST', '/v1/auth/verify', {
+        body: { walletAddress: WALLET, chain: CHAIN, signature, challenge },
+      })
+      const body = (await verifyRes.json()) as {
+        issuedAt: string
+        expiresAt: string
+      }
+      const issued = new Date(body.issuedAt).getTime()
+      const expires = new Date(body.expiresAt).getTime()
+      expect(expires - issued).toBe(900_000) // 15 minutes
+    })
+
+    it('DELETE /v1/auth/sessions/:token revokes a single token', async () => {
+      // Phase 2 (A-High#5): self-revocation primitive.
+      const token = await getSessionToken()
+
+      // Sanity: token works
+      const okRes = await req('GET', '/v1/agents/koda.saga', {
+        headers: authHeader(token),
+      })
+      // 404 is fine (agent not yet created); 401 would indicate a broken session
+      expect(okRes.status).not.toBe(401)
+
+      // Revoke the token
+      const revokeRes = await req('DELETE', `/v1/auth/sessions/${token}`, {
+        headers: authHeader(token),
+      })
+      expect(revokeRes.status).toBe(200)
+      const revokeBody = (await revokeRes.json()) as { revoked: boolean }
+      expect(revokeBody.revoked).toBe(true)
+
+      // Subsequent authenticated requests with that token should now 401
+      const afterRes = await req('POST', '/v1/agents', {
+        headers: authHeader(token),
+        body: { handle: 'after-revoke.saga', walletAddress: WALLET, chain: CHAIN },
+      })
+      expect(afterRes.status).toBe(401)
+    })
+
+    it('DELETE /v1/auth/sessions/:token rejects revoking another wallet token', async () => {
+      // Phase 2 (A-High#5): only the session's own wallet may revoke its tokens.
+      // Use the OTHER_PRIVATE_KEY pair to issue a session for a different wallet.
+      const otherWallet = otherAccount.address
+      const otherChallengeRes = await req('POST', '/v1/auth/challenge', {
+        body: { walletAddress: otherWallet, chain: CHAIN },
+      })
+      const { challenge: otherChal } = (await otherChallengeRes.json()) as {
+        challenge: string
+      }
+      const otherSig = await otherAccount.signMessage({ message: otherChal })
+      const otherVerify = await req('POST', '/v1/auth/verify', {
+        body: {
+          walletAddress: otherWallet,
+          chain: CHAIN,
+          signature: otherSig,
+          challenge: otherChal,
+        },
+      })
+      const { token: otherToken } = (await otherVerify.json()) as { token: string }
+
+      // Wallet A tries to revoke wallet B's token — must 404 (no leak)
+      const myToken = await getSessionToken()
+      const cross = await req('DELETE', `/v1/auth/sessions/${otherToken}`, {
+        headers: authHeader(myToken),
+      })
+      expect(cross.status).toBe(404)
+
+      // Other wallet's token still works
+      const stillOk = await req('GET', '/v1/agents/anything', {
+        headers: authHeader(otherToken),
+      })
+      expect(stillOk.status).not.toBe(401)
+    })
+
+    it('DELETE /v1/auth/sessions revokes all sessions for the wallet', async () => {
+      // Phase 2 (A-High#5): post-rotation revoke-all primitive.
+      // Issue 2 sessions for the same wallet, then revoke-all, then verify
+      // both reject on next request.
+      const t1 = await getSessionToken()
+      const t2 = await getSessionToken()
+      expect(t1).not.toBe(t2)
+
+      const revoked = await req('DELETE', '/v1/auth/sessions', {
+        headers: authHeader(t1),
+      })
+      expect(revoked.status).toBe(200)
+
+      // Both tokens should now reject. t1 was the caller's bearer — server
+      // also deleted it from KV explicitly so it 401s with SESSION_EXPIRED.
+      // t2 is rejected via the per-wallet revocation sentinel check.
+      const r1 = await req('POST', '/v1/agents', {
+        headers: authHeader(t1),
+        body: { handle: 'after-all-revoke-1.saga', walletAddress: WALLET, chain: CHAIN },
+      })
+      expect(r1.status).toBe(401)
+
+      const r2 = await req('POST', '/v1/agents', {
+        headers: authHeader(t2),
+        body: { handle: 'after-all-revoke-2.saga', walletAddress: WALLET, chain: CHAIN },
+      })
+      expect(r2.status).toBe(401)
+      const r2body = (await r2.json()) as { code?: string }
+      expect(r2body.code).toBe('SESSION_REVOKED')
+    })
+  })
+
+  // -- /admin/reindex security (Phase 2 — G-High#1) --
+
+  describe('/admin/reindex', () => {
+    it('returns 403 when ADMIN_SECRET is unset (fail-closed)', async () => {
+      // env returned by createMockEnv() does not set ADMIN_SECRET
+      expect(env.ADMIN_SECRET).toBeFalsy()
+
+      const noHeader = await req('POST', '/admin/reindex')
+      expect(noHeader.status).toBe(403)
+
+      // Even if a header value is provided, returns 403 because secret is unset
+      const withHeader = await req('POST', '/admin/reindex', {
+        headers: { 'X-Admin-Secret': 'whatever' },
+      })
+      expect(withHeader.status).toBe(403)
+    })
   })
 
   // -- Agents --
 
   describe('agents', () => {
+    // Phase 2 (O-Med#3) — publicKey validation rejects malformed input.
+    it('rejects malformed publicKey on agent registration', async () => {
+      const token = await getSessionToken()
+
+      const tooShort = await req('POST', '/v1/agents', {
+        headers: authHeader(token),
+        body: {
+          handle: 'short-key.saga',
+          walletAddress: WALLET,
+          chain: CHAIN,
+          publicKey: 'AAAA', // 4 chars, not 44
+        },
+      })
+      expect(tooShort.status).toBe(400)
+      expect(((await tooShort.json()) as { code: string }).code).toBe('INVALID_PUBLIC_KEY')
+
+      const empty = await req('POST', '/v1/agents', {
+        headers: authHeader(token),
+        body: {
+          handle: 'empty-key.saga',
+          walletAddress: WALLET,
+          chain: CHAIN,
+          publicKey: '',
+        },
+      })
+      expect(empty.status).toBe(400)
+
+      const nonBase64 = await req('POST', '/v1/agents', {
+        headers: authHeader(token),
+        body: {
+          handle: 'bad-b64.saga',
+          walletAddress: WALLET,
+          chain: CHAIN,
+          publicKey: '!'.repeat(44), // valid length, invalid alphabet
+        },
+      })
+      expect(nonBase64.status).toBe(400)
+    })
+
+    it('accepts a valid 32-byte base64 publicKey', async () => {
+      const token = await getSessionToken()
+      // 32 zero bytes → "AAAAAA...=" (44 chars including padding)
+      const validKey = btoa(String.fromCharCode.apply(null, new Array(32).fill(0)))
+      expect(validKey).toMatch(/^[A-Za-z0-9+/]{43}=$/)
+
+      const res = await req('POST', '/v1/agents', {
+        headers: authHeader(token),
+        body: {
+          handle: 'good-key.saga',
+          walletAddress: WALLET,
+          chain: CHAIN,
+          publicKey: validKey,
+        },
+      })
+      expect(res.status).toBe(201)
+    })
+
     it('registers and retrieves an agent', async () => {
       const token = await getSessionToken()
 
