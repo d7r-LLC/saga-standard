@@ -70,4 +70,11 @@ export interface Env {
 
   /** Auth token for AMS (optional, enables bearer auth) */
   AMS_AUTH_TOKEN?: string
+
+  /**
+   * Per-handle rate limit on memory-sync envelopes (envelopes per 60s).
+   * Default 60. Phase 3 (A-High#4) — caps the burst surface for the
+   * memory-poisoning attack pattern flagged in the 2026-05-03 audit.
+   */
+  MEMORY_SYNC_RATE_LIMIT?: string
 }

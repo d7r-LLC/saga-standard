@@ -212,7 +212,8 @@ export async function runIndexer(env: Env): Promise<void> {
         meta,
         agentContract.toLowerCase(),
         orgContract.toLowerCase(),
-        directoryContract?.toLowerCase()
+        directoryContract?.toLowerCase(),
+        env.SESSIONS
       )
       // Only advance success marker if no prior failure (preserve ordering)
       if (!hasFailure) {
@@ -248,7 +249,8 @@ export async function processDecodedLog(
   meta: EventMeta,
   agentAddress: string,
   orgAddress: string,
-  directoryAddress?: string
+  directoryAddress?: string,
+  kv?: KVNamespace
 ): Promise<void> {
   const isAgent = log.address.toLowerCase() === agentAddress
   const isOrg = log.address.toLowerCase() === orgAddress
@@ -265,7 +267,10 @@ export async function processDecodedLog(
       } else if (isOrg) {
         await handleOrgTransfer(db, args)
       } else if (isDirectory) {
-        await handleDirectoryTransfer(db, args)
+        // Pass SESSIONS KV so the handler can write the federation
+        // rotation sentinel that gates active federation links.
+        // (Phase 3 / A-Med#12 — see handleDirectoryTransfer doc.)
+        await handleDirectoryTransfer(db, args, kv)
       }
       break
     }

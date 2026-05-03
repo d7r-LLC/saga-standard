@@ -4,8 +4,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
-import { createMockD1, runMigrations } from './test-helpers'
+import { createMockD1, createMockKV, runMigrations } from './test-helpers'
 import {
+  federationRotationKey,
   handleDirectoryRegistered,
   handleDirectoryStatusUpdated,
   handleDirectoryTransfer,
@@ -305,5 +306,73 @@ describe('handleDirectoryTransfer', () => {
 
     const rows = await db.select().from(directories).where(eq(directories.directoryId, 'dir.xfer2'))
     expect(rows[0].operatorWallet).toBe(newOperatorMixed.toLowerCase())
+  })
+
+  // Phase 3 (A-Med#12) — federation rotation sentinel
+  it('writes a federation rotation sentinel to KV when KV is provided', async () => {
+    const now = new Date().toISOString()
+    await mockDb
+      .prepare(
+        'INSERT INTO directories (id, directory_id, url, operator_wallet, conformance_level, status, chain, token_id, registered_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'dir_xfer_kv',
+        'dir.xfer.kv',
+        'https://xfer-kv.example.com',
+        OPERATOR.toLowerCase(),
+        'L1',
+        'active',
+        CHAIN,
+        52,
+        now,
+        now
+      )
+      .run()
+
+    const kv = createMockKV()
+    const newOperator = '0x9999999999999999999999999999999999999999'
+    const before = new Date().toISOString()
+    await handleDirectoryTransfer(db, { from: OPERATOR, to: newOperator, tokenId: 52n }, kv)
+
+    const sentinel = await kv.get(federationRotationKey('dir.xfer.kv'))
+    expect(sentinel).not.toBeNull()
+    // ISO string lexical comparison is the same as chronological for fixed
+    // format, so this verifies the sentinel was set at-or-after `before`.
+    expect(String(sentinel)).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(String(sentinel) >= before).toBe(true)
+  })
+
+  it('does not write a sentinel when KV is omitted (back-compat with existing tests)', async () => {
+    const now = new Date().toISOString()
+    await mockDb
+      .prepare(
+        'INSERT INTO directories (id, directory_id, url, operator_wallet, conformance_level, status, chain, token_id, registered_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      )
+      .bind(
+        'dir_xfer_nokv',
+        'dir.xfer.nokv',
+        'https://xfer-nokv.example.com',
+        OPERATOR.toLowerCase(),
+        'L1',
+        'active',
+        CHAIN,
+        53,
+        now,
+        now
+      )
+      .run()
+
+    // No KV passed; should still update the row but emit no sentinel
+    await handleDirectoryTransfer(db, {
+      from: OPERATOR,
+      to: '0x8888888888888888888888888888888888888888',
+      tokenId: 53n,
+    })
+
+    const rows = await db
+      .select()
+      .from(directories)
+      .where(eq(directories.directoryId, 'dir.xfer.nokv'))
+    expect(rows[0].operatorWallet).toBe('0x8888888888888888888888888888888888888888')
   })
 })

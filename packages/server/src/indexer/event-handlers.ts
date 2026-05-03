@@ -317,14 +317,53 @@ export async function handleDirectoryUrlUpdated(
 }
 
 /**
+ * KV key for the per-directory federation rotation sentinel. Set whenever a
+ * directory NFT changes hands; federation forwards from that directory are
+ * rejected until the federation peer re-authenticates the link AFTER the
+ * sentinel timestamp. See Phase 3 of the 2026-05-03 security remediation
+ * (finding A-Med#12).
+ */
+export function federationRotationKey(directoryId: string): string {
+  return `fed:rotated:${directoryId}`
+}
+
+/** Sentinel TTL (24h). Long enough to outlive any reasonable WS link. */
+export const FEDERATION_ROTATION_SENTINEL_TTL_SECONDS = 24 * 60 * 60
+
+/**
  * Handle ERC-721 Transfer event for a directory identity.
- * Updates the operatorWallet to the new owner.
+ *
+ * 1. Update `operatorWallet` on the directories row (existing behavior).
+ * 2. If a SESSIONS KV is provided, also write a per-directory rotation
+ *    sentinel so any active federation links to this directory get
+ *    rejected on their next forward and forced to re-authenticate. This
+ *    closes the audit finding A-Med#12 (federation links survive operator
+ *    rotation by stale auth).
+ *
+ * The KV write is best-effort: if the directories row doesn't exist yet
+ * (Transfer ahead of indexer cursor) we simply skip the sentinel — the
+ * forward path doesn't have a directoryId either, so there's nothing to
+ * gate.
  */
 export async function handleDirectoryTransfer(
   db: DrizzleD1Database<Record<string, unknown>>,
-  event: TransferEvent
+  event: TransferEvent,
+  kv?: KVNamespace
 ): Promise<void> {
   const id = safeTokenId(event.tokenId)
+
+  // Fetch directoryId BEFORE updating so we can write the sentinel keyed
+  // by the off-chain handle that the federation forwarder uses.
+  const directoryId = kv
+    ? (
+        await db
+          .select({ directoryId: directories.directoryId })
+          .from(directories)
+          .where(eq(directories.tokenId, id))
+          .limit(1)
+      )[0]?.directoryId
+    : undefined
+
   await db
     .update(directories)
     .set({
@@ -332,4 +371,10 @@ export async function handleDirectoryTransfer(
       updatedAt: new Date().toISOString(),
     })
     .where(eq(directories.tokenId, id))
+
+  if (kv && directoryId) {
+    await kv.put(federationRotationKey(directoryId), new Date().toISOString(), {
+      expirationTtl: FEDERATION_ROTATION_SENTINEL_TTL_SECONDS,
+    })
+  }
 }

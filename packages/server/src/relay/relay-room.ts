@@ -22,6 +22,7 @@ import type { CanonicalMemoryStore } from './memory-store'
 import { createFederationLinkManager } from './federation-link'
 import type { FederationLinkManager } from './federation-link'
 import { privateKeyToAccount } from 'viem/accounts'
+import { federationRotationKey } from '../indexer/event-handlers'
 
 /**
  * RelayRoom Durable Object — manages WebSocket connections for the SAGA relay.
@@ -355,6 +356,47 @@ export class RelayRoom {
 
     // Memory-sync interception: store canonically and forward to sender's other DERPs
     if (envelope.type === 'memory-sync') {
+      // Phase 3 (A-High#4): per-handle rate limit on memory-sync envelopes.
+      // Counters are bucketed per minute (60s granularity) so a burst from a
+      // single handle is bounded. Threshold is configurable via env var
+      // MEMORY_SYNC_RATE_LIMIT (default 60 envelopes per 60s window).
+      //
+      // Concurrency note: the get-then-put sequence on KV is not atomic
+      // across DO instances. In practice, a single handle's relay traffic
+      // is routed through ONE RelayRoom DO, and a DO is single-threaded
+      // for its own connection set, so concurrent memory-sync sends from
+      // the SAME handle are serialized at the DO boundary. Cross-DO racing
+      // would require the same handle to be authenticated to two
+      // different RelayRooms simultaneously, which the auth path doesn't
+      // permit for memory-sync (each handle attaches to a single DO).
+      // If a stricter guarantee is ever needed, switch to DO-storage-based
+      // counters or `RATE_LIMITER` Cloudflare bindings.
+      //
+      // NaN-safety: a missing or corrupt KV value parses to NaN; we treat
+      // any non-finite count as 0 so the limit comparison stays correct.
+      const limitParsed = Number.parseInt(this.env.MEMORY_SYNC_RATE_LIMIT ?? '60', 10)
+      const limit = Number.isFinite(limitParsed) && limitParsed > 0 ? limitParsed : 60
+      const minuteBucket = Math.floor(Date.now() / 60_000)
+      const rateLimitKey = `mem-sync:${senderHandle}:${minuteBucket}`
+      const currentRaw = await this.env.SESSIONS.get(rateLimitKey)
+      const currentParsed = currentRaw ? Number.parseInt(currentRaw, 10) : 0
+      const current = Number.isFinite(currentParsed) ? currentParsed : 0
+
+      if (current >= limit) {
+        this.sendJson(ws, {
+          type: 'relay:error',
+          messageId: envelope.id,
+          code: 'MEMORY_SYNC_RATE_LIMIT',
+          error: `memory-sync rate limit exceeded (>${limit}/min for handle ${senderHandle})`,
+        })
+        return
+      }
+
+      // Increment counter; auto-expire after 90s (covers the bucket + grace).
+      await this.env.SESSIONS.put(rateLimitKey, String(current + 1), {
+        expirationTtl: 90,
+      })
+
       await this.memoryStore.store(senderHandle, envelope)
 
       // Forward to all other connections for the same handle (multi-DERP sync)
@@ -596,6 +638,9 @@ export class RelayRoom {
       federation: true,
       directoryId: result.directoryId,
       operatorWallet: result.operatorWallet,
+      // Phase 3 (A-Med#12): stamp the federation auth time so the rotation
+      // sentinel check at forward time can compare against it.
+      authedAt: new Date().toISOString(),
     }
     ws.serializeAttachment(fedAttachment)
 
@@ -617,13 +662,39 @@ export class RelayRoom {
     }
 
     // Verify sourceDirectoryId matches authenticated federation connection
-    const fedAttachment = attachment as { directoryId: string }
+    const fedAttachment = attachment as {
+      directoryId: string
+      authedAt?: string
+    }
     if (msg.sourceDirectoryId !== fedAttachment.directoryId) {
       this.sendJson(ws, {
         type: 'relay:forward-error',
         messageId: msg.envelope?.id ?? '',
         error: 'Source directory mismatch',
       })
+      return
+    }
+
+    // Phase 3 (A-Med#12): federation rotation sentinel.
+    // If the source directory's NFT changed hands AFTER this link
+    // authenticated, force re-auth — the previous operator's signature is
+    // stale. Missing `authedAt` (legacy attachment) is treated as oldest
+    // possible — any sentinel kills the link.
+    // The KV key is shared with the indexer's `handleDirectoryTransfer`
+    // via the exported `federationRotationKey` helper — single source of
+    // truth for the format prevents writer/reader drift.
+    const rotationTs = await this.env.SESSIONS.get(federationRotationKey(fedAttachment.directoryId))
+    if (rotationTs && (!fedAttachment.authedAt || rotationTs >= fedAttachment.authedAt)) {
+      this.sendJson(ws, {
+        type: 'relay:forward-error',
+        messageId: msg.envelope?.id ?? '',
+        error: 'Operator wallet rotated; re-authenticate the federation link',
+      })
+      try {
+        ws.close(4003, 'federation rotation: re-authenticate')
+      } catch {
+        // Already closed
+      }
       return
     }
 

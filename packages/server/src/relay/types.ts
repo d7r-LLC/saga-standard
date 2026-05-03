@@ -154,6 +154,13 @@ export interface RelayErrorMessage {
   type: 'relay:error'
   messageId: string
   error: string
+  /**
+   * Optional machine-readable error code. Phase 3 added
+   * `MEMORY_SYNC_RATE_LIMIT` for per-handle rate-limit rejections; future
+   * phases may add more (e.g. envelope size cap, federation provenance).
+   * Clients should match on `code` rather than the human-readable `error`.
+   */
+  code?: string
 }
 
 export interface ControlPingMessage {
@@ -195,7 +202,25 @@ export type ServerMessage =
 export type WebSocketAttachment =
   | { authenticated: false; challenge: string; expiresAt: string }
   | { authenticated: true; state: ConnectionState }
-  | { authenticated: true; federation: true; directoryId: string; operatorWallet: string }
+  | {
+      authenticated: true
+      federation: true
+      directoryId: string
+      operatorWallet: string
+      /**
+       * ISO timestamp when this federation link was authenticated. Used by
+       * the federation rotation sentinel check (Phase 3, A-Med#12) — if a
+       * `fed:rotated:<directoryId>` sentinel exists with a timestamp
+       * greater-than-or-equal-to this, the link is forced to re-authenticate.
+       * The comparison is inclusive (`>=`) to close a same-millisecond
+       * timing edge.
+       *
+       * Optional for backward compat with existing federation links that
+       * authenticated before the field was added; missing `authedAt` is
+       * treated as oldest-possible (any sentinel kills the link).
+       */
+      authedAt?: string
+    }
 
 export interface ConnectionState {
   handle: string

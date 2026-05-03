@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { drizzle } from 'drizzle-orm/d1'
 import { agents, groupMembers } from '../db/schema'
@@ -446,6 +446,55 @@ describe('RelayRoom', () => {
       const derpAAck = derpAMessages.find((m: Record<string, unknown>) => m.type === 'relay:ack')
       expect(derpAAck).toBeDefined()
       expect(derpAAck?.messageId).toBe('mem-002')
+    })
+
+    // Phase 3 (A-High#4) — per-handle rate limit on memory-sync envelopes
+    it('rate-limits memory-sync envelopes per handle', async () => {
+      // Pin Date.now so all 4 sends land in the same minute bucket.
+      // The handler buckets by Math.floor(Date.now() / 60_000); a wall-clock
+      // tick between sends 3 and 4 would reset the counter and flake the test.
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-05-03T12:00:00.500Z'))
+
+      try {
+        const aliceWs = createMockWebSocket()
+        await authenticateWs(aliceWs, 'alice')
+
+        // Override env to a tiny limit so we can hit it cheaply
+        ;(env as { MEMORY_SYNC_RATE_LIMIT?: string }).MEMORY_SYNC_RATE_LIMIT = '3'
+
+        const sendOne = async (id: string) => {
+          const envelope = {
+            v: 1,
+            type: 'memory-sync',
+            scope: 'private',
+            from: 'alice@epicflow',
+            to: 'alice@epicflow',
+            ct: 'encrypted-memory-payload',
+            ts: new Date().toISOString(),
+            id,
+          }
+          await room.webSocketMessage(aliceWs, JSON.stringify({ type: 'relay:send', envelope }))
+        }
+
+        // First 3 envelopes succeed (acks)
+        await sendOne('mem-rate-1')
+        await sendOne('mem-rate-2')
+        await sendOne('mem-rate-3')
+
+        const messages = aliceWs._sent.map((m: string) => JSON.parse(m))
+        const acks = messages.filter((m: Record<string, unknown>) => m.type === 'relay:ack')
+        expect(acks.length).toBeGreaterThanOrEqual(3)
+
+        // 4th envelope must be rate-limited
+        await sendOne('mem-rate-4')
+        const lastMsg = JSON.parse(aliceWs._sent[aliceWs._sent.length - 1])
+        expect(lastMsg.type).toBe('relay:error')
+        expect(lastMsg.code).toBe('MEMORY_SYNC_RATE_LIMIT')
+        expect(lastMsg.messageId).toBe('mem-rate-4')
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('does not intercept non-memory-sync envelopes', async () => {
