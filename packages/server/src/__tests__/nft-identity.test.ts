@@ -368,6 +368,126 @@ describe('integration — event handler → API', () => {
     expect(body.agent.walletAddress).toBe(walletB.toLowerCase())
   })
 
+  // Phase 5 (A-Med#11) — from-guard regression tests.
+  // Use getDb (production factory) so test DB behavior matches runtime
+  // (FK-enforced + schema-typed handle).
+  it('stale Transfer A→C does NOT clobber row already at B', async () => {
+    const { handleAgentRegistered, handleAgentTransfer } = await import('../indexer/event-handlers')
+    const { getDb } = await import('../db')
+    const db = getDb(env.DB)
+
+    const walletA = '0xaaaa000000000000000000000000000000000a01'
+    const walletB = '0xbbbb000000000000000000000000000000000b02'
+    const walletC = '0xcccc000000000000000000000000000000000c03'
+
+    await handleAgentRegistered(
+      db,
+      {
+        tokenId: 555n,
+        handle: 'guarded.agent',
+        owner: walletA,
+        homeHubUrl: 'https://hub.example.com',
+        registeredAt: NOW_SECONDS,
+      },
+      {
+        txHash: '0xtx_register_guarded',
+        contractAddress: '0xcontract_guarded',
+        chain: CHAIN,
+        blockNumber: 1000n,
+      }
+    )
+
+    // First Transfer A→B (legitimate, in-order)
+    await handleAgentTransfer(db, { from: walletA, to: walletB, tokenId: 555n })
+
+    // Stale/replayed Transfer A→C arriving AFTER state is already B.
+    // Without the from-guard this would clobber the row to C; with it,
+    // the WHERE clause matches zero rows and the update is a safe no-op.
+    await handleAgentTransfer(db, { from: walletA, to: walletC, tokenId: 555n })
+
+    const res = await req('GET', '/v1/agents/guarded.agent')
+    const body = (await res.json()) as { agent: Record<string, unknown> }
+    expect(body.agent.walletAddress).toBe(walletB.toLowerCase())
+  })
+
+  it('replayed Transfer with matching from is idempotent (still B)', async () => {
+    const { handleAgentRegistered, handleAgentTransfer } = await import('../indexer/event-handlers')
+    const { getDb } = await import('../db')
+    const db = getDb(env.DB)
+
+    const walletA = '0xaaaa000000000000000000000000000000000a04'
+    const walletB = '0xbbbb000000000000000000000000000000000b05'
+
+    await handleAgentRegistered(
+      db,
+      {
+        tokenId: 556n,
+        handle: 'replayed.agent',
+        owner: walletA,
+        homeHubUrl: 'https://hub.example.com',
+        registeredAt: NOW_SECONDS,
+      },
+      {
+        txHash: '0xtx_register_replayed',
+        contractAddress: '0xcontract_replayed',
+        chain: CHAIN,
+        blockNumber: 1001n,
+      }
+    )
+
+    // First A→B applies
+    await handleAgentTransfer(db, { from: walletA, to: walletB, tokenId: 556n })
+    // Replay of A→B (cursor reset, federation re-broadcast). On the second
+    // call, current is already B, so the from-match (lower(walletAddress) == A)
+    // fails and the UPDATE is a no-op. State stays at B.
+    await handleAgentTransfer(db, { from: walletA, to: walletB, tokenId: 556n })
+
+    const res = await req('GET', '/v1/agents/replayed.agent')
+    const body = (await res.json()) as { agent: Record<string, unknown> }
+    expect(body.agent.walletAddress).toBe(walletB.toLowerCase())
+  })
+
+  it('directory transfer from-guard rejects stale event', async () => {
+    const { handleDirectoryRegistered, handleDirectoryTransfer } =
+      await import('../indexer/event-handlers')
+    const { getDb } = await import('../db')
+    const db = getDb(env.DB)
+
+    const walletA = '0xaaaa000000000000000000000000000000000d01'
+    const walletB = '0xbbbb000000000000000000000000000000000d02'
+    const walletC = '0xcccc000000000000000000000000000000000d03'
+
+    await handleDirectoryRegistered(
+      db,
+      {
+        tokenId: 9001n,
+        directoryId: 'guarded-dir',
+        url: 'https://dir.example.com',
+        operator: walletA,
+        conformanceLevel: 'standard',
+        registeredAt: NOW_SECONDS,
+      },
+      {
+        txHash: '0xtx_dir_register',
+        contractAddress: '0xcontract_dir_guarded',
+        chain: CHAIN,
+        blockNumber: 1100n,
+      }
+    )
+
+    // A→B applies; subsequent stale A→C is rejected by the from-guard.
+    await handleDirectoryTransfer(db, { from: walletA, to: walletB, tokenId: 9001n })
+    await handleDirectoryTransfer(db, { from: walletA, to: walletC, tokenId: 9001n })
+
+    // Verify the row is at B, not C, by querying directly.
+    const row = await env.DB.prepare(
+      'SELECT operator_wallet FROM directories WHERE directory_id = ?'
+    )
+      .bind('guarded-dir')
+      .first<{ operator_wallet: string }>()
+    expect(row?.operator_wallet).toBe(walletB.toLowerCase())
+  })
+
   it('legacy off-chain agent resolves with null NFT fields', async () => {
     await seedLegacyAgent('offchain.agent')
 

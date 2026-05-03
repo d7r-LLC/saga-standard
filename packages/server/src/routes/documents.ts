@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { and, eq, sql } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { agents, documents } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
@@ -17,12 +17,59 @@ export const documentRoutes = new Hono<{
 }>()
 
 /**
+ * Maximum size of an uploaded document. Phase 5 (O-High#2) — closes the
+ * "attacker uploads arbitrarily large bodies to R2" finding by capping
+ * Content-Length BEFORE the body is read.
+ *
+ * 50 MB is the agreed product cap for a single document. Aligns with the
+ * 100 MB total-extract cap on the .saga container extractor in 5.6 (one
+ * document can't exceed 50% of an entire container's extract budget).
+ */
+export const MAX_DOCUMENT_SIZE_BYTES = 50 * 1024 * 1024
+
+/**
  * POST /v1/agents/:handle/documents — Upload a document
  */
 documentRoutes.post('/:handle/documents', requireAuth, async c => {
   const session = c.get('session')
   const handle = c.req.param('handle') as string
-  const db = drizzle(c.env.DB)
+
+  // Phase 5 (O-High#2): Content-Length pre-check. When present (real
+  // Cloudflare Workers always populate it from the inbound HTTP request),
+  // reject oversized uploads BEFORE we touch the body so we don't pull a
+  // gigabyte into the worker's memory just to throw it away. When the
+  // header is absent (some test rigs and a few legitimate clients that
+  // chunk-encode), fall through to the post-read size check below.
+  //
+  // Chunked-upload memory caveat: when Content-Length is absent, the
+  // fallback path uses `c.req.arrayBuffer()` / `.json()` which fully buffer
+  // the request body in memory before the post-read check fires. That
+  // means a chunked upload could in theory force the worker to allocate
+  // up to the platform's request body cap before we reject. Real defense
+  // for this scenario lives at the Cloudflare Workers boundary: Workers
+  // cap inbound request bodies at 100 MB by default, which is already
+  // 2× our MAX_DOCUMENT_SIZE_BYTES. A streaming-with-early-abort
+  // implementation is tracked for a follow-up; the current two-layer
+  // check (CF boundary + Content-Length pre-check + post-read fallback)
+  // is sufficient for the audit finding's threat model.
+  const lenHeader = c.req.header('content-length')
+  if (lenHeader != null) {
+    const len = Number(lenHeader)
+    if (!Number.isFinite(len) || len < 0) {
+      return c.json({ error: 'Invalid Content-Length', code: 'INVALID_REQUEST' }, 400)
+    }
+    if (len > MAX_DOCUMENT_SIZE_BYTES) {
+      return c.json(
+        {
+          error: `Document exceeds ${MAX_DOCUMENT_SIZE_BYTES} byte limit`,
+          code: 'PAYLOAD_TOO_LARGE',
+        },
+        413
+      )
+    }
+  }
+
+  const db = getDb(c.env.DB)
 
   // Look up agent
   const agentRows = await db.select().from(agents).where(eq(agents.handle, handle)).limit(1)
@@ -52,6 +99,20 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
     // For now, binary uploads are stored without encryption validation.
     const body = await c.req.arrayBuffer()
     sizeBytes = body.byteLength
+
+    // Phase 5 (O-High#2): post-read fallback when Content-Length was absent.
+    // Belt-and-suspenders against clients that omit the header but still
+    // send oversized bodies.
+    if (sizeBytes > MAX_DOCUMENT_SIZE_BYTES) {
+      return c.json(
+        {
+          error: `Document exceeds ${MAX_DOCUMENT_SIZE_BYTES} byte limit`,
+          code: 'PAYLOAD_TOO_LARGE',
+        },
+        413
+      )
+    }
+
     checksum = await computeChecksum(new Uint8Array(body))
 
     // Attempt to extract and validate JSON from the container
@@ -97,8 +158,21 @@ documentRoutes.post('/:handle/documents', requireAuth, async c => {
     }
 
     const jsonStr = JSON.stringify(body)
-    sizeBytes = new TextEncoder().encode(jsonStr).length
-    checksum = await computeChecksum(new TextEncoder().encode(jsonStr))
+    const jsonBytes = new TextEncoder().encode(jsonStr)
+    sizeBytes = jsonBytes.length
+
+    // Phase 5 (O-High#2): post-read fallback for JSON path.
+    if (sizeBytes > MAX_DOCUMENT_SIZE_BYTES) {
+      return c.json(
+        {
+          error: `Document exceeds ${MAX_DOCUMENT_SIZE_BYTES} byte limit`,
+          code: 'PAYLOAD_TOO_LARGE',
+        },
+        413
+      )
+    }
+
+    checksum = await computeChecksum(jsonBytes)
 
     if (body.exportType) exportType = body.exportType as string
     if (body.sagaVersion) sagaVersion = body.sagaVersion as string
@@ -144,7 +218,7 @@ documentRoutes.get('/:handle/documents', requireAuth, async c => {
   const exportType = c.req.query('exportType')
   const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50)))
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Look up agent
   const agentRows = await db.select().from(agents).where(eq(agents.handle, handle)).limit(1)
@@ -195,7 +269,7 @@ documentRoutes.get('/:handle/documents/:documentId', requireAuth, async c => {
   const documentId = c.req.param('documentId') as string
   const accept = c.req.header('Accept') ?? 'application/json'
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Look up agent
   const agentRows = await db.select().from(agents).where(eq(agents.handle, handle)).limit(1)
@@ -258,7 +332,7 @@ documentRoutes.delete('/:handle/documents/:documentId', requireAuth, async c => 
   const handle = c.req.param('handle') as string
   const documentId = c.req.param('documentId') as string
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Look up agent
   const agentRows = await db.select().from(agents).where(eq(agents.handle, handle)).limit(1)

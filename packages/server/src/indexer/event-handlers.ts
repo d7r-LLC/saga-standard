@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { computeTBAAddress } from '@saga-standard/contracts'
 import { agents, directories, organizations } from '../db/schema'
 import { generateId } from '../middleware/auth'
@@ -110,7 +110,18 @@ export async function handleAgentRegistered(
 
 /**
  * Handle ERC-721 Transfer event for an agent identity.
- * Updates the wallet address to the new owner.
+ *
+ * Phase 5 (A-Med#11) — From-guard for replay/out-of-order resilience.
+ *
+ * Without a guard, a stale or replayed Transfer event can overwrite a newer
+ * ownership state: if the indexer is replayed (cursor reset, reorg, federation
+ * re-broadcast) and a Transfer A→B is processed after the row already moved on
+ * to C, the unguarded `UPDATE walletAddress = B` would clobber the correct C.
+ *
+ * The guard updates only when the row's current `walletAddress` matches
+ * `event.from`. If it doesn't (replay, out-of-order), the UPDATE matches zero
+ * rows and the handler safely no-ops. Both addresses are compared
+ * lowercase-normalized to match the canonical form stored in the row.
  */
 export async function handleAgentTransfer(
   db: DrizzleD1Database<Record<string, unknown>>,
@@ -123,7 +134,7 @@ export async function handleAgentTransfer(
       walletAddress: event.to.toLowerCase(),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(agents.tokenId, id))
+    .where(and(eq(agents.tokenId, id), eq(agents.walletAddress, event.from.toLowerCase())))
 }
 
 /**
@@ -196,6 +207,8 @@ export async function handleOrgRegistered(
 
 /**
  * Handle ERC-721 Transfer event for an org identity.
+ *
+ * Phase 5 (A-Med#11) — From-guard. See `handleAgentTransfer` rationale.
  */
 export async function handleOrgTransfer(
   db: DrizzleD1Database<Record<string, unknown>>,
@@ -208,7 +221,9 @@ export async function handleOrgTransfer(
       walletAddress: event.to.toLowerCase(),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(organizations.tokenId, id))
+    .where(
+      and(eq(organizations.tokenId, id), eq(organizations.walletAddress, event.from.toLowerCase()))
+    )
 }
 
 /**
@@ -364,13 +379,17 @@ export async function handleDirectoryTransfer(
       )[0]?.directoryId
     : undefined
 
+  // Phase 5 (A-Med#11): from-guard. Only update when the row's current
+  // operatorWallet matches `event.from`. A stale/replayed Transfer is a no-op.
   await db
     .update(directories)
     .set({
       operatorWallet: event.to.toLowerCase(),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(directories.tokenId, id))
+    .where(
+      and(eq(directories.tokenId, id), eq(directories.operatorWallet, event.from.toLowerCase()))
+    )
 
   if (kv && directoryId) {
     await kv.put(federationRotationKey(directoryId), new Date().toISOString(), {

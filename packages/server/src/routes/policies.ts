@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { replicationPolicies } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -13,7 +13,7 @@ export const policyRoutes = new Hono<{ Bindings: Env }>()
 /** GET /v1/orgs/:orgId/policy — Retrieve the replication policy for an org */
 policyRoutes.get('/:orgId/policy', requireAuth, async c => {
   const orgId = c.req.param('orgId') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const rows = await db
     .select()

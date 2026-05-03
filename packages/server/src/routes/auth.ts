@@ -2,12 +2,13 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { and, eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import { verifyMessage } from 'viem'
 import type { Env } from '../bindings'
 import { authChallenges } from '../db/schema'
 import { type SessionData, generateId, requireAuth, sessionRevocationKey } from '../middleware/auth'
+import { authIpRateLimit } from '../middleware/rate-limit'
 
 // Session TTL reduced 1h → 15min in Phase 2 (A-High#5). Refresh-token flow
 // is the planned follow-up — for now, callers re-authenticate via challenge
@@ -31,15 +32,19 @@ export const authRoutes = new Hono<{
 /**
  * POST /v1/auth/challenge
  * Generate a challenge for wallet authentication.
+ *
+ * Phase 5 (A-Med, auth): IP-keyed rate limit (10 req / 60s) at the edge via
+ * the Cloudflare RATE_LIMITER_AUTH binding. Returns 429 + Retry-After: 60
+ * on limit. Required to keep nonce-grinding attacks bounded.
  */
-authRoutes.post('/challenge', async c => {
+authRoutes.post('/challenge', authIpRateLimit, async c => {
   const body = await c.req.json<{ walletAddress: string; chain: string }>()
 
   if (!body.walletAddress || !body.chain) {
     return c.json({ error: 'walletAddress and chain are required', code: 'INVALID_REQUEST' }, 400)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const challengeId = generateId('chal')
   const nonce = generateId('nonce')
   const now = new Date()
@@ -65,8 +70,11 @@ authRoutes.post('/challenge', async c => {
 /**
  * POST /v1/auth/verify
  * Verify a signed challenge and issue a session token.
+ *
+ * Phase 5 (A-Med, auth): same IP-keyed rate limit as /challenge. Caps the
+ * cost an attacker can impose on viem's signature-verification path.
  */
-authRoutes.post('/verify', async c => {
+authRoutes.post('/verify', authIpRateLimit, async c => {
   const body = await c.req.json<{
     walletAddress: string
     chain: string
@@ -84,7 +92,7 @@ authRoutes.post('/verify', async c => {
     )
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const normalizedAddress = body.walletAddress.toLowerCase()
 
   // Look up the challenge

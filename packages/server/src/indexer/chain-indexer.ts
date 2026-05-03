@@ -3,7 +3,7 @@
 
 import { type Chain, createPublicClient, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { drizzle } from 'drizzle-orm/d1'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { INDEXER_CURSOR_KEY } from './types'
 import type {
@@ -151,7 +151,7 @@ export async function runIndexer(env: Env): Promise<void> {
     return
   }
 
-  const db = drizzle(env.DB)
+  const db = getDb(env.DB)
   const chain = env.INDEXER_CHAIN ?? 'eip155:84532'
 
   const client = createPublicClient({
@@ -244,7 +244,7 @@ export async function runIndexer(env: Env): Promise<void> {
  * decoded log types).
  */
 export async function processDecodedLog(
-  db: ReturnType<typeof drizzle>,
+  db: ReturnType<typeof getDb>,
   log: DecodedEventLog,
   meta: EventMeta,
   agentAddress: string,

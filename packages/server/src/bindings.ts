@@ -77,4 +77,27 @@ export interface Env {
    * memory-poisoning attack pattern flagged in the 2026-05-03 audit.
    */
   MEMORY_SYNC_RATE_LIMIT?: string
+
+  /**
+   * Cloudflare Rate Limiting binding for the unauthenticated auth endpoints
+   * (`POST /v1/auth/challenge`, `POST /v1/auth/verify`). Keyed by client IP
+   * (`cf-connecting-ip`). Configured at 10 req / 60s in `wrangler.toml`.
+   * Phase 5 (A-Med, auth).
+   *
+   * Optional so unit tests can omit the binding without crashing — when
+   * undefined, the rate-limit middleware degrades to "always allow".
+   */
+  RATE_LIMITER_AUTH?: { limit(opts: { key: string }): Promise<{ success: boolean }> }
+
+  /**
+   * Per-wallet API request limit (req/min) enforced inside `requireAuth`.
+   * Default 60. Phase 5 (A-Med, auth).
+   */
+  RATE_LIMIT_API?: string
+
+  /**
+   * Per-wallet chat-class limit (req/min) — applied to `/v1/chat/*` and
+   * relay outbound. Default 10. Phase 5 (A-Med, auth).
+   */
+  RATE_LIMIT_CHAT?: string
 }

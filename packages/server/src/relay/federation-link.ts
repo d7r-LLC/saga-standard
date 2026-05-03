@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import { directories } from '../db/schema'
 import type { RelayEnvelope } from './types'
 import { FEDERATION_LINK_TIMEOUT_MS } from './types'
@@ -38,7 +38,7 @@ export function createFederationLinkManager(config: FederationLinkConfig): Feder
   const createWs = config.createWebSocket ?? ((url: string) => new WebSocket(url))
 
   async function lookupDirectoryUrl(directoryId: string): Promise<string> {
-    const orm = drizzle(config.db)
+    const orm = getDb(config.db)
     const dir = await orm
       .select()
       .from(directories)

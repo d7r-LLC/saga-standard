@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
 import { verifyMessage } from 'viem'
+import { getDb } from '../db'
 import { agents, organizations } from '../db/schema'
 import type { ConnectionState } from './types'
 import { CHALLENGE_TTL_MS } from './types'
@@ -65,7 +65,7 @@ export async function verifyWsAuth(
     return { ok: false, error: 'Signature verification failed' }
   }
 
-  const orm = drizzle(db)
+  const orm = getDb(db)
   const normalizedAddress = walletAddress.toLowerCase()
 
   // Check agent table
@@ -127,7 +127,7 @@ export async function reVerifyNft(
   walletAddress: string,
   db: D1Database
 ): Promise<boolean> {
-  const orm = drizzle(db)
+  const orm = getDb(db)
   const normalizedAddress = walletAddress.toLowerCase()
 
   const agent = await orm.select().from(agents).where(eq(agents.handle, handle)).get()

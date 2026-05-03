@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { drizzle } from 'drizzle-orm/d1'
 import { and, asc, eq, gt } from 'drizzle-orm'
+import { getDb } from '../db'
 import { memoryEnvelopes } from '../db/schema'
 import type { RelayEnvelope } from './types'
 
@@ -18,7 +18,7 @@ export interface CanonicalMemoryStore {
 }
 
 export function createCanonicalMemoryStore(db: D1Database): CanonicalMemoryStore {
-  const orm = drizzle(db)
+  const orm = getDb(db)
 
   return {
     async store(agentHandle, envelope) {

@@ -54,6 +54,16 @@ bindings = [
   { name = "RELAY_ROOM", class_name = "RelayRoom" }
 ]
 
+# Phase 5 (A-Med, auth) — IP-keyed rate limit on /v1/auth/challenge and
+# /v1/auth/verify. 10 requests per 60s per IP. Keeps brute-force nonce
+# grinding and signature-attempt attacks out of reach without adding KV
+# round-trips on the hot auth path.
+[[unsafe.bindings]]
+name = "RATE_LIMITER_AUTH"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
 [[migrations]]
 tag = "v1"
 new_classes = ["RelayRoom"]

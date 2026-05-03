@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { agents, organizations } from '../db/schema'
 
@@ -11,7 +11,7 @@ export const keyRoutes = new Hono<{ Bindings: Env }>()
 
 keyRoutes.get('/:handle', async c => {
   const handle = c.req.param('handle') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const agentRows = await db
     .select({ publicKey: agents.publicKey })

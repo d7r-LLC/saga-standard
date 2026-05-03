@@ -3,6 +3,7 @@
 
 import type { Context, Next } from 'hono'
 import type { Env } from '../bindings'
+import { rateLimitKey, readWalletRateLimit } from './rate-limit'
 
 export interface SessionData {
   walletAddress: string
@@ -85,6 +86,29 @@ export async function requireAuth(
   // can self-identify which token issued the request.
   session.token = token
   c.set('session', session)
+
+  // Phase 5 (A-Med, auth): per-wallet API rate limit (default 60/min).
+  // Chat routes layer their own `chat` quota on top via makeWalletRateLimit.
+  // Keep this OUT of the unauthenticated auth challenge/verify path —
+  // those are gated by IP-keyed Cloudflare Rate Limiting instead.
+  //
+  // We share the bucket-key shape and per-class default with
+  // `middleware/rate-limit.ts` so the two implementations can't drift on
+  // TTL, key prefix, or limit. The reason this isn't just `makeWalletRateLimit('api')`
+  // is that we want the limit AND the session attach to fire from the same
+  // middleware, so failures here behave identically to other auth failures.
+  const limit = readWalletRateLimit(c.env, 'api')
+  if (limit > 0) {
+    const minute = Math.floor(Date.now() / 60_000)
+    const key = rateLimitKey('api', session.walletAddress, minute)
+    const current = Number((await c.env.SESSIONS.get(key)) ?? '0')
+    if (current >= limit) {
+      c.header('Retry-After', '60')
+      return c.json({ error: 'Rate limit exceeded for api', code: 'RATE_LIMITED' }, 429)
+    }
+    await c.env.SESSIONS.put(key, String(current + 1), { expirationTtl: 65 })
+  }
+
   return next()
 }
 

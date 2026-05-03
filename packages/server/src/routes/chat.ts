@@ -2,15 +2,16 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { and, desc, eq, sql } from 'drizzle-orm'
+import { getDb } from '../db'
 import { streamText } from 'ai'
 import type { ModelMessage } from 'ai'
 import type { Env } from '../bindings'
 import { chatConversations, chatMessages } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
+import { makeWalletRateLimit } from '../middleware/rate-limit'
 import type { SessionData } from '../middleware/auth'
-import { resolveApiKey, getProviderEnvKey, createModel, estimateCost } from '../services/llm'
+import { createModel, estimateCost, getProviderEnvKey, resolveApiKey } from '../services/llm'
 import { createAmsClient } from '../services/ams'
 import { HANDLE_REGEX, parseIntParam } from '../utils'
 
@@ -23,7 +24,7 @@ function getAmsClient(env: Env) {
 const MAX_HISTORY = 50
 
 async function loadD1Messages(
-  db: ReturnType<typeof drizzle>,
+  db: ReturnType<typeof getDb>,
   conversationId: string
 ): Promise<ModelMessage[]> {
   // Count total so we can skip old messages in long conversations
@@ -78,7 +79,7 @@ chatRoutes.post('/conversations', requireAuth, async c => {
     return c.json({ error: 'Invalid agentHandle format', code: 'INVALID_REQUEST' }, 400)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const id = generateId('conv')
   const now = new Date().toISOString()
 
@@ -102,10 +103,7 @@ chatRoutes.post('/conversations', requireAuth, async c => {
     try {
       const session = await ams.initSession(id, body.agentHandle, body.systemPrompt)
       amsSessionId = session.sessionId
-      await db
-        .update(chatConversations)
-        .set({ amsSessionId })
-        .where(eq(chatConversations.id, id))
+      await db.update(chatConversations).set({ amsSessionId }).where(eq(chatConversations.id, id))
     } catch {
       // AMS unavailable; conversation works without it
     }
@@ -143,7 +141,7 @@ chatRoutes.get('/conversations', requireAuth, async c => {
   const limit = Math.min(100, Math.max(1, parseIntParam(c.req.query('limit'), 20)))
   const offset = (page - 1) * limit
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const wallet = session.walletAddress.toLowerCase()
 
   const [rows, countResult] = await Promise.all([
@@ -194,7 +192,7 @@ chatRoutes.get('/conversations/:id', requireAuth, async c => {
   const id = c.req.param('id') as string
   const wallet = session.walletAddress.toLowerCase()
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const rows = await db
     .select()
@@ -241,224 +239,229 @@ chatRoutes.get('/conversations/:id', requireAuth, async c => {
 /**
  * POST /v1/chat/conversations/:id/messages — Send user message and stream LLM response via SSE.
  */
-chatRoutes.post('/conversations/:id/messages', requireAuth, async c => {
-  const session = c.get('session')
-  const conversationId = c.req.param('id') as string
-  const wallet = session.walletAddress.toLowerCase()
+chatRoutes.post(
+  '/conversations/:id/messages',
+  requireAuth,
+  makeWalletRateLimit('chat'),
+  async c => {
+    const session = c.get('session')
+    const conversationId = c.req.param('id') as string
+    const wallet = session.walletAddress.toLowerCase()
 
-  let body: { content: string; apiKey?: string }
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'Invalid JSON body', code: 'INVALID_REQUEST' }, 400)
-  }
-
-  if (!body.content) {
-    return c.json({ error: 'content is required', code: 'INVALID_REQUEST' }, 400)
-  }
-
-  const db = drizzle(c.env.DB)
-
-  // Verify conversation exists and belongs to this wallet
-  const convRows = await db
-    .select()
-    .from(chatConversations)
-    .where(
-      and(eq(chatConversations.id, conversationId), eq(chatConversations.walletAddress, wallet))
-    )
-    .limit(1)
-
-  if (convRows.length === 0) {
-    return c.json({ error: 'Conversation not found', code: 'NOT_FOUND' }, 404)
-  }
-
-  const conversation = convRows[0]
-
-  // Resolve API key: header > body > env > 400
-  const apiKey = resolveApiKey({
-    header: c.req.header('X-LLM-API-Key'),
-    bodyApiKey: body.apiKey,
-    envApiKey: getProviderEnvKey(conversation.provider, c.env),
-  })
-
-  if (!apiKey) {
-    return c.json(
-      {
-        error: `No API key available for provider "${conversation.provider}". Provide via X-LLM-API-Key header, apiKey body field, or configure server environment.`,
-        code: 'API_KEY_REQUIRED',
-      },
-      400
-    )
-  }
-
-  const now = new Date().toISOString()
-  const msgId = generateId('msg')
-
-  // Save user message to D1
-  await db.insert(chatMessages).values({
-    id: msgId,
-    conversationId,
-    role: 'user',
-    content: body.content,
-    createdAt: now,
-  })
-
-  // Auto-set title from first message if not set
-  if (!conversation.title) {
-    const title = body.content.slice(0, 100)
-    await db
-      .update(chatConversations)
-      .set({ title, updatedAt: now })
-      .where(eq(chatConversations.id, conversationId))
-  } else {
-    await db
-      .update(chatConversations)
-      .set({ updatedAt: now })
-      .where(eq(chatConversations.id, conversationId))
-  }
-
-  // Build context messages: try AMS first, fall back to D1
-  const ams = getAmsClient(c.env)
-  const amsSessionId = conversation.amsSessionId
-  let messages: ModelMessage[]
-  let amsAvailable = false
-
-  if (ams && amsSessionId) {
+    let body: { content: string; apiKey?: string }
     try {
-      // Sync user message to AMS
-      await ams.addMessage(amsSessionId, 'user', body.content)
-
-      // Get context-managed messages from AMS
-      const contextMessages = await ams.getContextMessages(amsSessionId)
-      messages = contextMessages.map(m => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }))
-      amsAvailable = true
+      body = await c.req.json()
     } catch {
-      // AMS failed; fall back to D1
+      return c.json({ error: 'Invalid JSON body', code: 'INVALID_REQUEST' }, 400)
+    }
+
+    if (!body.content) {
+      return c.json({ error: 'content is required', code: 'INVALID_REQUEST' }, 400)
+    }
+
+    const db = getDb(c.env.DB)
+
+    // Verify conversation exists and belongs to this wallet
+    const convRows = await db
+      .select()
+      .from(chatConversations)
+      .where(
+        and(eq(chatConversations.id, conversationId), eq(chatConversations.walletAddress, wallet))
+      )
+      .limit(1)
+
+    if (convRows.length === 0) {
+      return c.json({ error: 'Conversation not found', code: 'NOT_FOUND' }, 404)
+    }
+
+    const conversation = convRows[0]
+
+    // Resolve API key: header > body > env > 400
+    const apiKey = resolveApiKey({
+      header: c.req.header('X-LLM-API-Key'),
+      bodyApiKey: body.apiKey,
+      envApiKey: getProviderEnvKey(conversation.provider, c.env),
+    })
+
+    if (!apiKey) {
+      return c.json(
+        {
+          error: `No API key available for provider "${conversation.provider}". Provide via X-LLM-API-Key header, apiKey body field, or configure server environment.`,
+          code: 'API_KEY_REQUIRED',
+        },
+        400
+      )
+    }
+
+    const now = new Date().toISOString()
+    const msgId = generateId('msg')
+
+    // Save user message to D1
+    await db.insert(chatMessages).values({
+      id: msgId,
+      conversationId,
+      role: 'user',
+      content: body.content,
+      createdAt: now,
+    })
+
+    // Auto-set title from first message if not set
+    if (!conversation.title) {
+      const title = body.content.slice(0, 100)
+      await db
+        .update(chatConversations)
+        .set({ title, updatedAt: now })
+        .where(eq(chatConversations.id, conversationId))
+    } else {
+      await db
+        .update(chatConversations)
+        .set({ updatedAt: now })
+        .where(eq(chatConversations.id, conversationId))
+    }
+
+    // Build context messages: try AMS first, fall back to D1
+    const ams = getAmsClient(c.env)
+    const amsSessionId = conversation.amsSessionId
+    let messages: ModelMessage[]
+    let amsAvailable = false
+
+    if (ams && amsSessionId) {
+      try {
+        // Sync user message to AMS
+        await ams.addMessage(amsSessionId, 'user', body.content)
+
+        // Get context-managed messages from AMS
+        const contextMessages = await ams.getContextMessages(amsSessionId)
+        messages = contextMessages.map(m => ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        }))
+        amsAvailable = true
+      } catch {
+        // AMS failed; fall back to D1
+        messages = await loadD1Messages(db, conversationId)
+      }
+    } else {
       messages = await loadD1Messages(db, conversationId)
     }
-  } else {
-    messages = await loadD1Messages(db, conversationId)
-  }
 
-  // Create AI SDK model
-  let model
-  try {
-    model = createModel(conversation.provider, conversation.model, apiKey, c.env)
-  } catch (err) {
-    return c.json(
-      {
-        error: err instanceof Error ? err.message : 'Failed to create LLM provider',
-        code: 'PROVIDER_ERROR',
-      },
-      400
-    )
-  }
-
-  // Stream response via SSE
-  const startTime = Date.now()
-  const encoder = new TextEncoder()
-  const { readable, writable } = new TransformStream()
-  const writer = writable.getWriter()
-
-  // Swallow write errors caused by client disconnect (readable side canceled)
-  const safeWrite = async (data: Uint8Array) => {
+    // Create AI SDK model
+    let model
     try {
-      await writer.write(data)
-    } catch {
-      // Client disconnected; nothing to send
+      model = createModel(conversation.provider, conversation.model, apiKey, c.env)
+    } catch (err) {
+      return c.json(
+        {
+          error: err instanceof Error ? err.message : 'Failed to create LLM provider',
+          code: 'PROVIDER_ERROR',
+        },
+        400
+      )
     }
-  }
 
-  ;(async () => {
-    try {
-      const result = streamText({
-        model,
-        messages,
-        ...(conversation.systemPrompt && { system: conversation.systemPrompt }),
-      })
+    // Stream response via SSE
+    const startTime = Date.now()
+    const encoder = new TextEncoder()
+    const { readable, writable } = new TransformStream()
+    const writer = writable.getWriter()
 
-      const chunks: string[] = []
-      for await (const chunk of result.textStream) {
-        chunks.push(chunk)
-        await safeWrite(
-          encoder.encode(`data: ${JSON.stringify({ type: 'text-delta', textDelta: chunk })}\n\n`)
-        )
+    // Swallow write errors caused by client disconnect (readable side canceled)
+    const safeWrite = async (data: Uint8Array) => {
+      try {
+        await writer.write(data)
+      } catch {
+        // Client disconnected; nothing to send
       }
+    }
 
-      const fullText = chunks.join('')
-      const usage = await result.usage
-      const finishReason = await result.finishReason
-      const latencyMs = Date.now() - startTime
-      const promptTokens = usage.inputTokens ?? 0
-      const completionTokens = usage.outputTokens ?? 0
-      const totalTokens = promptTokens + completionTokens
-      const costUsd = estimateCost(conversation.model, promptTokens, completionTokens)
+    ;(async () => {
+      try {
+        const result = streamText({
+          model,
+          messages,
+          ...(conversation.systemPrompt && { system: conversation.systemPrompt }),
+        })
 
-      // Save assistant message to D1
-      await db.insert(chatMessages).values({
-        id: generateId('msg'),
-        conversationId,
-        role: 'assistant',
-        content: fullText,
-        tokensPrompt: promptTokens,
-        tokensCompletion: completionTokens,
-        costUsd,
-        latencyMs,
-        createdAt: new Date().toISOString(),
-      })
+        const chunks: string[] = []
+        for await (const chunk of result.textStream) {
+          chunks.push(chunk)
+          await safeWrite(
+            encoder.encode(`data: ${JSON.stringify({ type: 'text-delta', textDelta: chunk })}\n\n`)
+          )
+        }
 
-      // Sync assistant message to AMS (best-effort)
-      if (ams && amsSessionId && amsAvailable) {
+        const fullText = chunks.join('')
+        const usage = await result.usage
+        const finishReason = await result.finishReason
+        const latencyMs = Date.now() - startTime
+        const promptTokens = usage.inputTokens ?? 0
+        const completionTokens = usage.outputTokens ?? 0
+        const totalTokens = promptTokens + completionTokens
+        const costUsd = estimateCost(conversation.model, promptTokens, completionTokens)
+
+        // Save assistant message to D1
+        await db.insert(chatMessages).values({
+          id: generateId('msg'),
+          conversationId,
+          role: 'assistant',
+          content: fullText,
+          tokensPrompt: promptTokens,
+          tokensCompletion: completionTokens,
+          costUsd,
+          latencyMs,
+          createdAt: new Date().toISOString(),
+        })
+
+        // Sync assistant message to AMS (best-effort)
+        if (ams && amsSessionId && amsAvailable) {
+          try {
+            await ams.addMessage(amsSessionId, 'assistant', fullText)
+          } catch {
+            // AMS sync failure doesn't affect the response
+          }
+        }
+
+        // Send finish event
+        await safeWrite(
+          encoder.encode(
+            `data: ${JSON.stringify({
+              type: 'finish',
+              finishReason,
+              usage: {
+                inputTokens: promptTokens,
+                outputTokens: completionTokens,
+                totalTokens,
+              },
+              cost: { totalCostUSD: costUsd, model: conversation.model },
+            })}\n\n`
+          )
+        )
+
+        await safeWrite(encoder.encode('data: [DONE]\n\n'))
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Stream failed'
+        await safeWrite(
+          encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
+        )
+        await safeWrite(encoder.encode('data: [DONE]\n\n'))
+      } finally {
         try {
-          await ams.addMessage(amsSessionId, 'assistant', fullText)
+          await writer.close()
         } catch {
-          // AMS sync failure doesn't affect the response
+          // Already closed or client disconnected
         }
       }
+    })()
 
-      // Send finish event
-      await safeWrite(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: 'finish',
-            finishReason,
-            usage: {
-              inputTokens: promptTokens,
-              outputTokens: completionTokens,
-              totalTokens,
-            },
-            cost: { totalCostUSD: costUsd, model: conversation.model },
-          })}\n\n`
-        )
-      )
-
-      await safeWrite(encoder.encode('data: [DONE]\n\n'))
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Stream failed'
-      await safeWrite(
-        encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
-      )
-      await safeWrite(encoder.encode('data: [DONE]\n\n'))
-    } finally {
-      try {
-        await writer.close()
-      } catch {
-        // Already closed or client disconnected
-      }
-    }
-  })()
-
-  return new Response(readable, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-    },
-  })
-})
+    return new Response(readable, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+      },
+    })
+  }
+)
 
 /**
  * DELETE /v1/chat/conversations/:id — Delete conversation and messages
@@ -468,7 +471,7 @@ chatRoutes.delete('/conversations/:id', requireAuth, async c => {
   const id = c.req.param('id') as string
   const wallet = session.walletAddress.toLowerCase()
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Verify ownership
   const rows = await db

@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { and, eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { agents, directories, organizations } from '../db/schema'
 
@@ -24,7 +24,7 @@ export const resolveRoutes = new Hono<{ Bindings: Env }>()
  */
 resolveRoutes.get('/:identity', async c => {
   const identity = c.req.param('identity') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Parse handle@directoryId format
   const atIndex = identity.indexOf('@')

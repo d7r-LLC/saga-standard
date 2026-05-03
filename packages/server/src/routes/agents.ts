@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { eq, like, or, sql } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { agents, documents, organizations } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
@@ -66,7 +66,7 @@ agentRoutes.post('/', requireAuth, async c => {
     )
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const agentId = generateId('agent')
   const now = new Date().toISOString()
 
@@ -120,7 +120,7 @@ agentRoutes.post('/', requireAuth, async c => {
  */
 agentRoutes.get('/:handleOrAddress', async c => {
   const param = c.req.param('handleOrAddress') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   // Try by handle first, then by wallet address
   const isAddress = param.startsWith('0x')
@@ -184,7 +184,7 @@ agentRoutes.get('/', async c => {
   const search = c.req.query('search')
   const offset = (page - 1) * limit
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const whereClause = search
     ? or(like(agents.handle, `%${search}%`), like(agents.walletAddress, `%${search}%`))

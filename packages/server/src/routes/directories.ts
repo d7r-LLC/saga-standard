@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { eq, sql } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { directories } from '../db/schema'
 import { parseIntParam } from '../utils'
@@ -27,7 +27,7 @@ directoryRoutes.get('/', async c => {
     )
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const whereClause = status ? eq(directories.status, status) : undefined
 
@@ -65,7 +65,7 @@ directoryRoutes.get('/', async c => {
  */
 directoryRoutes.get('/:directoryId', async c => {
   const directoryId = c.req.param('directoryId') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const results = await db
     .select()

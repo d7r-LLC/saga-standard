@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { agents, documents, transfers } from '../db/schema'
 import { generateId, requireAuth } from '../middleware/auth'
@@ -34,7 +34,7 @@ transferRoutes.post('/initiate', requireAuth, async c => {
     )
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const agentRows = await db
     .select()
@@ -93,7 +93,7 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
     return c.json({ error: 'signature is required', code: 'INVALID_REQUEST' }, 400)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const xferRows = await db.select().from(transfers).where(eq(transfers.id, transferId)).limit(1)
 
@@ -146,7 +146,7 @@ transferRoutes.post('/:transferId/consent', requireAuth, async c => {
  */
 transferRoutes.get('/:transferId', async c => {
   const transferId = c.req.param('transferId') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const xferRows = await db.select().from(transfers).where(eq(transfers.id, transferId)).limit(1)
 
@@ -257,7 +257,7 @@ transferRoutes.post('/import', requireAuth, async c => {
     return c.json({ error: encError, code: 'ENCRYPTION_REQUIRED' }, 400)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const chain = identity.chain as string
   const now = new Date().toISOString()
 

@@ -3,8 +3,8 @@
 // Copyright 2026 d7r LLC
 
 import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
 import { and, eq } from 'drizzle-orm'
+import { getDb } from '../db'
 import type { Env } from '../bindings'
 import { groupMembers } from '../db/schema'
 import { requireAuth } from '../middleware/auth'
@@ -46,7 +46,7 @@ groupRoutes.post('/', requireAuth, async c => {
 /** GET /v1/groups/:groupId/members — List group members */
 groupRoutes.get('/:groupId/members', async c => {
   const groupId = c.req.param('groupId') as string
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   const rows = await db
     .select({ handle: groupMembers.handle })
@@ -73,7 +73,7 @@ groupRoutes.put('/:groupId/members', requireAuth, async c => {
     await upsertGroupMember(c.env.DB, groupId, handle, now)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
   const rows = await db
     .select({ handle: groupMembers.handle })
     .from(groupMembers)
@@ -90,7 +90,7 @@ groupRoutes.delete('/:groupId/members', requireAuth, async c => {
     return c.json({ error: 'remove[] is required', code: 'INVALID_REQUEST' }, 400)
   }
 
-  const db = drizzle(c.env.DB)
+  const db = getDb(c.env.DB)
 
   for (const handle of body.remove) {
     await db
