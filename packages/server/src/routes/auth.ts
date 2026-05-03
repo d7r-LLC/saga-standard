@@ -129,6 +129,12 @@ authRoutes.post('/verify', async c => {
 
 /**
  * Verify an EIP-191 personal_sign signature using viem.
+ *
+ * Behavior is documented in `packages/server/SECURITY.md`. If you change
+ * what this function does, update SECURITY.md in the same commit. The
+ * regression test `rejects signature from wrong wallet` in
+ * `packages/server/src/__tests__/server.test.ts` is the executable check
+ * on this contract.
  */
 async function verifySignature(
   address: string,

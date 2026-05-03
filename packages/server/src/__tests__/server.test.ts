@@ -14,6 +14,12 @@ const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const // gitleaks:allow
 const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY)
 const WALLET = testAccount.address // 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+// Hardhat's second account — used in the wrong-wallet regression test below
+const OTHER_PRIVATE_KEY =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const // gitleaks:allow
+const otherAccount = privateKeyToAccount(OTHER_PRIVATE_KEY)
+
 const CHAIN = 'eip155:8453'
 
 let env: Env
@@ -139,6 +145,32 @@ describe('SAGA Reference Server', () => {
         },
       })
       expect(res.status).toBe(400)
+    })
+
+    it('rejects signature from wrong wallet', async () => {
+      // Regression test for the SECURITY.md / verifySignature contract.
+      // If anyone replaces viem.verifyMessage with `() => true` (or otherwise
+      // weakens the check), this test must fail. See packages/server/SECURITY.md.
+      const challengeRes = await req('POST', '/v1/auth/challenge', {
+        body: { walletAddress: WALLET, chain: CHAIN },
+      })
+      expect(challengeRes.status).toBe(200)
+      const { challenge } = (await challengeRes.json()) as { challenge: string }
+
+      // Sign the challenge with the WRONG wallet (otherAccount), then claim WALLET.
+      const wrongSignature = await otherAccount.signMessage({ message: challenge })
+
+      const verifyRes = await req('POST', '/v1/auth/verify', {
+        body: {
+          walletAddress: WALLET,
+          chain: CHAIN,
+          signature: wrongSignature,
+          challenge,
+        },
+      })
+      expect(verifyRes.status).toBe(401)
+      const body = (await verifyRes.json()) as { error: string; code: string }
+      expect(body.code).toBe('INVALID_SIGNATURE')
     })
 
     it('rejects reused challenge', async () => {
