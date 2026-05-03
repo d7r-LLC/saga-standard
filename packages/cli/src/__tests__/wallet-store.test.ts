@@ -13,8 +13,14 @@ vi.mock('node:os', async importOriginal => {
   return { ...actual, homedir: () => TEST_HOME }
 })
 
-const { createWallet, importWallet, listWallets, loadWalletPrivateKey, getWalletInfo } =
-  await import('../wallet-store')
+const {
+  createWallet,
+  importWallet,
+  listWallets,
+  loadWalletKey,
+  loadWalletPrivateKey,
+  getWalletInfo,
+} = await import('../wallet-store')
 
 describe('wallet-store', () => {
   beforeEach(() => {
@@ -78,5 +84,72 @@ describe('wallet-store', () => {
 
     const decrypted = loadWalletPrivateKey('imported', 'pass')
     expect(decrypted).toMatch(/^0x[0-9a-f]{64}$/)
+  })
+
+  // Phase 4 (G-Med#1) — new keystores use scrypt N=65536
+  it('writes new keystores with N=65536 (Phase 4 KDF bump)', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    createWallet('kdf-test', 'pw')
+    const ksPath = path.join(TEST_HOME, '.saga', 'wallets', 'kdf-test.json')
+    const ks = JSON.parse(fs.readFileSync(ksPath, 'utf-8'))
+    expect(ks.crypto.kdfParams.n).toBe(65536)
+  })
+
+  // Phase 4 (G-Med#1) — old N=16384 keystores still decrypt
+  it('decrypts legacy N=16384 keystores correctly', async () => {
+    // Create a wallet with the new code, then forge an old-style keystore by
+    // re-encrypting under N=16384 to prove the decrypt path honors the
+    // recorded `kdfParams.n`.
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const crypto = await import('node:crypto')
+
+    const walletsDir = path.join(TEST_HOME, '.saga', 'wallets')
+    fs.mkdirSync(walletsDir, { recursive: true })
+
+    const privateKey = Buffer.from('cd'.repeat(32), 'hex')
+    const password = 'legacy-pw'
+    const salt = crypto.randomBytes(32)
+    const key = crypto.scryptSync(password, salt, 32, { N: 16384, r: 8, p: 1 })
+    const iv = crypto.randomBytes(12)
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+    const encrypted = Buffer.concat([cipher.update(privateKey), cipher.final()])
+    const tag = cipher.getAuthTag()
+
+    const legacyKs = {
+      name: 'legacy',
+      address: `0x${'aa'.repeat(20)}`,
+      chain: 'eip155:8453',
+      createdAt: '2025-01-01T00:00:00Z',
+      crypto: {
+        cipher: 'aes-256-gcm',
+        kdf: 'scrypt',
+        kdfParams: { n: 16384, r: 8, p: 1, salt: salt.toString('hex') },
+        ciphertext: encrypted.toString('hex'),
+        iv: iv.toString('hex'),
+        tag: tag.toString('hex'),
+      },
+    }
+    fs.writeFileSync(path.join(walletsDir, 'legacy.json'), JSON.stringify(legacyKs))
+
+    const decrypted = loadWalletPrivateKey('legacy', password)
+    expect(decrypted).toBe(`0x${'cd'.repeat(32)}`)
+  })
+
+  // Phase 4 (A-Low#1) — clearable WalletKey handle
+  it('loadWalletKey returns a handle whose private key can be cleared', () => {
+    const privateKey = `0x${'ef'.repeat(32)}`
+    importWallet('clearable', privateKey, 'pass')
+
+    const handle = loadWalletKey('clearable', 'pass')
+    expect(handle.privateKey).toBe(privateKey)
+
+    handle.clear()
+    expect(handle.privateKey).toBe('')
+
+    // Idempotent
+    handle.clear()
+    expect(handle.privateKey).toBe('')
   })
 })

@@ -101,4 +101,114 @@ describe('encryptVaultItem + decryptVaultItem', () => {
       'VaultKeyWrap.iv is required'
     )
   })
+
+  // Phase 4 (A-High#8) — vault item AAD binding tests
+  describe('AAD binding', () => {
+    const masterKey = new Uint8Array(32).fill(0xab)
+
+    it('round-trips with matching AAD context', () => {
+      const fields = { token: 'context-bound' }
+      const ctx = {
+        itemId: 'vi_alpha',
+        type: 'api-key',
+        name: 'Stripe',
+        createdAt: '2026-05-03T12:00:00Z',
+      }
+
+      const encrypted = encryptVaultItem(fields, masterKey, ctx)
+      const decrypted = decryptVaultItem(encrypted.fields, encrypted.wrappedDek, masterKey, ctx)
+      expect(decrypted).toEqual(fields)
+    })
+
+    it('rejects decryption with mismatched AAD context (item swap)', () => {
+      const fields = { token: 'item-A-secret' }
+      const ctxA = { itemId: 'vi_A', type: 'api-key', name: 'Stripe' }
+      const ctxB = { itemId: 'vi_B', type: 'api-key', name: 'GitHub' }
+
+      const encrypted = encryptVaultItem(fields, masterKey, ctxA)
+
+      // Swap attempt: decrypt with item B's context. AES-GCM auth fails.
+      expect(() =>
+        decryptVaultItem(encrypted.fields, encrypted.wrappedDek, masterKey, ctxB)
+      ).toThrow()
+    })
+
+    it('AAD context is order-independent (same context, different key order)', () => {
+      const fields = { token: 'order-test' }
+      const ctxA = { itemId: 'vi_x', type: 'note', name: 'Test' }
+      const ctxB = { name: 'Test', type: 'note', itemId: 'vi_x' }
+
+      const encrypted = encryptVaultItem(fields, masterKey, ctxA)
+      const decrypted = decryptVaultItem(encrypted.fields, encrypted.wrappedDek, masterKey, ctxB)
+      expect(decrypted).toEqual(fields)
+    })
+
+    it('AAD-bound ciphertext fails to decrypt without context (legacy clients)', () => {
+      const fields = { token: 'aad-only' }
+      const ctx = { itemId: 'vi_aad', type: 'secret' }
+
+      const encrypted = encryptVaultItem(fields, masterKey, ctx)
+
+      // Caller forgets context. AES-GCM auth fails.
+      expect(() => decryptVaultItem(encrypted.fields, encrypted.wrappedDek, masterKey)).toThrow()
+    })
+
+    it('legacy ciphertext (no AAD) still decrypts when no context is supplied', () => {
+      const fields = { token: 'legacy' }
+
+      // Encrypt without context (older callers)
+      const encrypted = encryptVaultItem(fields, masterKey)
+
+      // Decrypt without context (older callers)
+      const decrypted = decryptVaultItem(encrypted.fields, encrypted.wrappedDek, masterKey)
+      expect(decrypted).toEqual(fields)
+    })
+  })
+
+  // Phase 4 (O-Low#1) — Buffer.from regression: every call uses an explicit
+  // encoding argument. This test pins the contract by reading the file source.
+  it('vault-crypto.ts has no encoding-less Buffer.from calls', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const src = fs.readFileSync(path.join(__dirname, 'vault-crypto.ts'), 'utf-8')
+
+    // Match every `Buffer.from(...)` call. We intentionally allow nesting and
+    // commas inside the argument list; we just need to capture the full call
+    // and inspect whether the top-level argument list contains a comma
+    // (= encoding supplied) or not (= bare call we want to flag).
+    const callPattern = /Buffer\.from\(/g
+    const offending: string[] = []
+    let match: RegExpExecArray | null
+    while ((match = callPattern.exec(src)) !== null) {
+      const start = match.index + match[0].length
+      let depth = 1
+      let topLevelComma = false
+      let isArrayArg = false
+      for (let i = start; i < src.length; i++) {
+        const c = src[i]
+        if (c === '(') depth++
+        else if (c === ')') {
+          depth--
+          if (depth === 0) {
+            const args = src.slice(start, i)
+            if (!topLevelComma && !isArrayArg) {
+              offending.push(`Buffer.from(${args})`)
+            }
+            break
+          }
+        } else if (c === ',' && depth === 1) {
+          topLevelComma = true
+        } else if (c === '[' && depth === 1 && !topLevelComma) {
+          // Array argument (Buffer.concat([Buffer.from(x)]) etc.) — by design
+          // doesn't take an encoding.
+          isArrayArg = true
+        }
+      }
+    }
+
+    expect(
+      offending,
+      `Found Buffer.from(...) without explicit encoding: ${offending.join(', ')}`
+    ).toEqual([])
+  })
 })

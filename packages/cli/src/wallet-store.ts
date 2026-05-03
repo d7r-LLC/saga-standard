@@ -105,15 +105,71 @@ export function listWallets(): WalletInfo[] {
     })
 }
 
-/** Load and decrypt a wallet's private key */
-export function loadWalletPrivateKey(name: string, password: string): string {
+/**
+ * Clearable handle around a decrypted wallet private key.
+ *
+ * Phase 4 (A-Low#1): callers that hold a decrypted key for longer than a
+ * single sign should prefer `loadWalletKey()` over `loadWalletPrivateKey()`
+ * and call `.clear()` after the last signing operation. `.clear()` zeroes
+ * the underlying byte buffer; subsequent `.privateKey` reads return an
+ * empty string.
+ *
+ * Note: this is best-effort. JS engines may keep their own internal copies
+ * of the hex string returned by `.privateKey` (strings are immutable in JS),
+ * so callers should treat the hex form as transient and avoid persisting it.
+ * The `Buffer` zeroing covers the canonical in-memory copy held by the SDK.
+ */
+export interface WalletKey {
+  /**
+   * 0x-prefixed hex form of the decrypted private key. Returns the empty
+   * string after `.clear()` has been called.
+   */
+  readonly privateKey: string
+  /**
+   * Zero the underlying private-key Buffer in place. Idempotent.
+   */
+  clear(): void
+}
+
+/** Load + decrypt a wallet, returning a clearable handle. */
+export function loadWalletKey(name: string, password: string): WalletKey {
   const path = join(WALLETS_DIR(), `${name}.json`)
   if (!existsSync(path)) {
     throw new Error(`Wallet "${name}" not found`)
   }
 
   const ks = JSON.parse(readFileSync(path, 'utf-8')) as EncryptedKeystore
-  return decryptKeystore(ks, password)
+  // decryptKeystoreBuffer returns the raw 32-byte Buffer; we hold it in a
+  // closure and zero it on `.clear()`.
+  let buf: Buffer | null = decryptKeystoreBuffer(ks, password)
+
+  return {
+    get privateKey() {
+      if (!buf) return ''
+      return `0x${buf.toString('hex')}`
+    },
+    clear() {
+      if (buf) {
+        buf.fill(0)
+        buf = null
+      }
+    },
+  }
+}
+
+/**
+ * Load and decrypt a wallet's private key (string form).
+ *
+ * Existing callers continue to work; new callers that need to zero memory
+ * after use should switch to `loadWalletKey()` and call `.clear()`.
+ */
+export function loadWalletPrivateKey(name: string, password: string): string {
+  const handle = loadWalletKey(name, password)
+  const hex = handle.privateKey
+  // Zero the buffer immediately — the string copy held by the caller is the
+  // remaining surface, but the canonical Buffer is gone.
+  handle.clear()
+  return hex
 }
 
 /** Get wallet info without decrypting */
@@ -127,6 +183,21 @@ export function getWalletInfo(name: string): WalletInfo | null {
 
 // ── Encryption helpers ────────────────────────────────────────────────
 
+// Phase 4 (G-Med#1): scrypt cost bumped from 2^14 (16384) to 2^16 (65536) to
+// match modern OWASP guidance. Old keystores with `n: 16384` still decrypt
+// because the decrypt path reads `kdfParams.n` from the file. New keystores
+// store `n: 65536` and benefit from a ~4× harder KDF for the same password.
+const SCRYPT_N_NEW = 65536
+const SCRYPT_R = 8
+const SCRYPT_P = 1
+
+/**
+ * Node's `scryptSync` enforces a default memory cap of ~32 MB; N=65536, r=8
+ * needs ~64 MB. Set maxmem to a safe upper bound so the new KDF works on
+ * standard installs without changing the scrypt cost itself.
+ */
+const SCRYPT_MAXMEM = 128 * 1024 * 1024 // 128 MB
+
 function encryptKeystore(opts: {
   name: string
   address: string
@@ -136,7 +207,12 @@ function encryptKeystore(opts: {
   password: string
 }): EncryptedKeystore {
   const salt = randomBytes(32)
-  const key = scryptSync(opts.password, salt, 32, { N: 16384, r: 8, p: 1 })
+  const key = scryptSync(opts.password, salt, 32, {
+    N: SCRYPT_N_NEW,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAXMEM,
+  })
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)
 
@@ -151,7 +227,12 @@ function encryptKeystore(opts: {
     crypto: {
       cipher: 'aes-256-gcm',
       kdf: 'scrypt',
-      kdfParams: { n: 16384, r: 8, p: 1, salt: salt.toString('hex') },
+      kdfParams: {
+        n: SCRYPT_N_NEW,
+        r: SCRYPT_R,
+        p: SCRYPT_P,
+        salt: salt.toString('hex'),
+      },
       ciphertext: encrypted.toString('hex'),
       iv: iv.toString('hex'),
       tag: tag.toString('hex'),
@@ -159,12 +240,20 @@ function encryptKeystore(opts: {
   }
 }
 
-function decryptKeystore(ks: EncryptedKeystore, password: string): string {
+/**
+ * Decrypt a keystore and return the raw 32-byte private key Buffer. This is
+ * the canonical in-memory form; callers can zero it via `.fill(0)` once
+ * they're done using it (see `loadWalletKey` / `WalletKey.clear`).
+ */
+function decryptKeystoreBuffer(ks: EncryptedKeystore, password: string): Buffer {
   const salt = Buffer.from(ks.crypto.kdfParams.salt, 'hex')
   const key = scryptSync(password, salt, 32, {
     N: ks.crypto.kdfParams.n,
     r: ks.crypto.kdfParams.r,
     p: ks.crypto.kdfParams.p,
+    // Match the encrypt-side cap so old N=16384 keystores AND new N=65536
+    // keystores all decrypt without bumping into Node's default maxmem.
+    maxmem: SCRYPT_MAXMEM,
   })
   const iv = Buffer.from(ks.crypto.iv, 'hex')
   const tag = Buffer.from(ks.crypto.tag, 'hex')
@@ -173,6 +262,5 @@ function decryptKeystore(ks: EncryptedKeystore, password: string): string {
   const decipher = createDecipheriv('aes-256-gcm', key, iv)
   decipher.setAuthTag(tag)
 
-  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()])
-  return `0x${decrypted.toString('hex')}`
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()])
 }
