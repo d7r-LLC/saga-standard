@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
+import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract SAGADirectoryIdentityTest is Test {
@@ -112,7 +113,7 @@ contract SAGADirectoryIdentityTest is Test {
     // --- Test 7: empty URL reverts ---
     function test_registerDirectory_emptyUrlReverts() public {
         vm.prank(user1);
-        vm.expectRevert("SAGADirectoryIdentity: invalid url");
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
         directory.registerDirectory("no-url", "", user1, "full");
     }
 
@@ -188,7 +189,7 @@ contract SAGADirectoryIdentityTest is Test {
         );
 
         vm.prank(user2);
-        vm.expectRevert("SAGADirectoryIdentity: not owner or governance");
+        vm.expectRevert("SAGADirectoryIdentity: not nft owner or governance");
         directory.updateDirectoryStatus(tokenId, "hacked");
     }
 
@@ -264,5 +265,121 @@ contract SAGADirectoryIdentityTest is Test {
         directory.transferFrom(user1, user2, tokenId);
 
         assertEq(directory.directoryId(tokenId), "immutable-id");
+    }
+
+    // === Phase 1 — operator self-rehab restriction (A-Crit#4) ===
+    //
+    // The token owner (operator) can only DOWNGRADE their own status:
+    //   active=0 → suspended=1 → flagged=2 → revoked=3
+    // Contract owner (Safe) keeps full authority and can set any status.
+
+    function _registerDir(address operator, string memory id) internal returns (uint256) {
+        vm.prank(operator);
+        return directory.registerDirectory(id, "https://hub.com", operator, "full");
+    }
+
+    function test_updateDirectoryStatus_operatorCanDowngradeActiveToSuspended() public {
+        uint256 tokenId = _registerDir(user1, "downgrade-1");
+        vm.prank(user1);
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        assertEq(directory.directoryStatus(tokenId), "suspended");
+    }
+
+    function test_updateDirectoryStatus_operatorCanDowngradeSuspendedToRevoked() public {
+        uint256 tokenId = _registerDir(user1, "downgrade-2");
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "suspended");
+
+        vm.prank(user1);
+        directory.updateDirectoryStatus(tokenId, "revoked");
+        assertEq(directory.directoryStatus(tokenId), "revoked");
+    }
+
+    function test_updateDirectoryStatus_operatorCannotUpgradeFlaggedToActive() public {
+        uint256 tokenId = _registerDir(user1, "no-upgrade-1");
+        // Governance flags
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        // Operator tries to self-rehab
+        vm.prank(user1);
+        vm.expectRevert("SAGADirectoryIdentity: nft owner can only downgrade status");
+        directory.updateDirectoryStatus(tokenId, "active");
+    }
+
+    function test_updateDirectoryStatus_operatorCannotUpgradeRevokedToSuspended() public {
+        uint256 tokenId = _registerDir(user1, "no-upgrade-2");
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "revoked");
+
+        vm.prank(user1);
+        vm.expectRevert("SAGADirectoryIdentity: nft owner can only downgrade status");
+        directory.updateDirectoryStatus(tokenId, "suspended");
+    }
+
+    function test_updateDirectoryStatus_operatorCannotUpgradeSuspendedToActive() public {
+        uint256 tokenId = _registerDir(user1, "no-upgrade-3");
+        // Operator first downgrades to suspended (allowed)
+        vm.prank(user1);
+        directory.updateDirectoryStatus(tokenId, "suspended");
+
+        // Then tries to undo it
+        vm.prank(user1);
+        vm.expectRevert("SAGADirectoryIdentity: nft owner can only downgrade status");
+        directory.updateDirectoryStatus(tokenId, "active");
+    }
+
+    function test_updateDirectoryStatus_operatorCanNoOpAtSameRank() public {
+        uint256 tokenId = _registerDir(user1, "same-rank");
+        // active → active (rank 0 → rank 0, allowed: rank >= rank)
+        vm.prank(user1);
+        directory.updateDirectoryStatus(tokenId, "active");
+        assertEq(directory.directoryStatus(tokenId), "active");
+    }
+
+    function test_updateDirectoryStatus_governanceCanRestoreActiveFromFlagged() public {
+        uint256 tokenId = _registerDir(user1, "gov-restore");
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        // Governance (contract owner) bypasses the downgrade-only rule
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "active");
+        assertEq(directory.directoryStatus(tokenId), "active");
+    }
+
+    function test_updateDirectoryStatus_governanceCanSetAnyStatus() public {
+        uint256 tokenId = _registerDir(user1, "gov-any");
+
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "revoked");
+        assertEq(directory.directoryStatus(tokenId), "revoked");
+
+        // Even from revoked, governance can go back to suspended
+        vm.prank(deployer);
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        assertEq(directory.directoryStatus(tokenId), "suspended");
+    }
+
+    // === Phase 1 — URL validation (A-Med#14) ===
+
+    function test_registerDirectory_invalidProtocolReverts() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        directory.registerDirectory("bad-proto", "javascript:alert(1)", user1, "full");
+    }
+
+    function test_updateDirectoryUrl_emptyReverts() public {
+        uint256 tokenId = _registerDir(user1, "url-empty");
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        directory.updateDirectoryUrl(tokenId, "");
+    }
+
+    function test_updateDirectoryUrl_invalidProtocolReverts() public {
+        uint256 tokenId = _registerDir(user1, "url-proto");
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        directory.updateDirectoryUrl(tokenId, "data:text/html,evil");
     }
 }

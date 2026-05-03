@@ -29,23 +29,70 @@ log "chain=${CHAIN} chainId=${CHAIN_ID} mode=${MODE}"
 [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && die "OP_SERVICE_ACCOUNT_TOKEN not set"
 
 # ── Fetch secrets from 1Password (in-memory only) ──────────────────────
-log "reading signer key from 1password"
-SIGNER_KEY=$(op read "op://${VAULT}/${SIGNER_ITEM}/password" 2>/dev/null) \
-  || die "failed to read signer key from 1password"
+# The signer credential MAY be either:
+#   (a) a hex private key (64 hex chars, optional 0x prefix), or
+#   (b) a BIP-39 mnemonic seed phrase (12/15/18/21/24 space-separated words)
+# In either case the value lives at op://${VAULT}/${SIGNER_ITEM}/password.
+# This script is the ONLY supported way to read or validate the signer.
+# Do not `op read` the credential elsewhere — see .claude/rules/secrets-management.md.
+log "reading signer credential from 1password"
+SIGNER_INPUT=$(op read "op://${VAULT}/${SIGNER_ITEM}/password" 2>/dev/null) \
+  || die "failed to read signer credential from 1password"
 
 log "reading explorer api key from 1password"
 EXPLORER_KEY=$(op read "op://${VAULT}/${EXPLORER_KEY_ITEM}/password" 2>/dev/null) \
   || die "failed to read explorer api key from 1password"
 
-# ── Normalize key format (ensure 0x prefix) ──────────────────────────
-case "$SIGNER_KEY" in
-  0x*) ;; # already has prefix
-  *) SIGNER_KEY="0x${SIGNER_KEY}" ;;
+# ── Detect credential format and resolve to a hex private key ──────────
+# Mnemonic detection: count whitespace-separated words. BIP-39 valid lengths
+# are 12, 15, 18, 21, or 24. Anything else is treated as a hex key.
+#
+# For mnemonics we delegate to a Node helper (derive-mnemonic.mjs) that reads
+# the mnemonic from STDIN — never argv — so the seed phrase does NOT appear
+# in /proc/$pid/cmdline. This closes the leak path flagged by the 2026-05-03
+# audit (A-Crit#3).
+WORD_COUNT=$(echo -n "$SIGNER_INPUT" | wc -w | tr -d ' ')
+
+# Locate derive-mnemonic.mjs. In the deploy container it's at the canonical
+# install path; in local dev runs it's a sibling of this script.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "/usr/local/lib/saga-deploy/derive-mnemonic.mjs" ]; then
+  DERIVE_HELPER="/usr/local/lib/saga-deploy/derive-mnemonic.mjs"
+elif [ -f "${SCRIPT_DIR}/derive-mnemonic.mjs" ]; then
+  DERIVE_HELPER="${SCRIPT_DIR}/derive-mnemonic.mjs"
+else
+  DERIVE_HELPER=""
+fi
+
+case "$WORD_COUNT" in
+  12|15|18|21|24)
+    log "credential format: mnemonic (${WORD_COUNT} words)"
+    [ -z "$DERIVE_HELPER" ] && die "derive-mnemonic.mjs not found"
+    # Default derivation path: m/44'/60'/0'/0/0 (Ethereum, account 0, address 0).
+    # Override with op://${VAULT}/${SIGNER_ITEM}/derivation_path if non-default.
+    DERIVATION_PATH=$(op read "op://${VAULT}/${SIGNER_ITEM}/derivation_path" 2>/dev/null \
+      || echo "m/44'/60'/0'/0/0")
+    SIGNER_KEY=$(printf '%s' "$SIGNER_INPUT" \
+      | node "$DERIVE_HELPER" "$DERIVATION_PATH" 2>/dev/null) \
+      || die "failed to derive private key from mnemonic"
+    ;;
+  1)
+    log "credential format: hex"
+    SIGNER_KEY="$SIGNER_INPUT"
+    case "$SIGNER_KEY" in
+      0x*) ;; # already prefixed
+      *) SIGNER_KEY="0x${SIGNER_KEY}" ;;
+    esac
+    ;;
+  *)
+    die "signer credential has invalid format (got ${WORD_COUNT} words; expected 1 hex key or 12/15/18/21/24 mnemonic words)"
+    ;;
 esac
+unset SIGNER_INPUT
 
 # ── Derive signer address (key never logged) ──────────────────────────
 SIGNER_ADDR=$(cast wallet address "$SIGNER_KEY" 2>/dev/null) \
-  || die "invalid signer key"
+  || die "invalid signer key (could not derive address)"
 log "signer=${SIGNER_ADDR}"
 
 # ── Simulate deployment ────────────────────────────────────────────────

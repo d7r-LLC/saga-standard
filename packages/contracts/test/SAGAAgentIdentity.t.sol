@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../src/SAGAOrgIdentity.sol";
+import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract SAGAAgentIdentityTest is Test {
@@ -290,5 +291,43 @@ contract SAGAAgentIdentityTest is Test {
         uint256 tokenId = agent.registerAgent("global-agent", "https://hub.com");
 
         assertEq(agent.agentDirectoryId(tokenId), "");
+    }
+
+    // === Phase 1 — URL validation (A-Med#14) ===
+
+    function test_registerAgent_emptyUrlReverts() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        agent.registerAgent("no-url", "");
+    }
+
+    function test_registerAgent_invalidProtocolReverts() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        agent.registerAgent("bad-proto", "javascript:alert(1)");
+    }
+
+    function test_registerAgentInDirectory_invalidProtocolReverts() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        agent.registerAgentInDirectory("bad-proto-dir", "ftp://hub.com", "some-dir");
+    }
+
+    function test_updateHomeHub_emptyUrlReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("hub-empty", "https://old.com");
+
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        agent.updateHomeHub(tokenId, "");
+    }
+
+    function test_updateHomeHub_invalidProtocolReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("hub-proto", "https://old.com");
+
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        agent.updateHomeHub(tokenId, "data:text/html,evil");
     }
 }

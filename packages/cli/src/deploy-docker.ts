@@ -56,6 +56,17 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
   const configJson = JSON.stringify(configPayload)
   const configBase64 = Buffer.from(configJson).toString('base64')
 
+  // Container hardening (Phase 1, A-Crit#3 — 2026-05-03 audit):
+  //   --read-only       root filesystem is immutable; a compromised forge/cast/jq
+  //                     cannot persist to disk or rewrite the entrypoint.
+  //   --tmpfs ...       small writable scratch areas for forge cache + tmp.
+  //                     FOUNDRY_CACHE_PATH=/forge-cache is set in Dockerfile.deploy.
+  //   --cap-drop ALL    no Linux capabilities.
+  //   --security-opt no-new-privileges  cannot escalate via setuid binaries.
+  //
+  // The mnemonic-via-stdin helper (scripts/derive-mnemonic.mjs) means the
+  // deploy signer never lands on argv inside the container, so /proc/$pid/cmdline
+  // does not leak the seed phrase to sibling processes.
   return [
     'run',
     '--rm',
@@ -69,6 +80,11 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
     `DEPLOY_CONFIG=${configBase64}`,
     '-e',
     `DEPLOY_MODE=${mode}`,
+    '--read-only',
+    '--tmpfs',
+    '/forge-cache:rw,size=512m,mode=1777',
+    '--tmpfs',
+    '/tmp:rw,size=128m,mode=1777',
     '--cap-drop',
     'ALL',
     '--security-opt',

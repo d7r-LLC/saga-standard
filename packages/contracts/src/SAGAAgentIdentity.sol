@@ -7,6 +7,7 @@ import {
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
+import {SAGAValidation} from "./SAGAValidation.sol";
 
 /// @title SAGAAgentIdentity
 /// @notice ERC-721 NFT collection for SAGA agent identities
@@ -51,6 +52,7 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
         external
         returns (uint256)
     {
+        SAGAValidation.validateUrl(hubUrl);
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
 
@@ -75,6 +77,7 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
         string calldata hubUrl,
         string calldata directoryId
     ) external returns (uint256) {
+        SAGAValidation.validateUrl(hubUrl);
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
 
@@ -95,6 +98,7 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable {
     /// @notice Update the home hub URL (owner only)
     function updateHomeHub(uint256 tokenId, string calldata newHubUrl) external {
         require(ownerOf(tokenId) == msg.sender, "SAGAAgentIdentity: not owner");
+        SAGAValidation.validateUrl(newHubUrl);
         string memory oldUrl = _homeHubUrls[tokenId];
         _homeHubUrls[tokenId] = newHubUrl;
         emit HomeHubUpdated(tokenId, oldUrl, newHubUrl);

@@ -200,6 +200,24 @@ Implementations MUST support `identity`. All other export types are OPTIONAL for
 
 When an agent is cloned, the clone's `parentSagaId` references the source SAGA document and `cloneDepth` increments by 1. This creates a verifiable lineage chain. An agent MAY inspect its own lineage. Platforms SHOULD preserve lineage on clone operations.
 
+### 4.1 Handle Registration Semantics
+
+Handle registration on the SAGA on-chain registry is **first-come-first-served (FCFS)** and **front-runnable**. The `registerAgent`, `registerOrganization`, and `registerDirectory` functions on the identity contracts are permissionless mints. There is no commit-reveal phase, no priority mechanism, and no pre-registration window.
+
+Practical consequences for client implementations:
+
+- A user submitting `registerAgent("alice", ...)` may have their transaction observed in the public mempool by an attacker who broadcasts `registerOrganization("alice", ...)` (or `registerAgent("alice", ...)` from a different wallet) at higher gas — the attacker wins the handle.
+- Once a handle is registered to ANY entity type (agent, org, or directory) in the global namespace it is permanently claimed. The losing transaction reverts and the user pays gas with no result.
+- Directory-scoped handles are independent of the global namespace and of each other; the same `alice` may exist in two different directories without collision.
+
+**Client UX recommendations:**
+
+- Warn users that handle registration is irreversible and front-runnable. Recommend submitting from a privacy-preserving relay or with high gas during low-congestion windows for highly-desired handles.
+- After submitting, watch for `HandleRegistered` events on the registry. If the handle was sniped, surface the failure clearly and let the user pick a different handle without re-paying for the failed attempt.
+- For sensitive handles (e.g., recognizable brand names), prefer Layer-2 sequencer-private mempools or pre-confirmed transaction services where available.
+
+A future spec revision MAY introduce commit-reveal or auction-based handle registration. The current FCFS behavior is documented here so independent implementations remain interoperable until that revision lands.
+
 ---
 
 ## 5. Layer 2: Persona

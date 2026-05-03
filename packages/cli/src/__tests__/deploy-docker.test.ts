@@ -89,14 +89,30 @@ describe('deploy-docker', () => {
       expect(args[envIdx + 1]).toBe('DEPLOY_MODE=dry-run')
     })
 
-    it('does not include --read-only (forge needs writable filesystem for compilation)', () => {
+    it('runs with read-only root filesystem and tmpfs for forge cache + tmp', () => {
+      // Phase 1 hardening (A-Crit#3): the deploy container's root filesystem
+      // is immutable. Forge writes go to a /forge-cache tmpfs (set via
+      // FOUNDRY_CACHE_PATH in Dockerfile.deploy); other temp writes go to
+      // a /tmp tmpfs. Neither persists beyond the run.
       const args = buildDockerRunArgs({
         resolved: MOCK_RESOLVED,
         networkName: 'saga-deploy-net',
         mode: 'broadcast',
       })
 
-      expect(args).not.toContain('--read-only')
+      expect(args).toContain('--read-only')
+
+      // Two tmpfs mounts: /forge-cache and /tmp
+      const tmpfsValues = args.reduce<string[]>((acc, val, i) => {
+        if (val === '--tmpfs' && typeof args[i + 1] === 'string') acc.push(args[i + 1])
+        return acc
+      }, [])
+      expect(tmpfsValues).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^\/forge-cache:/),
+          expect.stringMatching(/^\/tmp:/),
+        ])
+      )
     })
 
     it('uses the specified network', () => {

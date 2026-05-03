@@ -7,6 +7,7 @@ import {
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
+import {SAGAValidation} from "./SAGAValidation.sol";
 
 /// @title SAGADirectoryIdentity
 /// @notice ERC-721 NFT collection for SAGA directory identities.
@@ -65,7 +66,7 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
         address operator,
         string calldata conformanceLevel
     ) external returns (uint256) {
-        require(bytes(url).length > 0, "SAGADirectoryIdentity: invalid url");
+        SAGAValidation.validateUrl(url);
         require(operator != address(0), "SAGADirectoryIdentity: invalid operator");
         require(bytes(conformanceLevel).length > 0, "SAGADirectoryIdentity: invalid conformance");
 
@@ -93,21 +94,52 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
     /// @notice Update the directory URL (token owner only)
     function updateDirectoryUrl(uint256 tokenId, string calldata newUrl) external {
         require(ownerOf(tokenId) == msg.sender, "SAGADirectoryIdentity: not owner");
-        require(bytes(newUrl).length > 0, "SAGADirectoryIdentity: invalid url");
+        SAGAValidation.validateUrl(newUrl);
         string memory oldUrl = _directoryUrls[tokenId];
         _directoryUrls[tokenId] = newUrl;
         emit DirectoryUrlUpdated(tokenId, oldUrl, newUrl);
     }
 
-    /// @notice Update directory status (token owner or contract owner for governance)
-    /// @param newStatus Must be one of: "active", "suspended", "flagged", "revoked"
+    /// @notice Update directory status. Authority depends on the role:
+    ///         - Contract owner (governance, typically a Safe multisig):
+    ///             may set ANY valid status — full authority over the namespace.
+    ///         - NFT owner (`ownerOf(tokenId)`):
+    ///             may only DOWNGRADE — i.e. set a status with rank
+    ///             greater-than-or-equal-to the current status. They cannot
+    ///             upgrade from "flagged" or "revoked" back to "active" or
+    ///             "suspended".
+    ///
+    ///         The NFT owner is the on-chain holder of this directory token.
+    ///         It is distinct from the off-chain `_operatorWallets[tokenId]`
+    ///         metadata field, which is informational and NOT used for any
+    ///         authorization decision. Authorization is exclusively keyed on
+    ///         `ownerOf(tokenId)` and `owner()` (the contract Ownable owner).
+    /// @dev Status rank: active=0, suspended=1, flagged=2, revoked=3. The
+    ///      NFT-owner-side enforcement closes the self-rehabilitation hole
+    ///      flagged in the 2026-05-03 audit (A-Crit#4): a directory NFT
+    ///      holder caught misbehaving cannot flip themselves back to
+    ///      "active" once governance has flagged or revoked them.
+    /// @param newStatus Must be one of: "active", "suspended", "flagged", "revoked".
     function updateDirectoryStatus(uint256 tokenId, string calldata newStatus) external {
+        bool isContractOwner = msg.sender == owner();
+        bool isNftOwner = ownerOf(tokenId) == msg.sender;
         require(
-            ownerOf(tokenId) == msg.sender || owner() == msg.sender,
-            "SAGADirectoryIdentity: not owner or governance"
+            isContractOwner || isNftOwner,
+            "SAGADirectoryIdentity: not nft owner or governance"
         );
         require(_isValidStatus(newStatus), "SAGADirectoryIdentity: invalid status");
+
         string memory oldStatus = _statuses[tokenId];
+
+        // NFT owner can only downgrade or no-op.
+        // Contract owner (governance) bypasses this check and can set any status.
+        if (!isContractOwner) {
+            require(
+                _statusRank(newStatus) >= _statusRank(oldStatus),
+                "SAGADirectoryIdentity: nft owner can only downgrade status"
+            );
+        }
+
         _statuses[tokenId] = newStatus;
         emit DirectoryStatusUpdated(tokenId, oldStatus, newStatus);
     }
@@ -118,6 +150,19 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
         bytes32 h = keccak256(bytes(status));
         return h == keccak256("active") || h == keccak256("suspended")
             || h == keccak256("flagged") || h == keccak256("revoked");
+    }
+
+    /// @dev Status rank used to enforce the downgrade-only rule for token owners.
+    ///      active=0 (best) → suspended=1 → flagged=2 → revoked=3 (worst).
+    ///      Reverts on any unknown status, but callers should always run
+    ///      _isValidStatus first.
+    function _statusRank(string memory status) internal pure returns (uint8) {
+        bytes32 h = keccak256(bytes(status));
+        if (h == keccak256("active")) return 0;
+        if (h == keccak256("suspended")) return 1;
+        if (h == keccak256("flagged")) return 2;
+        if (h == keccak256("revoked")) return 3;
+        revert("SAGADirectoryIdentity: unknown status rank");
     }
 
     // --- View functions ---

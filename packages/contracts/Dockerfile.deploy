@@ -4,14 +4,27 @@
 # Stage 1: Pull Foundry binaries
 FROM ghcr.io/foundry-rs/foundry:stable AS foundry
 
-# Stage 2: Slim runtime with Foundry + 1Password CLI
+# Stage 2: Pull Node.js binaries from the official slim image (avoids
+# `curl | bash` install path; pinned Node 20.x by digest of node:20-bookworm-slim).
+FROM node:20.18.1-bookworm-slim AS nodejs
+
+# Stage 3: Slim runtime with Foundry + 1Password CLI + Node
 FROM debian:bookworm-slim
 
 # Copy Foundry binaries
 COPY --from=foundry /usr/local/bin/forge /usr/local/bin/forge
 COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
 
-# Install dependencies + 1Password CLI (multi-arch: amd64 and arm64)
+# Copy Node.js binary + npm + standard library from official image.
+# This replaces the prior `curl | bash` Node install path — provenance is
+# pinned to the official node:20.18.1-bookworm-slim base image.
+COPY --from=nodejs /usr/local/bin/node /usr/local/bin/node
+COPY --from=nodejs /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+
+# Install dependencies + 1Password CLI (multi-arch: amd64 and arm64).
+# 1P version is pinned. Node deps for the mnemonic helper (@scure/bip32 +
+# @scure/bip39) are installed at known minor versions for reproducibility.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl jq ca-certificates unzip \
     && ARCH=$(dpkg --print-architecture) \
@@ -20,9 +33,10 @@ RUN apt-get update \
        "https://cache.agilebits.com/dist/1P/op2/pkg/${OP_VERSION}/op_linux_${ARCH}_${OP_VERSION}.zip" \
     && unzip -o /tmp/op.zip -d /usr/local/bin/ op \
     && rm /tmp/op.zip \
+    && npm install -g --no-audit --no-fund @scure/bip32@1.7.0 @scure/bip39@1.6.0 \
     && apt-get purge -y unzip \
     && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* /root/.npm
 
 # Copy contract sources (frozen snapshot, no host volume mounts)
 WORKDIR /deploy
@@ -31,11 +45,22 @@ COPY script/ script/
 COPY lib/ lib/
 COPY foundry.toml .
 
-# Copy entrypoints
+# Copy entrypoints + helpers
 COPY scripts/deploy-entrypoint.sh /entrypoint.sh
 COPY scripts/fund-entrypoint.sh /fund-entrypoint.sh
 COPY scripts/admin-entrypoint.sh /admin-entrypoint.sh
-RUN chmod +x /entrypoint.sh /fund-entrypoint.sh /admin-entrypoint.sh
+COPY scripts/derive-mnemonic.mjs /usr/local/lib/saga-deploy/derive-mnemonic.mjs
+RUN chmod +x /entrypoint.sh /fund-entrypoint.sh /admin-entrypoint.sh \
+    && chmod 755 /usr/local/lib/saga-deploy/derive-mnemonic.mjs
+
+# Tell the derive helper where to find @scure/* (installed globally above).
+# The helper resolves modules via NODE_PATH so the entrypoint doesn't have to
+# install local node_modules at runtime (which is incompatible with --read-only).
+ENV NODE_PATH=/usr/lib/node_modules
+
+# Forge + cast caches go to a tmpfs path, set by the runtime via --tmpfs flag
+# in deploy-docker.ts. Read-only root + tmpfs at /forge-cache + /tmp.
+ENV FOUNDRY_CACHE_PATH=/forge-cache
 
 # Security: disable shell history
 ENV HISTFILE=/dev/null
