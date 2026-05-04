@@ -277,6 +277,16 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     ///      (F-10) block transfers when status is flagged or revoked
     ///             (rank >= 2). Mints (`from == 0`) and burns
     ///             (`to == 0`) are unaffected.
+    ///
+    ///      Phase 9 (G-1): the rank >= 2 transfer block is suspended when
+    ///      `auth == owner()` (the contract Ownable2Step owner — post-
+    ///      handoff a Safe multisig). This gives governance a rescue path:
+    ///      a flagged/revoked directory NFT can be transferred to a
+    ///      remediation steward who can then operate the namespace under
+    ///      contract-owner direction. Without this rescue path the
+    ///      directory namespace is permanently frozen (re-audit G-1).
+    ///      The self-TBA guard (F-4) is unconditional; rescue does not
+    ///      bypass it.
     function _update(address to, uint256 tokenId, address auth)
         internal
         override
@@ -284,15 +294,39 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     {
         address from = _ownerOf(tokenId);
         if (from != address(0) && to != address(0)) {
-            // F-4: self-TBA loop guard
+            // F-4: self-TBA loop guard (always enforced)
             address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
             require(to != selfTba, "SAGADirectoryIdentity: cannot transfer to own TBA");
-            // F-10: revoked / flagged directories are non-transferable
-            require(
-                _statusRank(_statuses[tokenId]) < 2,
-                "SAGADirectoryIdentity: cannot transfer flagged or revoked"
-            );
+            // F-10 + G-1: rank >= 2 transfer block, EXCEPT for governance.
+            if (auth != owner()) {
+                require(
+                    _statusRank(_statuses[tokenId]) < 2,
+                    "SAGADirectoryIdentity: cannot transfer flagged or revoked"
+                );
+            }
         }
         return super._update(to, tokenId, auth);
+    }
+
+    /// @dev Phase 9 (G-1): governance recovery path for flagged/revoked
+    ///      directories. The contract owner (Safe multisig) must be able to
+    ///      reassign a directory NFT to a clean caretaker without first
+    ///      requiring the existing token-owner to grant approval — the
+    ///      whole point of governance intervention is that the existing
+    ///      owner is uncooperative or compromised. We mark the contract
+    ///      owner as authorized for every token; the F-10 flagged/revoked
+    ///      gate in `_update` already exempts governance, so this completes
+    ///      the recovery path. Non-governance callers continue to need
+    ///      explicit owner-or-approved authorization.
+    function _isAuthorized(address tokenOwner, address spender, uint256 tokenId)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        if (spender == owner() && spender != address(0)) {
+            return true;
+        }
+        return super._isAuthorized(tokenOwner, spender, tokenId);
     }
 }

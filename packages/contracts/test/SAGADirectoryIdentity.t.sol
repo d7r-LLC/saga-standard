@@ -541,4 +541,50 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
             "cap-overflow", "https://dir.example/", makeAddr("op"), tooBig
         );
     }
+
+    // === Phase 9 regression tests ===
+
+    // G-1: governance MUST be able to reassign a flagged or revoked
+    // directory. Without the bypass, F-10's transfer block combined with
+    // F-1's active-status registration gate permanently freezes the
+    // directory: it cannot be transferred to a clean caretaker AND no new
+    // scoped registrations can be issued under it. The contract-owner
+    // (Safe multisig) escape hatch is the only way to recover.
+    function test_g1_governanceCanTransferFlaggedDirectory() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "g1-flag", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        // The caller is `address(this)` — the contract owner from setUp.
+        // This must succeed because governance is the recovery path.
+        directory.transferFrom(user1, user2, tokenId);
+        assertEq(directory.ownerOf(tokenId), user2);
+    }
+
+    function test_g1_governanceCanTransferRevokedDirectory() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "g1-revoke", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "revoked");
+
+        directory.transferFrom(user1, user2, tokenId);
+        assertEq(directory.ownerOf(tokenId), user2);
+    }
+
+    // G-1: non-governance callers (token owner, approved operators) must
+    // still be blocked. The bypass is keyed on `auth == owner()` exactly.
+    function test_g1_tokenOwnerStillBlockedOnFlagged() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "g1-owner-flag", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer flagged or revoked"));
+        directory.transferFrom(user1, user2, tokenId);
+    }
 }

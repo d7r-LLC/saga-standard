@@ -40,7 +40,7 @@ contract DirectoryStatusInvariantTest is Test, IERC721Receiver {
         MockTBAHelper tba = new MockTBAHelper();
         directory = new SAGADirectoryIdentity(address(registry), address(tba));
         registry.setAuthorizedContract(address(directory), true);
-        registry.setDirectoryIdentity(address(directory));
+        registry.setTrustedDirectoryContract(address(directory), true);
 
         tokenId = directory.registerDirectory(
             "test-dir", "https://dir.example.com", makeAddr("op"), "basic"

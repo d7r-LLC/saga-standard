@@ -52,7 +52,7 @@ contract RegistryConsistencyInvariantTest is Test, IERC721Receiver {
         registry.setAuthorizedContract(address(agent), true);
         registry.setAuthorizedContract(address(org), true);
         registry.setAuthorizedContract(address(directory), true);
-        registry.setDirectoryIdentity(address(directory));
+        registry.setTrustedDirectoryContract(address(directory), true);
 
         handler = new RegistryConsistencyHandler(agent, org);
         targetContract(address(handler));

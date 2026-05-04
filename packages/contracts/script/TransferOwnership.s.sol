@@ -27,6 +27,12 @@ contract TransferOwnership is Script {
     function run() external {
         address newOwner = vm.envAddress("NEW_OWNER");
         require(newOwner != address(0), "NEW_OWNER required");
+        // Phase 9 (G-3): the Safe target must be a contract. A typo'd EOA
+        // would set pendingOwner on all four contracts but no entity at
+        // that address could call acceptOwnership(), forcing the deployer
+        // to re-run the entire handoff. Mirrors Deploy.s.sol's
+        // TBA_IMPLEMENTATION code-length check.
+        require(newOwner.code.length > 0, "NEW_OWNER must be a contract (Safe)");
 
         address handleRegistry = vm.envAddress("HANDLE_REGISTRY");
         address agentIdentity = vm.envAddress("AGENT_IDENTITY");

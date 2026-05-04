@@ -58,11 +58,12 @@ contract Deploy is Script {
         registry.setAuthorizedContract(address(directoryIdentity), true);
         console.log("Authorized agent, org, and directory contracts on registry");
 
-        // 7. Wire the directoryIdentity address into the registry so
-        //    registerScopedHandle (Phase 8 F-1) can validate that the
-        //    target directoryId resolves to an existing, active directory.
-        registry.setDirectoryIdentity(address(directoryIdentity));
-        console.log("Wired directoryIdentity into registry for scoped-handle validation");
+        // 7. Phase 9 (G-11): mark the just-deployed directory contract as
+        //    trusted. Future deploys of a V2 directory contract can be
+        //    added via setTrustedDirectoryContract; V1 directories continue
+        //    to accept new scoped registrations.
+        registry.setTrustedDirectoryContract(address(directoryIdentity), true);
+        console.log("Marked directoryIdentity as trusted for scoped-handle validation");
 
         vm.stopBroadcast();
 

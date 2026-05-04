@@ -65,7 +65,7 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         registry.setAuthorizedContract(address(directory), true);
 
         // Phase 8 (F-1): wire directory identity + pre-mint scoped-test directories.
-        registry.setDirectoryIdentity(address(directory));
+        registry.setTrustedDirectoryContract(address(directory), true);
         directory.registerDirectory("dir-a", "https://dir-a.example/", address(0xDA), "basic");
         directory.registerDirectory("dir-b", "https://dir-b.example/", address(0xDB), "basic");
         directory.registerDirectory("epic-hub", "https://epic-hub.example/", address(0xE1), "basic");

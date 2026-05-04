@@ -39,9 +39,13 @@ contract SAGAHandleRegistry is Ownable2Step {
     /// @notice Contracts authorized to register handles
     mapping(address => bool) public authorizedContracts;
 
-    /// @notice Address of SAGADirectoryIdentity used to validate scoped-registration
-    ///         directory existence + active status. Phase 8 (F-1).
-    address public directoryIdentity;
+    /// @notice Phase 9 (G-11): trusted directory NFT contracts. Used by
+    ///         scoped registration to verify the target directory was
+    ///         minted by an audited directory implementation. Replaces
+    ///         the singleton `directoryIdentity` from Phase 8A so a V2
+    ///         SAGADirectoryIdentity can be added (or V1 deauthorized for
+    ///         new registrations) without bricking existing V1 directories.
+    mapping(address => bool) public trustedDirectoryContracts;
 
     event HandleRegistered(
         bytes32 indexed handleKey,
@@ -61,7 +65,7 @@ contract SAGAHandleRegistry is Ownable2Step {
     );
 
     event AuthorizedContractSet(address indexed contractAddress, bool authorized);
-    event DirectoryIdentitySet(address indexed previous, address indexed next);
+    event TrustedDirectoryContractSet(address indexed addr, bool trusted);
 
     constructor() Ownable(msg.sender) {}
 
@@ -80,12 +84,22 @@ contract SAGAHandleRegistry is Ownable2Step {
         emit AuthorizedContractSet(addr, authorized);
     }
 
-    /// @notice Wire the SAGADirectoryIdentity address used by registerScopedHandle
-    ///         to verify directory existence + active status. Phase 8 (F-1).
-    function setDirectoryIdentity(address addr) external onlyOwner {
-        require(addr.code.length > 0, "SAGAHandleRegistry: directory identity not contract");
-        emit DirectoryIdentitySet(directoryIdentity, addr);
-        directoryIdentity = addr;
+    /// @notice Add or remove a trusted directory NFT contract used by
+    ///         registerScopedHandle to verify directory existence + active
+    ///         status. Phase 9 (G-11) — replaces the singleton
+    ///         setDirectoryIdentity setter from Phase 8A.
+    /// @dev Removing trust does NOT invalidate already-registered scoped
+    ///      handles; it only blocks NEW scoped registrations from
+    ///      resolving directory handles minted by the deauthorized
+    ///      contract. The deployer/governance is expected to verify that
+    ///      `addr` exposes `directoryStatus(uint256) returns (string)`
+    ///      before marking it trusted; on-chain ABI probes are
+    ///      unreliable across Solidity versions and a misconfigured
+    ///      contract is caught at the next registerScopedHandle call.
+    function setTrustedDirectoryContract(address addr, bool trusted) external onlyOwner {
+        require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
+        trustedDirectoryContracts[addr] = trusted;
+        emit TrustedDirectoryContractSet(addr, trusted);
     }
 
     // --- Registration (callable only by authorized contracts) ---
@@ -129,31 +143,27 @@ contract SAGAHandleRegistry is Ownable2Step {
         require(bytes(directoryId).length > 0, "SAGAHandleRegistry: empty directoryId");
         _validateHandle(handle);
 
-        // Phase 8 (F-1): scoped registrations must target an existing,
-        // active directory. Resolve directoryId in the global namespace and
-        // verify the directory's on-chain status is "active".
-        require(
-            directoryIdentity != address(0),
-            "SAGAHandleRegistry: directory identity not configured"
-        );
+        // Phase 9 (G-11): scoped registrations must target a directory
+        // minted by ANY trusted directory contract. The
+        // `dirRecord.contractAddress` is the contract that registered the
+        // directory handle in the global namespace — it must currently be
+        // marked trusted. The active-status check then runs against THAT
+        // contract (so V1 and V2 each verify their own status), preserving
+        // the F-1 anti-spoofing guarantee while permitting upgrade paths.
         bytes32 globalKey = _handleKey(directoryId);
         HandleRecord memory dirRecord = _handles[globalKey];
         require(
             dirRecord.entityType == EntityType.DIRECTORY,
             "SAGAHandleRegistry: directory not found"
         );
-        // The directory handle MUST have been registered by the configured
-        // directoryIdentity contract — otherwise a different authorized
-        // identity contract could front-register a DIRECTORY-typed handle
-        // pointing at an arbitrary tokenId in some other contract, and the
-        // status check below would resolve against the wrong tokenId space.
         require(
-            dirRecord.contractAddress == directoryIdentity,
-            "SAGAHandleRegistry: directory handle not from directoryIdentity"
+            trustedDirectoryContracts[dirRecord.contractAddress],
+            "SAGAHandleRegistry: untrusted directory contract"
         );
         require(
-            keccak256(bytes(IDirectoryStatus(directoryIdentity).directoryStatus(dirRecord.tokenId)))
-                == keccak256("active"),
+            keccak256(
+                bytes(IDirectoryStatus(dirRecord.contractAddress).directoryStatus(dirRecord.tokenId))
+            ) == keccak256("active"),
             "SAGAHandleRegistry: directory not active"
         );
 
@@ -220,32 +230,46 @@ contract SAGAHandleRegistry is Ownable2Step {
         return keccak256(abi.encodePacked(_toLower(handle)));
     }
 
-    /// @dev Compute scoped handle key using abi.encode to avoid variable-length collision
+    /// @dev Compute scoped handle key. Both handle AND directoryId are
+    ///      lowercased so the scoped namespace inherits the same
+    ///      case-insensitivity guarantee as the global namespace
+    ///      (`_handleKey`). Phase 9 (G-4): closed the casing bypass that
+    ///      let attackers register duplicate scoped handles by varying
+    ///      directoryId case.
     function _scopedHandleKey(string calldata handle, string calldata directoryId)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(directoryId, _toLower(handle)));
+        return keccak256(abi.encode(_toLower(directoryId), _toLower(handle)));
     }
 
     /// @dev Validate handle: 3-64 chars, alphanumeric + dots/hyphens/underscores,
-    ///      must start and end with alphanumeric
+    ///      must start and end with alphanumeric, no consecutive separators.
+    ///      Phase 9 (G-2): consecutive-separator rejection closes the
+    ///      ENS-style homoglyph attack class — a malicious actor cannot
+    ///      register `m.arcus`, `m..arcus`, `m-arcus`, `m_arcus` etc as
+    ///      visually-similar variants of `marcus`. Single separators
+    ///      between alphanumeric characters remain valid.
     function _validateHandle(string calldata handle) internal pure {
         bytes memory b = bytes(handle);
         require(b.length >= 3 && b.length <= 64, "SAGAHandleRegistry: invalid length");
 
-        // First char must be alphanumeric
         require(_isAlphanumeric(b[0]), "SAGAHandleRegistry: must start with alphanumeric");
-        // Last char must be alphanumeric
         require(_isAlphanumeric(b[b.length - 1]), "SAGAHandleRegistry: must end with alphanumeric");
 
+        bool prevWasSeparator = false;
         for (uint256 i = 0; i < b.length; i++) {
             bytes1 c = b[i];
+            bool isSeparator = (c == 0x2E || c == 0x2D || c == 0x5F);
             require(
-                _isAlphanumeric(c) || c == 0x2E || c == 0x2D || c == 0x5F,
+                _isAlphanumeric(c) || isSeparator,
                 "SAGAHandleRegistry: invalid character"
             );
+            if (isSeparator && prevWasSeparator) {
+                revert("SAGAHandleRegistry: consecutive separator");
+            }
+            prevWasSeparator = isSeparator;
         }
     }
 

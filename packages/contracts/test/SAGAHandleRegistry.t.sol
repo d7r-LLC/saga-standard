@@ -4,9 +4,10 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 
-/// @dev Phase 8 (F-1): registerScopedHandle now consults this interface on a
-///      configured directoryIdentity address. Tests use this minimal mock to
-///      simulate "active" directories so scoped registrations succeed.
+/// @dev Phase 9 (G-11): registerScopedHandle consults this interface on
+///      contracts marked trusted via setTrustedDirectoryContract. Tests use
+///      this minimal mock to simulate "active" directories so scoped
+///      registrations succeed.
 contract MockDirectoryIdentity {
     function directoryStatus(uint256) external pure returns (string memory) {
         return "active";
@@ -47,16 +48,17 @@ contract SAGAHandleRegistryTest is Test {
         registry = new SAGAHandleRegistry();
         registry.setAuthorizedContract(authorizedContract, true);
 
-        // Phase 8 (F-1): wire the directory-identity mock and pre-register
+        // Phase 9 (G-11): wire the directory-identity mock and pre-register
         // every directoryId the existing scoped tests use so they continue
         // to exercise the same code paths. The mock must be an authorized
         // contract AND must be the seeder of the directory handles, because
-        // registerScopedHandle now requires
-        // `dirRecord.contractAddress == directoryIdentity` (Copilot review
-        // on PR #45 hardened F-1 with this additional gate).
+        // registerScopedHandle requires `dirRecord.contractAddress` to be in
+        // `trustedDirectoryContracts`. Replaces the Phase 8 singleton-pointer
+        // gate so a future V2 directory implementation can be added without
+        // bricking V1 directories.
         mockDirectoryIdentity = new MockDirectoryIdentity();
         registry.setAuthorizedContract(address(mockDirectoryIdentity), true);
-        registry.setDirectoryIdentity(address(mockDirectoryIdentity));
+        registry.setTrustedDirectoryContract(address(mockDirectoryIdentity), true);
         _seedDirectory("epic-hub", 0);
         _seedDirectory("dir-a", 1);
         _seedDirectory("dir-b", 2);
@@ -64,8 +66,8 @@ contract SAGAHandleRegistryTest is Test {
     }
 
     function _seedDirectory(string memory dirId, uint256 tokenId) internal {
-        // Seed AS the directoryIdentity contract — only its handles will pass
-        // the contractAddress gate added in PR #45 review.
+        // Seed AS a trusted directory contract — only its handles will pass
+        // the trustedDirectoryContracts gate (Phase 9 G-11).
         vm.prank(address(mockDirectoryIdentity));
         registry.registerHandle(dirId, SAGAHandleRegistry.EntityType.DIRECTORY, tokenId);
     }
@@ -98,15 +100,15 @@ contract SAGAHandleRegistryTest is Test {
         );
     }
 
-    function test_setDirectoryIdentity_revertsOnEoa() public {
-        vm.expectRevert(bytes("SAGAHandleRegistry: directory identity not contract"));
-        registry.setDirectoryIdentity(makeAddr("eoa"));
+    function test_setTrustedDirectoryContract_revertsOnEoa() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: trusted directory must be contract"));
+        registry.setTrustedDirectoryContract(makeAddr("eoa"), true);
     }
 
-    function test_setDirectoryIdentity_revertsForNonOwner() public {
+    function test_setTrustedDirectoryContract_revertsForNonOwner() public {
         vm.prank(unauthorizedUser);
         vm.expectRevert(); // OZ Ownable: caller is not the owner
-        registry.setDirectoryIdentity(address(mockDirectoryIdentity));
+        registry.setTrustedDirectoryContract(address(mockDirectoryIdentity), true);
     }
 
     // --- Test 1: registerHandle success ---
@@ -419,5 +421,120 @@ contract SAGAHandleRegistryTest is Test {
     function _isAlnum(bytes1 c) internal pure returns (bool) {
         return (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5A)
             || (c >= 0x61 && c <= 0x7A);
+    }
+
+    // === Phase 9 regression tests ===
+
+    // G-4: scoped namespace must be case-insensitive on directoryId. Before
+    // the fix, _scopedHandleKey hashed directoryId verbatim, letting an
+    // attacker register `alice` under `epic-hub` AND `Epic-Hub` AND
+    // `EPIC-HUB` even though those resolve to the same directory in the
+    // global namespace.
+    function test_g4_scopedHandle_directoryIdCasingCollapses() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 1, "epic-hub"
+        );
+
+        // Same scoped handle in a case-variant directoryId must now be
+        // rejected as a duplicate.
+        vm.prank(authorizedContract);
+        vm.expectRevert(bytes("SAGAHandleRegistry: handle taken in directory"));
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 2, "Epic-Hub"
+        );
+
+        vm.prank(authorizedContract);
+        vm.expectRevert(bytes("SAGAHandleRegistry: handle taken in directory"));
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 3, "EPIC-HUB"
+        );
+
+        // And resolution under the case-variant directoryId returns the
+        // original record.
+        (SAGAHandleRegistry.EntityType t, uint256 tid,) =
+            registry.resolveScopedHandle("alice", "EPIC-HUB");
+        assertEq(uint256(t), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(tid, 1);
+    }
+
+    // G-2: a handle with consecutive separators must be rejected. This
+    // closes the ENS-style homoglyph attack class — `m..arcus`, `m--arcus`,
+    // `m__arcus`, `m._arcus` etc all revert. Single separators between
+    // alphanumerics remain valid.
+    function test_g2_validateHandle_rejectsConsecutiveSeparators() public {
+        string[7] memory bad = [
+            "m..arcus",
+            "m--arcus",
+            "m__arcus",
+            "m._arcus",
+            "m.-arcus",
+            "m_-arcus",
+            "a.._b"
+        ];
+        for (uint256 i = 0; i < bad.length; i++) {
+            vm.prank(authorizedContract);
+            vm.expectRevert(bytes("SAGAHandleRegistry: consecutive separator"));
+            registry.registerHandle(bad[i], SAGAHandleRegistry.EntityType.AGENT, i);
+        }
+
+        // Single separators still pass.
+        vm.prank(authorizedContract);
+        registry.registerHandle("m.arcus", SAGAHandleRegistry.EntityType.AGENT, 100);
+        vm.prank(authorizedContract);
+        registry.registerHandle("m-arcus", SAGAHandleRegistry.EntityType.AGENT, 101);
+        vm.prank(authorizedContract);
+        registry.registerHandle("m_arcus", SAGAHandleRegistry.EntityType.AGENT, 102);
+    }
+
+    // G-11: trustedDirectoryContracts mapping replaces the singleton
+    // directoryIdentity pointer. A V2 directory contract can be added
+    // without bricking V1; a deauthorized contract no longer accepts new
+    // scoped registrations.
+    function test_g11_trustedDirectoryContracts_supportsMultiple() public {
+        // Stand up a second mock as if it were a V2 directory.
+        MockDirectoryIdentity mockV2 = new MockDirectoryIdentity();
+        registry.setAuthorizedContract(address(mockV2), true);
+        registry.setTrustedDirectoryContract(address(mockV2), true);
+
+        // Seed a directory under V2 (different from V1's seed list).
+        vm.prank(address(mockV2));
+        registry.registerHandle("v2-dir", SAGAHandleRegistry.EntityType.DIRECTORY, 99);
+
+        // Scoped registration against V1's directory still works.
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 1, "epic-hub"
+        );
+        // And against V2's directory works.
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 2, "v2-dir"
+        );
+
+        // Both records resolve in their respective scopes.
+        (, uint256 tidV1,) = registry.resolveScopedHandle("alice", "epic-hub");
+        (, uint256 tidV2,) = registry.resolveScopedHandle("alice", "v2-dir");
+        assertEq(tidV1, 1);
+        assertEq(tidV2, 2);
+    }
+
+    function test_g11_trustedDirectoryContracts_deauthorizationBlocksNewScoped() public {
+        // Deauthorize the V1 directory mock for new scoped registrations.
+        registry.setTrustedDirectoryContract(address(mockDirectoryIdentity), false);
+
+        // New scoped registration against V1's directory is blocked.
+        vm.prank(authorizedContract);
+        vm.expectRevert(bytes("SAGAHandleRegistry: untrusted directory contract"));
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 1, "epic-hub"
+        );
+
+        // Re-trust and registration succeeds again.
+        registry.setTrustedDirectoryContract(address(mockDirectoryIdentity), true);
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 1, "epic-hub"
+        );
     }
 }
