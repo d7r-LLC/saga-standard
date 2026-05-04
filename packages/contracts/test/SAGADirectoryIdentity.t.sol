@@ -8,6 +8,7 @@ import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MockTBAHelper {
     function computeAccount(address tokenContract, uint256 tokenId)
@@ -45,6 +46,30 @@ contract DirectoryGasGrieferTBA {
             i = i + 1;
         }
         return (i, address(0), 0); // unreachable
+    }
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external pure returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+}
+
+/// @dev Phase 12 (K-11): a deployed contract that reports itself bound
+///      to a specific (chainid, directory, tokenId) tuple. Used to
+///      verify that the J-13 introspection guard now fires on the
+///      directory MINT path (previously skipped because the gate
+///      required `from != address(0)`).
+contract MockSelfBoundDirectoryAccount {
+    uint256 public immutable chainId;
+    address public immutable tokenContract;
+    uint256 public immutable tokenIdBound;
+    constructor(uint256 _c, address _t, uint256 _id) {
+        chainId = _c;
+        tokenContract = _t;
+        tokenIdBound = _id;
+    }
+    function token() external view returns (uint256, address, uint256) {
+        return (chainId, tokenContract, tokenIdBound);
     }
     function onERC721Received(address, address, uint256, bytes calldata)
         external pure returns (bytes4)
@@ -547,6 +572,35 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         directory.applyBaseURI();
     }
 
+    // K-5: cancelPendingBaseURI clears the queued slot, emits, owner-only.
+    function test_k5_cancelPendingBaseURI_clearsAndEmits() public {
+        directory.setBaseURI("https://x.example/");
+        assertEq(directory.pendingBaseURI(), "https://x.example/");
+
+        vm.expectEmit(false, false, false, true, address(directory));
+        emit SAGADirectoryIdentity.BaseURICancelled("https://x.example/");
+        directory.cancelPendingBaseURI();
+
+        assertEq(directory.pendingBaseURIReadyAt(), 0);
+        assertEq(directory.pendingBaseURI(), "");
+    }
+
+    function test_k5_cancelPendingBaseURI_revertsWhenNoPending() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: no pending base uri"));
+        directory.cancelPendingBaseURI();
+    }
+
+    function test_k5_cancelPendingBaseURI_onlyOwner() public {
+        directory.setBaseURI("https://x.example/");
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector, address(0xBEEF)
+            )
+        );
+        directory.cancelPendingBaseURI();
+    }
+
     // F-10: block transfer + URL update on flagged/revoked directories
     function test_transferFlaggedDirectoryReverts() public {
         vm.prank(user1);
@@ -632,9 +686,11 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         );
         directory.updateDirectoryStatus(tokenId, "flagged");
 
-        // The caller is `address(this)` — the contract owner from setUp.
-        // This must succeed because governance is the recovery path.
-        directory.transferFrom(user1, user2, tokenId);
+        // Phase 12 (K-7): rescue flows through the explicit
+        // governanceTransfer entry point so ERC-721 approval state
+        // stays standard. The contract owner (address(this) from
+        // setUp) is the only authorized caller.
+        directory.governanceTransfer(tokenId, user2);
         assertEq(directory.ownerOf(tokenId), user2);
     }
 
@@ -645,7 +701,7 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         );
         directory.updateDirectoryStatus(tokenId, "revoked");
 
-        directory.transferFrom(user1, user2, tokenId);
+        directory.governanceTransfer(tokenId, user2);
         assertEq(directory.ownerOf(tokenId), user2);
     }
 
@@ -692,6 +748,199 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         vm.expectRevert();
         directory.transferFrom(user1, user2, tokenId);
         assertEq(directory.ownerOf(tokenId), user1);
+    }
+
+    // === Phase 12 regression tests ===
+
+    // K-7: ERC-721 _isAuthorized stays standard. Marketplaces / DeFi
+    //      reading approval state are no longer fooled by the prior
+    //      Phase 9 G-1 governance override. governanceTransfer is the
+    //      explicit rescue entry point with its own event.
+    function test_k7_isAuthorized_returnsStandardErc721ForGovernance() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-isauth", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        // address(this) is contract owner. Despite rank>=2, it is NOT
+        // approved as a standard ERC-721 spender — getApproved returns 0
+        // and isApprovedForAll returns false.
+        assertEq(directory.getApproved(tokenId), address(0));
+        assertFalse(directory.isApprovedForAll(user1, address(this)));
+    }
+
+    function test_k7_governanceTransfer_succeedsForFlagged() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-flag", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+
+        vm.expectEmit(true, true, true, false, address(directory));
+        emit SAGADirectoryIdentity.GovernanceRescue(tokenId, user1, user2);
+        directory.governanceTransfer(tokenId, user2);
+
+        assertEq(directory.ownerOf(tokenId), user2);
+    }
+
+    function test_k7_governanceTransfer_succeedsForRevoked() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-revoke", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "revoked");
+        directory.governanceTransfer(tokenId, user2);
+        assertEq(directory.ownerOf(tokenId), user2);
+    }
+
+    function test_k7_governanceTransfer_revertsForActive() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-active", "https://x.example/", makeAddr("op"), "basic"
+        );
+        vm.expectRevert(bytes("SAGADirectoryIdentity: not flagged or revoked"));
+        directory.governanceTransfer(tokenId, user2);
+    }
+
+    function test_k7_governanceTransfer_revertsForSuspended() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-susp", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        vm.expectRevert(bytes("SAGADirectoryIdentity: not flagged or revoked"));
+        directory.governanceTransfer(tokenId, user2);
+    }
+
+    function test_k7_governanceTransfer_onlyOwner() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k7-only", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "revoked");
+
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector, makeAddr("rando")
+            )
+        );
+        directory.governanceTransfer(tokenId, user2);
+    }
+
+    // K-10: operator wallet rotation. Without this, a compromised
+    //      operator key forces abandonment of the (immutable)
+    //      directoryId.
+    function test_k10_updateOperatorWallet_succeedsForOwner() public {
+        address oldOp = makeAddr("oldOp");
+        vm.prank(user1);
+        uint256 tokenId =
+            directory.registerDirectory("k10-rot", "https://x.example/", oldOp, "basic");
+        address newOp = makeAddr("newOp");
+
+        vm.expectEmit(true, true, true, false, address(directory));
+        emit SAGADirectoryIdentity.DirectoryOperatorUpdated(tokenId, oldOp, newOp);
+        vm.prank(user1);
+        directory.updateOperatorWallet(tokenId, newOp);
+
+        assertEq(directory.operatorWallet(tokenId), newOp);
+    }
+
+    function test_k10_updateOperatorWallet_rejectsZero() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k10-zero", "https://x.example/", makeAddr("op"), "basic"
+        );
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: invalid operator"));
+        directory.updateOperatorWallet(tokenId, address(0));
+    }
+
+    function test_k10_updateOperatorWallet_unauthorizedReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k10-unauth", "https://x.example/", makeAddr("op"), "basic"
+        );
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert(bytes("SAGADirectoryIdentity: not authorized"));
+        directory.updateOperatorWallet(tokenId, makeAddr("attacker"));
+    }
+
+    function test_k10_updateOperatorWallet_approvedOperatorSucceeds() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k10-app", "https://x.example/", makeAddr("op"), "basic"
+        );
+        address delegate = makeAddr("delegate");
+        vm.prank(user1);
+        directory.approve(delegate, tokenId);
+        address newOp = makeAddr("newOp");
+        vm.prank(delegate);
+        directory.updateOperatorWallet(tokenId, newOp);
+        assertEq(directory.operatorWallet(tokenId), newOp);
+    }
+
+    function test_k10_updateOperatorWallet_allowedWhenFlagged() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k10-flagged", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+        address newOp = makeAddr("newOp");
+        vm.prank(user1);
+        directory.updateOperatorWallet(tokenId, newOp);
+        assertEq(directory.operatorWallet(tokenId), newOp);
+    }
+
+    // K-11: registerDirectory mint path now flows through the F-4 +
+    //      J-13 self-TBA guard. Previously the directory _update gated
+    //      on `from != 0 && to != 0` which skipped mint, leaving the
+    //      mint path unable to detect a constructor-bound self-TBA.
+    function test_k11_registerDirectory_blocksSelfBoundConstructorReceiver() public {
+        uint256 expectedTokenId = directory.totalSupply();
+        MockSelfBoundDirectoryAccount selfBound = new MockSelfBoundDirectoryAccount(
+            block.chainid, address(directory), expectedTokenId
+        );
+
+        vm.prank(address(selfBound));
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer to own TBA"));
+        directory.registerDirectory("k11", "https://x.example/", makeAddr("op"), "basic");
+    }
+
+    function test_k11_registerDirectory_allowsUnboundContractReceiver() public {
+        // A contract receiver that is NOT bound to this NFT must still
+        // be able to receive a fresh mint (sanity check that K-11
+        // didn't over-block).
+        MockSelfBoundDirectoryAccount unbound = new MockSelfBoundDirectoryAccount(
+            block.chainid, address(directory), 99999
+        );
+        vm.prank(address(unbound));
+        uint256 tokenId =
+            directory.registerDirectory("k11-ok", "https://x.example/", makeAddr("op"), "basic");
+        assertEq(directory.ownerOf(tokenId), address(unbound));
+    }
+
+    // K-7: even after a successful governanceTransfer the rescue flag
+    //      must reset, so a follow-up standard transfer of an active
+    //      directory continues to work (no stuck state).
+    function test_k7_governanceTransfer_flagResetsAfterCall() public {
+        vm.prank(user1);
+        uint256 a = directory.registerDirectory(
+            "k7-reset-a", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(a, "revoked");
+        directory.governanceTransfer(a, user2);
+
+        // A fresh active directory must still be transferable by its
+        // owner via standard ERC-721 paths.
+        vm.prank(user1);
+        uint256 b = directory.registerDirectory(
+            "k7-reset-b", "https://x.example/", makeAddr("op"), "basic"
+        );
+        vm.prank(user1);
+        directory.transferFrom(user1, user2, b);
+        assertEq(directory.ownerOf(b), user2);
     }
 
     // H-6: renounceOwnership now reverts with the disabled-message for

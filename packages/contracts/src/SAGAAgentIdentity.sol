@@ -66,6 +66,9 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     ///         actual update fires `BaseURIUpdated` after `applyBaseURI` is
     ///         called past the timelock.
     event BaseURIQueued(string newBaseURI, uint256 readyAt);
+    /// @notice Phase 12 (K-5): emitted when a queued base URI is cancelled
+    ///         by the owner before its timelock applies.
+    event BaseURICancelled(string cancelledBaseURI);
 
     /// @notice Phase 9 (G-8): pending base URI awaiting timelock expiry.
     string private _pendingBaseURI;
@@ -255,6 +258,17 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;
         delete _pendingBaseURIReadyAt;
+    }
+
+    /// @notice Phase 12 (K-5): cancel a pending base URI before its
+    ///         timelock elapses. Owner-only; matches the cancel pattern
+    ///         introduced in Phase 11 (J-1) for queued contract updates.
+    function cancelPendingBaseURI() external onlyOwner {
+        require(_pendingBaseURIReadyAt > 0, "SAGAAgentIdentity: no pending base uri");
+        string memory cancelled = _pendingBaseURI;
+        delete _pendingBaseURI;
+        delete _pendingBaseURIReadyAt;
+        emit BaseURICancelled(cancelled);
     }
 
     function _baseURI() internal view override returns (string memory) {

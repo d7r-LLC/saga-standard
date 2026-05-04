@@ -73,6 +73,21 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
     /// @notice Phase 9 (G-8): emitted when a new base URI is queued.
     event BaseURIQueued(string newBaseURI, uint256 readyAt);
+    /// @notice Phase 12 (K-5): emitted when a queued base URI is cancelled
+    ///         by the owner before its timelock applies.
+    event BaseURICancelled(string cancelledBaseURI);
+    /// @notice Phase 12 (K-7): emitted when the contract owner uses the
+    ///         explicit governance rescue path to transfer a flagged or
+    ///         revoked directory NFT. Distinct from ERC-721 Transfer so
+    ///         off-chain monitoring can flag governance interventions.
+    event GovernanceRescue(uint256 indexed tokenId, address indexed from, address indexed to);
+    /// @notice Phase 12 (K-10): emitted when a directory's operator
+    ///         wallet rotates. Operator wallet is informational metadata
+    ///         (not used for on-chain authorization); the event lets
+    ///         off-chain consumers refresh their operator caches.
+    event DirectoryOperatorUpdated(
+        uint256 indexed tokenId, address indexed oldOperator, address indexed newOperator
+    );
 
     /// @notice Phase 9 (G-8): pending base URI awaiting timelock expiry.
     string private _pendingBaseURI;
@@ -80,6 +95,15 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
     /// @notice Hours until a queued base URI can be applied.
     uint256 public constant BASE_URI_TIMELOCK = 24 hours;
+
+    /// @notice Phase 12 (K-7): transient flag set during
+    ///         `governanceTransfer` so the F-10 / G-1 rank-≥2 transfer
+    ///         block in `_update` can carve out the governance rescue
+    ///         path explicitly. Resets at the end of every
+    ///         `governanceTransfer` call. Replaces the prior
+    ///         `auth != owner()`-based carve-out (which was visible
+    ///         through ERC-721 approval state).
+    bool private _inGovernanceRescue;
 
     constructor(address registry, address _tbaHelper)
         ERC721("SAGA Directory Identity", "SAGA-DIR")
@@ -185,6 +209,32 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         string memory oldUrl = _directoryUrls[tokenId];
         _directoryUrls[tokenId] = newUrl;
         emit DirectoryUrlUpdated(tokenId, oldUrl, newUrl);
+    }
+
+    /// @notice Phase 12 (K-10, Gemini): rotate the operator wallet on a
+    ///         directory NFT. `operatorWallet` is informational metadata
+    ///         only — it does NOT gate on-chain authorization (which uses
+    ///         ERC-721 `_isAuthorized` against the NFT owner). Rotation
+    ///         is needed because `directoryId` is permanent in the global
+    ///         namespace; without it, a key compromise of the operator
+    ///         would force the directory NFT owner to abandon their
+    ///         established handle.
+    /// @dev Authorization mirrors `updateDirectoryUrl` (NFT owner or an
+    ///      approved spender). Rejects the zero address. Rotation is
+    ///      allowed in any directory status — including flagged or
+    ///      revoked, since rotating the operator wallet does NOT affect
+    ///      on-chain authority and may be a forensic data point during
+    ///      a governance review.
+    function updateOperatorWallet(uint256 tokenId, address newOperator) external nonReentrant {
+        address tokenOwner = _requireOwned(tokenId);
+        require(
+            _isAuthorized(tokenOwner, msg.sender, tokenId),
+            "SAGADirectoryIdentity: not authorized"
+        );
+        require(newOperator != address(0), "SAGADirectoryIdentity: invalid operator");
+        address oldOperator = _operatorWallets[tokenId];
+        _operatorWallets[tokenId] = newOperator;
+        emit DirectoryOperatorUpdated(tokenId, oldOperator, newOperator);
     }
 
     /// @notice Update directory status. Authority depends on the role:
@@ -361,6 +411,16 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         delete _pendingBaseURIReadyAt;
     }
 
+    /// @notice Phase 12 (K-5): cancel a pending base URI before its
+    ///         timelock elapses. Owner-only.
+    function cancelPendingBaseURI() external onlyOwner {
+        require(_pendingBaseURIReadyAt > 0, "SAGADirectoryIdentity: no pending base uri");
+        string memory cancelled = _pendingBaseURI;
+        delete _pendingBaseURI;
+        delete _pendingBaseURIReadyAt;
+        emit BaseURICancelled(cancelled);
+    }
+
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
@@ -388,7 +448,12 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         returns (address)
     {
         address from = _ownerOf(tokenId);
-        if (from != address(0) && to != address(0)) {
+        // Phase 12 (K-11, OpenAI): align gating with SAGAAgentIdentity /
+        // SAGAOrgIdentity so the F-4 + J-13 self-TBA guard also fires
+        // on mint (`from == 0`). The F-10 rank-block nests inside an
+        // explicit `from != 0` check below so it stays scoped to
+        // non-mint transfers.
+        if (to != address(0)) {
             // F-4: self-TBA loop guard (always enforced)
             address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
             require(to != selfTba, "SAGADirectoryIdentity: cannot transfer to own TBA");
@@ -412,8 +477,18 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
                 } catch {}
             }
 
-            // F-10 + G-1: rank >= 2 transfer block, EXCEPT for governance.
-            if (auth != owner()) {
+            // Phase 8 (F-10) + Phase 9 (G-1) + Phase 12 (K-7 + K-11):
+            // rank-≥2 transfer block. Scoped to non-mint
+            // (`from != 0`) — `registerDirectory` initializes
+            // `_statuses[tokenId] = "active"` (rank 0) BEFORE
+            // `_safeMint`, so at mint-time the block would always
+            // pass. Gating on `from != 0` makes that intent explicit,
+            // saves a storage read on the mint path, and matches the
+            // F-10 narrative (the block is about transfers AWAY from
+            // a flagged/revoked owner, not initial mint). The explicit
+            // governanceTransfer rescue path bypasses the block via
+            // the _inGovernanceRescue transient flag.
+            if (from != address(0) && !_inGovernanceRescue) {
                 require(
                     _statusRank(_statuses[tokenId]) < 2,
                     "SAGADirectoryIdentity: cannot transfer flagged or revoked"
@@ -423,32 +498,30 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         return super._update(to, tokenId, auth);
     }
 
-    /// @dev Phase 9 (G-1) + Phase 10 (H-1): governance recovery path for
-    ///      flagged/revoked directories. The contract owner (Safe multisig)
-    ///      must be able to reassign a directory NFT to a clean caretaker
-    ///      without first requiring the existing token-owner to grant
-    ///      approval — the whole point of governance intervention is that
-    ///      the existing owner is uncooperative or compromised.
-    ///
-    ///      Phase 10 (H-1) tightens the scope: the bypass is only granted
-    ///      when the directory is at rank >= 2 (flagged or revoked).
-    ///      Active and suspended directories require normal
-    ///      owner-or-approved authorization, so governance cannot
-    ///      unilaterally seize a customer's active directory NFT. The
-    ///      original Phase 9 implementation returned `true` unconditionally
-    ///      for `spender == owner()`, which was broader than the rescue
-    ///      narrative documented.
-    function _isAuthorized(address tokenOwner, address spender, uint256 tokenId)
-        internal
-        view
-        override
-        returns (bool)
-    {
-        if (spender == owner() && spender != address(0)) {
-            if (_statusRank(_statuses[tokenId]) >= 2) {
-                return true;
-            }
-        }
-        return super._isAuthorized(tokenOwner, spender, tokenId);
+    /// @notice Phase 12 (K-7): explicit governance rescue path for
+    ///         flagged/revoked directories. Replaces the Phase 9 G-1 /
+    ///         Phase 10 H-1 `_isAuthorized` override so that ERC-721
+    ///         approval state stays standard — marketplaces and DeFi
+    ///         protocols reading getApproved / isApprovedForAll are no
+    ///         longer fooled by a hidden owner-as-spender bypass.
+    ///         Emits a distinct GovernanceRescue event to keep
+    ///         off-chain monitoring able to distinguish governance
+    ///         transfers from owner-initiated ones.
+    function governanceTransfer(uint256 tokenId, address to) external onlyOwner {
+        // Phase 12 (K-7 review fix): existence check FIRST so a typo or
+        // unminted tokenId fails with the standard ERC721NonexistentToken
+        // error, matching the behavior of every other write method on
+        // this contract. Previously the rank check fired first and
+        // surfaced "not flagged or revoked" for nonexistent tokens,
+        // which was ambiguous diagnostics.
+        address from = _requireOwned(tokenId);
+        require(
+            _statusRank(_statuses[tokenId]) >= 2,
+            "SAGADirectoryIdentity: not flagged or revoked"
+        );
+        _inGovernanceRescue = true;
+        _transfer(from, to, tokenId);
+        _inGovernanceRescue = false;
+        emit GovernanceRescue(tokenId, from, to);
     }
 }

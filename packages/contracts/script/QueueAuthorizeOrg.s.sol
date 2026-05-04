@@ -82,9 +82,9 @@ contract QueueAuthorizeOrg is Script {
         console.log("");
         console.log("=== Safe execution payload ===");
         console.log("Target (registry):", registryAddr);
-        console.log("Step 1 — queue calldata (submit now):");
+        console.log("Step 1 - queue calldata (submit now):");
         console.logBytes(queueCalldata);
-        console.log("Step 2 — apply calldata (submit after 24h timelock):");
+        console.log("Step 2 - apply calldata (submit after 24h timelock):");
         console.logBytes(applyCalldata);
     }
 }

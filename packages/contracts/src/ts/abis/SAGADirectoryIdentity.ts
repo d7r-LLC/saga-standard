@@ -87,6 +87,13 @@ export const SAGADirectoryIdentityAbi = [
   },
   {
     type: 'function',
+    name: 'cancelPendingBaseURI',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'conformanceLevel',
     inputs: [
       {
@@ -179,6 +186,24 @@ export const SAGADirectoryIdentityAbi = [
       },
     ],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'governanceTransfer',
+    inputs: [
+      {
+        name: 'tokenId',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -655,6 +680,24 @@ export const SAGADirectoryIdentityAbi = [
     stateMutability: 'nonpayable',
   },
   {
+    type: 'function',
+    name: 'updateOperatorWallet',
+    inputs: [
+      {
+        name: 'tokenId',
+        type: 'uint256',
+        internalType: 'uint256',
+      },
+      {
+        name: 'newOperator',
+        type: 'address',
+        internalType: 'address',
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
     type: 'event',
     name: 'Approval',
     inputs: [
@@ -706,6 +749,19 @@ export const SAGADirectoryIdentityAbi = [
   },
   {
     type: 'event',
+    name: 'BaseURICancelled',
+    inputs: [
+      {
+        name: 'cancelledBaseURI',
+        type: 'string',
+        indexed: false,
+        internalType: 'string',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'BaseURIQueued',
     inputs: [
       {
@@ -738,6 +794,31 @@ export const SAGADirectoryIdentityAbi = [
         type: 'string',
         indexed: false,
         internalType: 'string',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'DirectoryOperatorUpdated',
+    inputs: [
+      {
+        name: 'tokenId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'oldOperator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'newOperator',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
       },
     ],
     anonymous: false,
@@ -850,6 +931,31 @@ export const SAGADirectoryIdentityAbi = [
         type: 'string',
         indexed: false,
         internalType: 'string',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'GovernanceRescue',
+    inputs: [
+      {
+        name: 'tokenId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'from',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+      {
+        name: 'to',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
       },
     ],
     anonymous: false,

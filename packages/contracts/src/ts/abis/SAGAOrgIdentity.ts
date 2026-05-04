@@ -87,6 +87,13 @@ export const SAGAOrgIdentityAbi = [
   },
   {
     type: 'function',
+    name: 'cancelPendingBaseURI',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'getApproved',
     inputs: [
       {
@@ -663,6 +670,19 @@ export const SAGAOrgIdentityAbi = [
         type: 'bool',
         indexed: false,
         internalType: 'bool',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BaseURICancelled',
+    inputs: [
+      {
+        name: 'cancelledBaseURI',
+        type: 'string',
+        indexed: false,
+        internalType: 'string',
       },
     ],
     anonymous: false,

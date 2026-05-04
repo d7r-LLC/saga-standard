@@ -371,6 +371,18 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         // to prevent unbounded _toLower loop on oversized input
         _validateHandle(handle);
 
+        // Phase 12 (K-6, Anthropic M-2): tokenId-liveness pre-check is
+        // intentionally NOT performed. The F-2 CEI invariant requires
+        // identity contracts to call registerHandle BEFORE _safeMint,
+        // so an `IERC721.ownerOf(tokenId)` probe would revert on every
+        // legitimate registration. Closing the "register handles for
+        // nonexistent tokens" surface requires either reordering F-2
+        // (regressing the half-initialized-state observation guard) or
+        // a setAuthorizedContract redesign. Both halves of Anthropic
+        // M-2 (tokenId-liveness and entityType-spoofing) remain
+        // documented residuals — see README "Authorized contracts:
+        // residual risk".
+
         bytes32 key = _handleKey(handle);
         require(_handles[key].entityType == EntityType.NONE, "SAGAHandleRegistry: handle taken");
 
@@ -395,6 +407,8 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
         require(bytes(directoryId).length > 0, "SAGAHandleRegistry: empty directoryId");
         _validateHandle(handle);
+        // Phase 12 (K-6): see registerHandle — tokenId-liveness probe
+        // omitted for F-2 CEI compatibility; M-2 stays residual.
 
         // Phase 9 (G-11): scoped registrations must target a directory
         // minted by ANY trusted directory contract. The
@@ -444,6 +458,11 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         view
         returns (EntityType entityType, uint256 tokenId, address contractAddress)
     {
+        // Phase 12 (K-8): match the write-path validation so untrusted
+        // input (e.g., user-supplied strings forwarded by an indexer
+        // RPC) cannot drive an unbounded `_toLower` allocation. Reads
+        // and writes share the same handle contract.
+        _validateHandle(handle);
         bytes32 key = _handleKey(handle);
         HandleRecord memory record = _handles[key];
         require(record.entityType != EntityType.NONE, "SAGAHandleRegistry: not found");
@@ -452,6 +471,8 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
 
     /// @notice Check if a handle is already registered
     function handleExists(string calldata handle) external view returns (bool) {
+        // Phase 12 (K-8): same length+charset gate as resolveHandle.
+        _validateHandle(handle);
         return _handles[_handleKey(handle)].entityType != EntityType.NONE;
     }
 
@@ -461,6 +482,10 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         view
         returns (EntityType entityType, uint256 tokenId, address contractAddress)
     {
+        // Phase 12 (K-8): cap input length on both arguments before
+        // they hit `_toLower` via `_scopedHandleKey`.
+        _validateHandle(handle);
+        _validateHandle(directoryId);
         bytes32 key = _scopedHandleKey(handle, directoryId);
         HandleRecord memory record = _scopedHandles[key];
         require(record.entityType != EntityType.NONE, "SAGAHandleRegistry: not found in directory");
@@ -479,6 +504,10 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         view
         returns (EntityType entityType, uint256 tokenId, address contractAddress)
     {
+        // Phase 12 (K-8): cap input length before `_handleKey` /
+        // `_scopedHandleKey` invoke `_toLower` on calldata.
+        _validateHandle(handle);
+        _validateHandle(directoryId);
         bytes32 dirGlobalKey = _handleKey(directoryId);
         HandleRecord memory dirRecord = _handles[dirGlobalKey];
         require(
@@ -515,6 +544,9 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         view
         returns (bool)
     {
+        // Phase 12 (K-8): same length+charset gate as the resolvers.
+        _validateHandle(handle);
+        _validateHandle(directoryId);
         return _scopedHandles[_scopedHandleKey(handle, directoryId)].entityType != EntityType.NONE;
     }
 
@@ -553,7 +585,14 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
     ///      on-chain layer cannot solve it without breaking legitimate
     ///      separator-bearing handles. ENS reached the same conclusion.
     function _validateHandle(string calldata handle) internal pure {
-        bytes memory b = bytes(handle);
+        // Phase 12 (K-8 review fix): operate on the calldata reference
+        // directly rather than copying into memory before the length
+        // check. The prior `bytes memory b = bytes(handle)` allocated
+        // a memory buffer proportional to the full untrusted input
+        // BEFORE rejecting it, defeating K-8's RPC/indexer DoS
+        // mitigation. Calldata access has zero allocation overhead;
+        // `b[i]` reads directly from calldata.
+        bytes calldata b = bytes(handle);
         require(b.length >= 3 && b.length <= 64, "SAGAHandleRegistry: invalid length");
 
         require(_isAlphanumeric(b[0]), "SAGAHandleRegistry: must start with alphanumeric");

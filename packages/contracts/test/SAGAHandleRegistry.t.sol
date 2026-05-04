@@ -232,6 +232,45 @@ contract SAGAHandleRegistryTest is Test {
         registry.resolveHandle("nonexistent");
     }
 
+    // --- K-8: read paths cap input length up front ---
+    // Defense against off-chain griefing — an indexer / RPC node
+    // forwarding untrusted input would otherwise hand `_toLower` an
+    // unbounded buffer to allocate before the handle map lookup.
+    function test_k8_resolveHandle_revertsOnOversizedHandle() public {
+        bytes memory huge = new bytes(65);
+        for (uint256 i = 0; i < 65; i++) huge[i] = "a";
+        vm.expectRevert(bytes("SAGAHandleRegistry: invalid length"));
+        registry.resolveHandle(string(huge));
+    }
+
+    function test_k8_handleExists_revertsOnOversizedHandle() public {
+        bytes memory huge = new bytes(100);
+        for (uint256 i = 0; i < 100; i++) huge[i] = "b";
+        vm.expectRevert(bytes("SAGAHandleRegistry: invalid length"));
+        registry.handleExists(string(huge));
+    }
+
+    function test_k8_resolveScopedHandle_revertsOnOversizedDirectoryId() public {
+        bytes memory hugeDir = new bytes(80);
+        for (uint256 i = 0; i < 80; i++) hugeDir[i] = "c";
+        vm.expectRevert(bytes("SAGAHandleRegistry: invalid length"));
+        registry.resolveScopedHandle("alice", string(hugeDir));
+    }
+
+    function test_k8_scopedHandleExists_revertsOnOversizedHandle() public {
+        bytes memory huge = new bytes(70);
+        for (uint256 i = 0; i < 70; i++) huge[i] = "d";
+        vm.expectRevert(bytes("SAGAHandleRegistry: invalid length"));
+        registry.scopedHandleExists(string(huge), "epic-hub");
+    }
+
+    function test_k8_resolveActiveScopedHandle_revertsOnOversizedHandle() public {
+        bytes memory huge = new bytes(70);
+        for (uint256 i = 0; i < 70; i++) huge[i] = "e";
+        vm.expectRevert(bytes("SAGAHandleRegistry: invalid length"));
+        registry.resolveActiveScopedHandle(string(huge), "epic-hub");
+    }
+
     // --- Test 12: setAuthorizedContract ---
     function test_setAuthorizedContract() public {
         address newContract = makeAddr("newContract");

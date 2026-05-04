@@ -9,6 +9,7 @@ import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @dev Minimal TBA helper mock for Phase 8 (F-4) self-TBA guard tests.
 ///      Returns a deterministic predicted address per (tokenContract, tokenId).
@@ -559,6 +560,35 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         assertEq(agent.pendingBaseURI(), "https://second.example/");
         vm.warp(block.timestamp + 24 hours);
         agent.applyBaseURI();
+    }
+
+    // K-5: cancelPendingBaseURI clears the queued slot, emits, owner-only.
+    function test_k5_cancelPendingBaseURI_clearsAndEmits() public {
+        agent.setBaseURI("https://x.example/");
+        assertEq(agent.pendingBaseURI(), "https://x.example/");
+
+        vm.expectEmit(false, false, false, true, address(agent));
+        emit SAGAAgentIdentity.BaseURICancelled("https://x.example/");
+        agent.cancelPendingBaseURI();
+
+        assertEq(agent.pendingBaseURIReadyAt(), 0);
+        assertEq(agent.pendingBaseURI(), "");
+    }
+
+    function test_k5_cancelPendingBaseURI_revertsWhenNoPending() public {
+        vm.expectRevert(bytes("SAGAAgentIdentity: no pending base uri"));
+        agent.cancelPendingBaseURI();
+    }
+
+    function test_k5_cancelPendingBaseURI_onlyOwner() public {
+        agent.setBaseURI("https://x.example/");
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector, address(0xBEEF)
+            )
+        );
+        agent.cancelPendingBaseURI();
     }
 
     // F-2: CEI ordering — onERC721Received observes a fully-initialized agent.

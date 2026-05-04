@@ -9,6 +9,7 @@ import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MockTBAHelper {
     function computeAccount(address tokenContract, uint256 tokenId)
@@ -384,6 +385,35 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         assertEq(org.pendingBaseURI(), "https://second.example/");
         vm.warp(block.timestamp + 24 hours);
         org.applyBaseURI();
+    }
+
+    // K-5: cancelPendingBaseURI clears the queued slot, emits, owner-only.
+    function test_k5_cancelPendingBaseURI_clearsAndEmits() public {
+        org.setBaseURI("https://x.example/");
+        assertEq(org.pendingBaseURI(), "https://x.example/");
+
+        vm.expectEmit(false, false, false, true, address(org));
+        emit SAGAOrgIdentity.BaseURICancelled("https://x.example/");
+        org.cancelPendingBaseURI();
+
+        assertEq(org.pendingBaseURIReadyAt(), 0);
+        assertEq(org.pendingBaseURI(), "");
+    }
+
+    function test_k5_cancelPendingBaseURI_revertsWhenNoPending() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: no pending base uri"));
+        org.cancelPendingBaseURI();
+    }
+
+    function test_k5_cancelPendingBaseURI_onlyOwner() public {
+        org.setBaseURI("https://x.example/");
+        vm.prank(address(0xBEEF));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector, address(0xBEEF)
+            )
+        );
+        org.cancelPendingBaseURI();
     }
 
     // H-6: renounceOwnership disabled-message wins for every caller. The

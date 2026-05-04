@@ -343,6 +343,24 @@ smart-contract upgrades are reviewed — diligence on the implementation,
 the deployer, and the operational governance — before the Safe
 transaction is signed.
 
+**Phase 12 (K-6) update — `tokenId` liveness check is intentionally
+omitted.** Anthropic's M-2 finding suggested probing `IERC721.ownerOf`
+on the calling contract during `registerHandle` to reject handles
+claimed for non-existent tokens. We evaluated the lighter "Option 1"
+(`try/catch ownerOf{gas: 30000}`) but it is incompatible with the
+F-2 CEI ordering: identity contracts call `registerHandle` BEFORE
+`_safeMint` so that handle resolution succeeds inside
+`onERC721Received` — at that moment the token has not yet been
+minted, and `ownerOf` would revert. Closing M-2 in code therefore
+requires either reordering F-2 (regressing the half-initialized-state
+observation guard) or a `setAuthorizedContract` redesign that pins
+each authorized contract to a specific entity type and contract
+address. Both halves of M-2 (tokenId-liveness AND
+entityType-spoofing) remain documented residuals; mitigation is
+governance — Safe diligence on every new authorized contract.
+Re-evaluation is deferred to a future major version that revisits
+the F-2 / handle-resolution-during-callback contract.
+
 **Phase 11 (J-8) update — dual-direction Safe-compromise risk.** The
 M-1 24h queue+apply timelock applies to authorize-true (and trust-true)
 ONCE `bootstrapFinalized` is set inside `Deploy.s.sol`. Deauthorization
