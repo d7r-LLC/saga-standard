@@ -66,8 +66,32 @@ contract SAGAHandleRegistry is Ownable2Step {
 
     event AuthorizedContractSet(address indexed contractAddress, bool authorized);
     event TrustedDirectoryContractSet(address indexed addr, bool trusted);
+    /// @notice Phase 10 (M-1): emitted when an authorize-true is queued for
+    ///         post-handoff timelock. Auth = true requires a 24h delay
+    ///         after the Safe has accepted ownership; deauthorization is
+    ///         always immediate (safety action).
+    event AuthorizedContractQueued(address indexed addr, uint256 readyAt);
+    event TrustedDirectoryContractQueued(address indexed addr, uint256 readyAt);
 
-    constructor() Ownable(msg.sender) {}
+    /// @notice Phase 10 (M-1): the initial owner (deploy-time deployer EOA)
+    ///         can authorize contracts immediately via setAuthorizedContract
+    ///         to support same-tx Deploy.s.sol wiring. Once ownership
+    ///         transfers to the Safe (owner() != _initialOwner), all new
+    ///         authorizations must go through the 24h queue+apply path.
+    address private immutable _initialOwner;
+
+    /// @notice Phase 10 (M-1): single-slot pending queues for the timelock.
+    address private _pendingAuthorizedContract;
+    uint256 private _pendingAuthorizedContractReadyAt;
+    address private _pendingTrustedDirectoryContract;
+    uint256 private _pendingTrustedDirectoryContractReadyAt;
+
+    /// @notice Hours until a queued authorization can be applied.
+    uint256 public constant AUTH_TIMELOCK = 24 hours;
+
+    constructor() Ownable(msg.sender) {
+        _initialOwner = msg.sender;
+    }
 
     /// @notice Renounce is disabled. Phase 8 (F-3) — losing the registry owner
     ///         permanently removes the ability to authorize future identity contracts
@@ -83,28 +107,149 @@ contract SAGAHandleRegistry is Ownable2Step {
 
     // --- Admin ---
 
-    /// @notice Authorize or deauthorize a contract to register handles
+    /// @notice Read the queued (not-yet-applied) authorize-true target.
+    function pendingAuthorizedContract() external view returns (address) {
+        return _pendingAuthorizedContract;
+    }
+
+    function pendingAuthorizedContractReadyAt() external view returns (uint256) {
+        return _pendingAuthorizedContractReadyAt;
+    }
+
+    function pendingTrustedDirectoryContract() external view returns (address) {
+        return _pendingTrustedDirectoryContract;
+    }
+
+    function pendingTrustedDirectoryContractReadyAt() external view returns (uint256) {
+        return _pendingTrustedDirectoryContractReadyAt;
+    }
+
+    /// @notice Authorize or deauthorize a contract to register handles.
+    /// @dev Phase 10 (M-1 + M-4):
+    ///      - `authorized=true` from the initial deployer is immediate
+    ///        (bootstrap path: Deploy.s.sol must wire identity contracts
+    ///        in a single transaction; a 24h delay would brick the deploy).
+    ///      - `authorized=true` from a post-handoff Safe owner reverts;
+    ///        the Safe must use queueAuthorizedContract + applyAuthorizedContract
+    ///        with a 24h timelock so a Safe-compromise cannot squat
+    ///        every valuable handle in one block.
+    ///      - `authorized=false` is always immediate. Deauthorization is
+    ///        the safety action — slowing it down would let an attacker
+    ///        keep operating against a known-compromised contract for
+    ///        a full day.
+    ///      - Phase 10 (M-4) requires `addr` to be a contract when
+    ///        authorizing (true). Authorizing an EOA would let it directly
+    ///        call registerHandle with arbitrary tokenIds.
     function setAuthorizedContract(address addr, bool authorized) external onlyOwner {
-        authorizedContracts[addr] = authorized;
-        emit AuthorizedContractSet(addr, authorized);
+        if (authorized) {
+            require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
+            require(
+                owner() == _initialOwner,
+                "SAGAHandleRegistry: post-handoff: use queueAuthorizedContract"
+            );
+            authorizedContracts[addr] = true;
+            emit AuthorizedContractSet(addr, true);
+        } else {
+            // Deauthorization: always immediate, regardless of bootstrap state.
+            authorizedContracts[addr] = false;
+            emit AuthorizedContractSet(addr, false);
+        }
+    }
+
+    /// @notice Phase 10 (M-1): queue an authorize-true for application
+    ///         after the 24h timelock. Used by the Safe post-handoff to
+    ///         add new identity contracts. The queue is single-slot;
+    ///         re-queueing overwrites and resets the timer.
+    function queueAuthorizedContract(address addr) external onlyOwner {
+        require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
+        _pendingAuthorizedContract = addr;
+        _pendingAuthorizedContractReadyAt = block.timestamp + AUTH_TIMELOCK;
+        emit AuthorizedContractQueued(addr, _pendingAuthorizedContractReadyAt);
+    }
+
+    /// @notice Apply a previously-queued authorization after the timelock.
+    ///         Anyone can call this — the queue is the privileged action.
+    /// @dev Phase 10 (Copilot review on PR #54): re-check code.length at
+    ///      apply time. The queued target could have selfdestructed
+    ///      during the 24h window; without this check, a code-less EOA
+    ///      address could end up authorized, undermining the
+    ///      "authorized must be contract" invariant from M-4.
+    function applyAuthorizedContract(address addr) external {
+        require(_pendingAuthorizedContractReadyAt > 0, "SAGAHandleRegistry: no pending authorize");
+        require(_pendingAuthorizedContract == addr, "SAGAHandleRegistry: pending mismatch");
+        require(
+            block.timestamp >= _pendingAuthorizedContractReadyAt,
+            "SAGAHandleRegistry: authorize not yet ready"
+        );
+        require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
+        authorizedContracts[addr] = true;
+        emit AuthorizedContractSet(addr, true);
+        delete _pendingAuthorizedContract;
+        delete _pendingAuthorizedContractReadyAt;
     }
 
     /// @notice Add or remove a trusted directory NFT contract used by
     ///         registerScopedHandle to verify directory existence + active
-    ///         status. Phase 9 (G-11) — replaces the singleton
+    ///         status. Phase 9 (G-11) replaced the singleton
     ///         setDirectoryIdentity setter from Phase 8A.
-    /// @dev Removing trust does NOT invalidate already-registered scoped
-    ///      handles; it only blocks NEW scoped registrations from
-    ///      resolving directory handles minted by the deauthorized
-    ///      contract. The deployer/governance is expected to verify that
-    ///      `addr` exposes `directoryStatus(uint256) returns (string)`
-    ///      before marking it trusted; on-chain ABI probes are
-    ///      unreliable across Solidity versions and a misconfigured
-    ///      contract is caught at the next registerScopedHandle call.
+    /// @dev Phase 10 (M-1) timelock semantics:
+    ///      - `trusted=true` from the initial deployer is immediate.
+    ///      - `trusted=true` from a post-handoff Safe owner reverts;
+    ///        use queueTrustedDirectoryContract + applyTrustedDirectoryContract.
+    ///      - `trusted=false` is always immediate (deauthorization is the
+    ///        safety action).
+    ///      Removing trust does NOT invalidate already-registered scoped
+    ///      handles; it only blocks NEW scoped registrations and
+    ///      resolveActiveScopedHandle (Phase 10 H-2) from resolving via
+    ///      directory handles minted by the deauthorized contract. The
+    ///      deployer/governance is expected to verify that `addr` exposes
+    ///      `directoryStatus(uint256) returns (string)` before marking
+    ///      it trusted; on-chain ABI probes are unreliable across
+    ///      Solidity versions and a misconfigured contract is caught at
+    ///      the next registerScopedHandle call.
     function setTrustedDirectoryContract(address addr, bool trusted) external onlyOwner {
+        if (trusted) {
+            require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
+            require(
+                owner() == _initialOwner,
+                "SAGAHandleRegistry: post-handoff: use queueTrustedDirectoryContract"
+            );
+            trustedDirectoryContracts[addr] = true;
+            emit TrustedDirectoryContractSet(addr, true);
+        } else {
+            // Detrust: always immediate, regardless of bootstrap state.
+            trustedDirectoryContracts[addr] = false;
+            emit TrustedDirectoryContractSet(addr, false);
+        }
+    }
+
+    /// @notice Phase 10 (M-1): queue a trusted-true for application after
+    ///         the 24h timelock. Used by the Safe post-handoff to add new
+    ///         directory contract implementations.
+    function queueTrustedDirectoryContract(address addr) external onlyOwner {
         require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
-        trustedDirectoryContracts[addr] = trusted;
-        emit TrustedDirectoryContractSet(addr, trusted);
+        _pendingTrustedDirectoryContract = addr;
+        _pendingTrustedDirectoryContractReadyAt = block.timestamp + AUTH_TIMELOCK;
+        emit TrustedDirectoryContractQueued(addr, _pendingTrustedDirectoryContractReadyAt);
+    }
+
+    /// @dev Phase 10 (Copilot review on PR #54): re-check code.length at
+    ///      apply time, mirroring applyAuthorizedContract. See that
+    ///      function for the rationale.
+    function applyTrustedDirectoryContract(address addr) external {
+        require(_pendingTrustedDirectoryContractReadyAt > 0, "SAGAHandleRegistry: no pending trust");
+        require(
+            _pendingTrustedDirectoryContract == addr, "SAGAHandleRegistry: pending mismatch"
+        );
+        require(
+            block.timestamp >= _pendingTrustedDirectoryContractReadyAt,
+            "SAGAHandleRegistry: trust not yet ready"
+        );
+        require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
+        trustedDirectoryContracts[addr] = true;
+        emit TrustedDirectoryContractSet(addr, true);
+        delete _pendingTrustedDirectoryContract;
+        delete _pendingTrustedDirectoryContractReadyAt;
     }
 
     // --- Registration (callable only by authorized contracts) ---

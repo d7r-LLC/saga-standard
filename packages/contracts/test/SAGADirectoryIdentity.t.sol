@@ -176,7 +176,7 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         );
 
         vm.prank(user2);
-        vm.expectRevert("SAGADirectoryIdentity: not owner");
+        vm.expectRevert("SAGADirectoryIdentity: not authorized");
         directory.updateDirectoryUrl(tokenId, "https://hacked.com");
     }
 
@@ -213,7 +213,7 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         );
 
         vm.prank(user2);
-        vm.expectRevert("SAGADirectoryIdentity: not nft owner or governance");
+        vm.expectRevert("SAGADirectoryIdentity: not authorized");
         directory.updateDirectoryStatus(tokenId, "hacked");
     }
 
@@ -665,5 +665,40 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         vm.prank(makeAddr("randomEoa"));
         vm.expectRevert(bytes("SAGADirectoryIdentity: renounce disabled"));
         directory.renounceOwnership();
+    }
+
+    // M-3: approved operator can call updateDirectoryUrl on an active
+    // directory. Combined with H-1, governance still cannot transfer
+    // active directories — this only opens metadata setters to delegates.
+    function test_m3_updateDirectoryUrl_approvedOperatorSucceeds() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "op-dir", "https://old.example/", makeAddr("op"), "basic"
+        );
+
+        address operator = makeAddr("operator");
+        vm.prank(user1);
+        directory.setApprovalForAll(operator, true);
+
+        vm.prank(operator);
+        directory.updateDirectoryUrl(tokenId, "https://new.example/");
+        assertEq(directory.directoryUrl(tokenId), "https://new.example/");
+    }
+
+    // M-3 + H-1 interaction: operator approved by NFT owner can also
+    // downgrade status (with the rank monotonicity rule).
+    function test_m3_updateDirectoryStatus_approvedOperatorCanDowngrade() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "ops-dir", "https://x.example/", makeAddr("op"), "basic"
+        );
+
+        address operator = makeAddr("operator");
+        vm.prank(user1);
+        directory.setApprovalForAll(operator, true);
+
+        vm.prank(operator);
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        assertEq(directory.directoryStatus(tokenId), "suspended");
     }
 }

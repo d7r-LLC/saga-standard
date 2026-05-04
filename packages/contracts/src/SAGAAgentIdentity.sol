@@ -157,7 +157,19 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     ///      re-enter this mutator before AgentRegistered is emitted, making
     ///      the event payload inconsistent with the final stored state.
     function updateHomeHub(uint256 tokenId, string calldata newHubUrl) external nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, "SAGAAgentIdentity: not owner");
+        // Phase 10 (M-3): use OZ's _isAuthorized so smart-wallet operators
+        // (ERC-4337, Safe, Delegate.xyz) approved via setApprovalForAll
+        // can rotate hub URLs on behalf of the token owner. Direct
+        // ownerOf() equality previously broke these standard delegation
+        // flows.
+        // _requireOwned reverts with the canonical ERC-721
+        // ERC721NonexistentToken error for unminted tokens, preserving
+        // standard tooling expectations (Copilot review on PR #54).
+        address tokenOwner = _requireOwned(tokenId);
+        require(
+            _isAuthorized(tokenOwner, msg.sender, tokenId),
+            "SAGAAgentIdentity: not authorized"
+        );
         SAGAValidation.validateUrl(newHubUrl);
         string memory oldUrl = _homeHubUrls[tokenId];
         _homeHubUrls[tokenId] = newHubUrl;
@@ -222,6 +234,12 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGAAgentIdentity: base uri not yet ready"
         );
+        // Phase 10 (M-2): re-validate the queued URL at apply time as
+        // defense-in-depth. validateUrl ran at queue time, but the URI
+        // sat in storage for 24+ hours; if SAGAValidation ever tightens
+        // (e.g. a future governance vote bans a new byte class), the
+        // queued value should not slip through.
+        SAGAValidation.validateUrl(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;

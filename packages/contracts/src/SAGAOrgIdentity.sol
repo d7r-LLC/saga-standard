@@ -142,7 +142,16 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     ///      ERC721Receiver callback during register* from mutating org name
     ///      before OrgRegistered is emitted.
     function updateOrgName(uint256 tokenId, string calldata name) external nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, "SAGAOrgIdentity: not owner");
+        // Phase 10 (M-3): use _isAuthorized so smart-wallet operators
+        // approved via setApprovalForAll can rotate org names. See
+        // SAGAAgentIdentity.updateHomeHub for full rationale.
+        // _requireOwned reverts with ERC721NonexistentToken for unminted
+        // tokens (Copilot review on PR #54).
+        address tokenOwner = _requireOwned(tokenId);
+        require(
+            _isAuthorized(tokenOwner, msg.sender, tokenId),
+            "SAGAOrgIdentity: not authorized"
+        );
         require(
             bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
         );
@@ -202,6 +211,9 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGAOrgIdentity: base uri not yet ready"
         );
+        // Phase 10 (M-2): re-validate at apply time as defense-in-depth.
+        // See SAGAAgentIdentity for rationale.
+        SAGAValidation.validateUrl(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;

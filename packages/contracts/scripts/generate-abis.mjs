@@ -13,6 +13,12 @@ const TARGETS = [
   { contract: 'SAGAAgentIdentity', exportName: 'SAGAAgentIdentityAbi' },
   { contract: 'SAGAOrgIdentity', exportName: 'SAGAOrgIdentityAbi' },
   { contract: 'SAGADirectoryIdentity', exportName: 'SAGADirectoryIdentityAbi' },
+  // Phase 10 (M-8): the README lists SAGATBAHelper as a package contract;
+  // export the ABI so frontends/indexers can call computeAccount /
+  // computeAccountForChain / createAccount via the deployed helper
+  // instead of reimplementing ERC-6551 derivation off-chain (which
+  // drifts from the helper's immutable registry/implementation refs).
+  { contract: 'SAGATBAHelper', exportName: 'SAGATBAHelperAbi' },
 ]
 
 const HEADER = `// SPDX-License-Identifier: Apache-2.0

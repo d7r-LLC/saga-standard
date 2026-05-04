@@ -378,7 +378,7 @@ export const SAGADirectoryIdentityAbi = [
     name: 'renounceOwnership',
     inputs: [],
     outputs: [],
-    stateMutability: 'view',
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -1021,6 +1021,11 @@ export const SAGADirectoryIdentityAbi = [
         internalType: 'uint256',
       },
     ],
+  },
+  {
+    type: 'error',
+    name: 'InvalidUrlCharacter',
+    inputs: [],
   },
   {
     type: 'error',

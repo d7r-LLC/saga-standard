@@ -185,7 +185,7 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         uint256 tokenId = agent.registerAgent("no-update", "https://hub.example.com");
 
         vm.prank(user2);
-        vm.expectRevert("SAGAAgentIdentity: not owner");
+        vm.expectRevert("SAGAAgentIdentity: not authorized");
         agent.updateHomeHub(tokenId, "https://hacked.example.com");
     }
 
@@ -238,7 +238,7 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         agent.transferFrom(user1, user2, tokenId);
 
         vm.prank(user1);
-        vm.expectRevert("SAGAAgentIdentity: not owner");
+        vm.expectRevert("SAGAAgentIdentity: not authorized");
         agent.updateHomeHub(tokenId, "https://shouldnt-work.example.com");
     }
 
@@ -626,5 +626,31 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         vm.prank(makeAddr("randomEoa"));
         vm.expectRevert(bytes("SAGAAgentIdentity: renounce disabled"));
         agent.renounceOwnership();
+    }
+
+    // === Phase 10B regression tests ===
+
+    // M-3: approved operator can call updateHomeHub. Previously the
+    // direct ownerOf == msg.sender check rejected smart-wallet delegates.
+    function test_m3_updateHomeHub_approvedOperatorSucceeds() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("op-agent", "https://old.example/");
+
+        address operator = makeAddr("operator");
+        vm.prank(user1);
+        agent.setApprovalForAll(operator, true);
+
+        vm.prank(operator);
+        agent.updateHomeHub(tokenId, "https://new.example/");
+        assertEq(agent.homeHubUrl(tokenId), "https://new.example/");
+    }
+
+    function test_m3_updateHomeHub_strangerStillBlocked() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("blk-agent", "https://old.example/");
+
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(bytes("SAGAAgentIdentity: not authorized"));
+        agent.updateHomeHub(tokenId, "https://hijack.example/");
     }
 }

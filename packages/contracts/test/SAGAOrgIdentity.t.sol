@@ -153,7 +153,7 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         uint256 tokenId = org.registerOrganization("no-rename", "Original");
 
         vm.prank(user2);
-        vm.expectRevert("SAGAOrgIdentity: not owner");
+        vm.expectRevert("SAGAOrgIdentity: not authorized");
         org.updateOrgName(tokenId, "Hacked Name");
     }
 
@@ -378,5 +378,19 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         vm.prank(makeAddr("randomEoa"));
         vm.expectRevert(bytes("SAGAOrgIdentity: renounce disabled"));
         org.renounceOwnership();
+    }
+
+    // M-3: approved operator can call updateOrgName.
+    function test_m3_updateOrgName_approvedOperatorSucceeds() public {
+        vm.prank(user1);
+        uint256 tokenId = org.registerOrganization("op-org", "Old Name");
+
+        address operator = makeAddr("operator");
+        vm.prank(user1);
+        org.setApprovalForAll(operator, true);
+
+        vm.prank(operator);
+        org.updateOrgName(tokenId, "New Name");
+        assertEq(org.orgName(tokenId), "New Name");
     }
 }

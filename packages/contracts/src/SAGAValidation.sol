@@ -23,10 +23,15 @@ library SAGAValidation {
     /// @notice Validate a URL string is non-empty, ≤MAX_URL_BYTES bytes, and
     ///         starts with "http://" or "https://".
     /// @dev Reverts on failure. Callers should `validateUrl(url)` before any
-    ///      state write. Reads bytes directly from calldata (no memory copy)
-    ///      to keep per-call gas low.
-    function validateUrl(string calldata url) internal pure {
-        bytes calldata b = bytes(url);
+    ///      state write. Phase 10 (M-2): signature changed from
+    ///      `string calldata` to `string memory` so `applyBaseURI` can
+    ///      re-validate the queued URI (held in storage as `string`) at
+    ///      apply time as defense-in-depth against validator semantics
+    ///      tightening between queue and apply. Solidity auto-converts
+    ///      `string calldata` callers; the per-call gas delta is small
+    ///      compared to the 1024-byte cap.
+    function validateUrl(string memory url) internal pure {
+        bytes memory b = bytes(url);
         uint256 len = b.length;
         if (len == 0 || len > MAX_URL_BYTES) revert InvalidUrlLength();
 

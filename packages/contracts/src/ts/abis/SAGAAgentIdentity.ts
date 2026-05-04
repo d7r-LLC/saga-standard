@@ -359,7 +359,7 @@ export const SAGAAgentIdentityAbi = [
     name: 'renounceOwnership',
     inputs: [],
     outputs: [],
-    stateMutability: 'view',
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -953,6 +953,11 @@ export const SAGAAgentIdentityAbi = [
         internalType: 'uint256',
       },
     ],
+  },
+  {
+    type: 'error',
+    name: 'InvalidUrlCharacter',
+    inputs: [],
   },
   {
     type: 'error',

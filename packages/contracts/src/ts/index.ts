@@ -7,6 +7,7 @@ export {
   SAGAAgentIdentityAbi,
   SAGAOrgIdentityAbi,
   SAGADirectoryIdentityAbi,
+  SAGATBAHelperAbi,
 } from './abis'
 
 // Addresses
@@ -24,6 +25,7 @@ export {
   getAgentIdentityConfig,
   getOrgIdentityConfig,
   getDirectoryIdentityConfig,
+  getTBAHelperConfig,
 } from './clients'
 
 // Types

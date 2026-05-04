@@ -152,7 +152,16 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     ///      could redirect a revoked directory's URL to a phishing site even
     ///      after governance has revoked the directory.
     function updateDirectoryUrl(uint256 tokenId, string calldata newUrl) external nonReentrant {
-        require(ownerOf(tokenId) == msg.sender, "SAGADirectoryIdentity: not owner");
+        // Phase 10 (M-3): use _isAuthorized so smart-wallet operators
+        // approved via setApprovalForAll can rotate directory URLs.
+        // See SAGAAgentIdentity.updateHomeHub for full rationale.
+        // _requireOwned reverts with ERC721NonexistentToken for unminted
+        // tokens (Copilot review on PR #54).
+        address tokenOwner = _requireOwned(tokenId);
+        require(
+            _isAuthorized(tokenOwner, msg.sender, tokenId),
+            "SAGADirectoryIdentity: not authorized"
+        );
         require(
             _statusRank(_statuses[tokenId]) < 2,
             "SAGADirectoryIdentity: cannot update url when flagged or revoked"
@@ -189,11 +198,24 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         external
         nonReentrant
     {
+        // Phase 10 (Copilot review on PR #54): require the token to exist
+        // before EITHER branch proceeds. Without this, the governance
+        // bypass would let the contract owner pre-set _statuses[tokenId]
+        // for unminted tokenIds; a future mint of that tokenId would
+        // inherit the pre-set status, breaking the "every minted token
+        // starts as active" invariant.
+        address tokenOwner = _requireOwned(tokenId);
         bool isContractOwner = msg.sender == owner();
-        bool isNftOwner = ownerOf(tokenId) == msg.sender;
+        // Phase 10 (M-3): NFT-owner branch now accepts approved operators
+        // via _isAuthorized so smart-wallet delegates can manage directory
+        // status (subject to the same downgrade-only rule below).
+        // Governance branch (isContractOwner) keeps its any-status authority
+        // and remains the only way to upgrade a flagged/revoked directory
+        // back toward active.
+        bool isNftSideAuthorized = _isAuthorized(tokenOwner, msg.sender, tokenId);
         require(
-            isContractOwner || isNftOwner,
-            "SAGADirectoryIdentity: not nft owner or governance"
+            isContractOwner || isNftSideAuthorized,
+            "SAGADirectoryIdentity: not authorized"
         );
         require(_isValidStatus(newStatus), "SAGADirectoryIdentity: invalid status");
 
@@ -298,6 +320,9 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGADirectoryIdentity: base uri not yet ready"
         );
+        // Phase 10 (M-2): re-validate at apply time as defense-in-depth.
+        // See SAGAAgentIdentity for rationale.
+        SAGAValidation.validateUrl(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;

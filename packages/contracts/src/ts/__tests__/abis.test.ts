@@ -7,6 +7,7 @@ import {
   SAGADirectoryIdentityAbi,
   SAGAHandleRegistryAbi,
   SAGAOrgIdentityAbi,
+  SAGATBAHelperAbi,
 } from '../abis'
 
 describe('ABI exports', () => {
@@ -63,7 +64,7 @@ describe('ABI exports', () => {
   const fns = (abi: readonly { type: string; name?: string }[]) =>
     new Set(abi.filter(e => e.type === 'function').map(e => e.name))
 
-  it('SAGAHandleRegistry ABI is fresh against post-Phase-9 surface', () => {
+  it('SAGAHandleRegistry ABI is fresh against post-Phase-10 surface', () => {
     const names = fns(SAGAHandleRegistryAbi)
     for (const expected of [
       'acceptOwnership',
@@ -78,6 +79,16 @@ describe('ABI exports', () => {
       'setAuthorizedContract',
       'setTrustedDirectoryContract',
       'trustedDirectoryContracts',
+      // Phase 10 (M-1): timelock queue + apply
+      'queueAuthorizedContract',
+      'applyAuthorizedContract',
+      'queueTrustedDirectoryContract',
+      'applyTrustedDirectoryContract',
+      'pendingAuthorizedContract',
+      'pendingAuthorizedContractReadyAt',
+      'pendingTrustedDirectoryContract',
+      'pendingTrustedDirectoryContractReadyAt',
+      'AUTH_TIMELOCK',
     ]) {
       expect(names, `missing ${expected}`).toContain(expected)
     }
@@ -117,7 +128,7 @@ describe('ABI exports', () => {
     }
   })
 
-  it('SAGADirectoryIdentity ABI is fresh against post-Phase-9 surface', () => {
+  it('SAGADirectoryIdentity ABI is fresh against post-Phase-10 surface', () => {
     const names = fns(SAGADirectoryIdentityAbi)
     for (const expected of [
       'acceptOwnership',
@@ -131,6 +142,25 @@ describe('ABI exports', () => {
       'pendingBaseURI',
       'pendingBaseURIReadyAt',
       'BASE_URI_TIMELOCK',
+    ]) {
+      expect(names, `missing ${expected}`).toContain(expected)
+    }
+  })
+
+  // Phase 10 (M-8): SAGATBAHelper is now part of the package surface.
+  it('SAGATBAHelperAbi is a non-empty array', () => {
+    expect(Array.isArray(SAGATBAHelperAbi)).toBe(true)
+    expect(SAGATBAHelperAbi.length).toBeGreaterThan(0)
+  })
+
+  it('SAGATBAHelper ABI exposes the ERC-6551 entry points', () => {
+    const names = fns(SAGATBAHelperAbi)
+    for (const expected of [
+      'computeAccount',
+      'computeAccountForChain',
+      'createAccount',
+      'registry',
+      'accountImplementation',
     ]) {
       expect(names, `missing ${expected}`).toContain(expected)
     }

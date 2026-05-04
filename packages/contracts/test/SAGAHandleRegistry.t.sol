@@ -57,10 +57,17 @@ contract SAGAHandleRegistryTest is Test {
 
     function setUp() public {
         owner = address(this);
-        authorizedContract = address(0xA);
+        // Phase 10 (M-4): setAuthorizedContract now requires the address
+        // to be a contract. Use a derived-address fixture so we land
+        // outside the 0x01..0x0a precompile range that `vm.etch` refuses
+        // to overwrite (those slots are reserved for ECRECOVER, SHA256,
+        // RIPEMD160, IDENTITY, MODEXP, ECADD, ECMUL, ECPAIRING, BLAKE2F,
+        // and POINT_EVALUATION).
+        authorizedContract = makeAddr("authorizedContract");
         unauthorizedUser = address(0xB);
 
         registry = new SAGAHandleRegistry();
+        vm.etch(authorizedContract, hex"60006000fd");
         registry.setAuthorizedContract(authorizedContract, true);
 
         // Phase 9 (G-11): wire the directory-identity mock and pre-register
@@ -227,10 +234,14 @@ contract SAGAHandleRegistryTest is Test {
 
     // --- Test 12: setAuthorizedContract ---
     function test_setAuthorizedContract() public {
-        address newContract = address(0xC);
+        address newContract = makeAddr("newContract");
+        // Phase 10 (M-4) requires the authorize target to be a contract.
+        vm.etch(newContract, hex"60006000fd");
         registry.setAuthorizedContract(newContract, true);
         assertTrue(registry.authorizedContracts(newContract));
 
+        // Deauthorize is always immediate and accepts EOAs (it's a safety
+        // action — slowing it down would be wrong).
         registry.setAuthorizedContract(newContract, false);
         assertFalse(registry.authorizedContracts(newContract));
     }
@@ -751,5 +762,123 @@ contract SAGAHandleRegistryTest is Test {
         vm.prank(makeAddr("randomEoa"));
         vm.expectRevert(bytes("SAGAHandleRegistry: renounce disabled"));
         registry.renounceOwnership();
+    }
+
+    // === Phase 10B regression tests ===
+
+    // M-4: setAuthorizedContract(addr, true) requires `addr` to be a
+    // contract. EOA targets revert. Deauthorization (false) accepts any
+    // address — it's a safety action.
+    function test_m4_setAuthorizedContract_rejectsEoa() public {
+        address eoa = makeAddr("randomEoa");
+        vm.expectRevert(bytes("SAGAHandleRegistry: authorized must be contract"));
+        registry.setAuthorizedContract(eoa, true);
+
+        // Deauthorize accepts EOAs (no-op since not authorized, but doesn't revert).
+        registry.setAuthorizedContract(eoa, false);
+    }
+
+    // M-1: post-handoff authorize-true reverts and must use the queue;
+    // deauthorize-false stays immediate; bootstrap (initial owner)
+    // path still allows immediate authorize-true so Deploy.s.sol works.
+    function test_m1_setAuthorizedContract_postHandoffRevertsOnAuthorize() public {
+        address newContract = makeAddr("newContract");
+        vm.etch(newContract, hex"60006000fd");
+
+        // Hand off ownership to a Safe-equivalent test address.
+        address safe = makeAddr("safe");
+        registry.transferOwnership(safe);
+        vm.prank(safe);
+        registry.acceptOwnership();
+        assertEq(registry.owner(), safe);
+
+        // Post-handoff: authorize-true via setAuthorizedContract reverts.
+        vm.prank(safe);
+        vm.expectRevert(
+            bytes("SAGAHandleRegistry: post-handoff: use queueAuthorizedContract")
+        );
+        registry.setAuthorizedContract(newContract, true);
+
+        // Post-handoff: deauthorize-false is immediate (safety action).
+        vm.prank(safe);
+        registry.setAuthorizedContract(newContract, false);
+    }
+
+    function test_m1_queueAndApply_authorizedContract() public {
+        address newContract = makeAddr("newContract");
+        vm.etch(newContract, hex"60006000fd");
+
+        // Hand off to Safe.
+        address safe = makeAddr("safe");
+        registry.transferOwnership(safe);
+        vm.prank(safe);
+        registry.acceptOwnership();
+
+        // Queue from Safe.
+        vm.prank(safe);
+        registry.queueAuthorizedContract(newContract);
+        assertEq(registry.pendingAuthorizedContract(), newContract);
+        assertEq(registry.pendingAuthorizedContractReadyAt(), block.timestamp + 24 hours);
+
+        // Apply too early reverts.
+        vm.expectRevert(bytes("SAGAHandleRegistry: authorize not yet ready"));
+        registry.applyAuthorizedContract(newContract);
+
+        vm.warp(block.timestamp + 24 hours);
+
+        // Apply from any caller succeeds (queue is the privileged action).
+        registry.applyAuthorizedContract(newContract);
+        assertTrue(registry.authorizedContracts(newContract));
+        assertEq(registry.pendingAuthorizedContract(), address(0));
+    }
+
+    function test_m1_queueAuthorizedContract_rejectsEoa() public {
+        address safe = makeAddr("safe");
+        registry.transferOwnership(safe);
+        vm.prank(safe);
+        registry.acceptOwnership();
+
+        vm.prank(safe);
+        vm.expectRevert(bytes("SAGAHandleRegistry: authorized must be contract"));
+        registry.queueAuthorizedContract(makeAddr("randomEoa"));
+    }
+
+    function test_m1_setTrustedDirectoryContract_postHandoffRevertsOnTrust() public {
+        MockDirectoryIdentity v2 = new MockDirectoryIdentity();
+
+        address safe = makeAddr("safe");
+        registry.transferOwnership(safe);
+        vm.prank(safe);
+        registry.acceptOwnership();
+
+        vm.prank(safe);
+        vm.expectRevert(
+            bytes("SAGAHandleRegistry: post-handoff: use queueTrustedDirectoryContract")
+        );
+        registry.setTrustedDirectoryContract(address(v2), true);
+
+        // Detrust still immediate.
+        vm.prank(safe);
+        registry.setTrustedDirectoryContract(address(v2), false);
+    }
+
+    function test_m1_queueAndApply_trustedDirectoryContract() public {
+        MockDirectoryIdentity v2 = new MockDirectoryIdentity();
+
+        address safe = makeAddr("safe");
+        registry.transferOwnership(safe);
+        vm.prank(safe);
+        registry.acceptOwnership();
+
+        vm.prank(safe);
+        registry.queueTrustedDirectoryContract(address(v2));
+        assertEq(registry.pendingTrustedDirectoryContract(), address(v2));
+
+        vm.expectRevert(bytes("SAGAHandleRegistry: trust not yet ready"));
+        registry.applyTrustedDirectoryContract(address(v2));
+
+        vm.warp(block.timestamp + 24 hours);
+        registry.applyTrustedDirectoryContract(address(v2));
+        assertTrue(registry.trustedDirectoryContracts(address(v2)));
     }
 }
