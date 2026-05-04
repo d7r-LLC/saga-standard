@@ -3,4 +3,10 @@
 
 export { validateSchema, validateSagaDocument } from './schema-validator'
 export { validateSemantics } from './semantic-validator'
+export {
+  assertMarkdownSafe,
+  checkMarkdownSafety,
+  type MarkdownSafetyReason,
+  type MarkdownSafetyResult,
+} from './markdown-safety'
 export type { SagaValidationError, ValidationSeverity, ValidationResult } from './errors'

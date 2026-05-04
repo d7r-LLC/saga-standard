@@ -23,8 +23,41 @@ import { runIndexer } from './indexer/chain-indexer'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Global middleware
-app.use('*', cors())
+/**
+ * Phase 6 (O-Low#2): CORS origin allowlist. The previous `cors()` call with
+ * no options accepted ALL origins, which made the open reference deploy
+ * usable for cross-origin browser callers but also blew the cross-origin
+ * threat model wide open.
+ *
+ * New posture:
+ *   - Production deployers MUST set `CORS_ALLOWED_ORIGINS` (comma-separated
+ *     list of allowed origins, e.g. `https://directory.epicflowstate.ai`).
+ *   - When the env var is unset OR empty, we still emit no-CORS headers
+ *     (i.e. the response is single-origin only). Same-origin requests
+ *     work fine because the browser doesn't enforce CORS on those.
+ *   - The wildcard `*` is supported as an explicit opt-in for reference
+ *     deploys / local dev that want the old behavior.
+ *
+ * SECURITY.md documents this contract.
+ */
+app.use('*', (c, next) => {
+  const raw = c.env.CORS_ALLOWED_ORIGINS ?? ''
+  const allowed = raw
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+  const wildcardAll = allowed.includes('*')
+
+  return cors({
+    origin: origin => {
+      if (!origin) return ''
+      if (wildcardAll) return origin
+      if (allowed.includes(origin)) return origin
+      return null
+    },
+    credentials: false,
+  })(c, next)
+})
 
 // Root — redirect browsers, return JSON for API clients
 app.get('/', c => {
@@ -96,14 +129,18 @@ app.post('/admin/reindex', async c => {
     const start = c.env.INDEXER_START_BLOCK ?? '0'
     const cursor = await c.env.INDEXER_STATE.get('indexer:lastBlock')
 
-    console.log(
+    // Use console.warn for indexer diagnostics — `no-console: error` rule
+    // (Phase 6 G-Med#2) restricts console.log in production code; warn/error
+    // are the sanctioned channels and these admin-endpoint diagnostics
+    // legitimately need to ship to operator logs.
+    console.warn(
       `[indexer] config: rpc=${rpc} agent=${agent} org=${org} chain=${chain} startBlock=${start} cursor=${cursor}`
     )
 
     await runIndexer(c.env)
 
     const newCursor = await c.env.INDEXER_STATE.get('indexer:lastBlock')
-    console.log(`[indexer] done. cursor: ${cursor} -> ${newCursor}`)
+    console.warn(`[indexer] done. cursor: ${cursor} -> ${newCursor}`)
 
     return c.json({ status: 'ok', cursor: newCursor, prevCursor: cursor })
   } catch (err) {

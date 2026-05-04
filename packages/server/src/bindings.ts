@@ -100,4 +100,14 @@ export interface Env {
    * relay outbound. Default 10. Phase 5 (A-Med, auth).
    */
   RATE_LIMIT_CHAT?: string
+
+  /**
+   * Comma-separated list of CORS origins permitted to make cross-origin
+   * requests against the server. Set to your directory app's origin for
+   * production (e.g. `https://directory.epicflowstate.ai`). Set to `*` to
+   * allow any origin (the old reference-deploy default — only suitable
+   * for fully-open reference servers, NOT for production handle holders).
+   * Empty / unset = no cross-origin access. Phase 6 (O-Low#2).
+   */
+  CORS_ALLOWED_ORIGINS?: string
 }

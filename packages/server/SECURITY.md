@@ -58,7 +58,24 @@ If you change `verifySignature`, the WebSocket auth path, or the federation auth
 
 ## CORS
 
-The server uses permissive CORS (`cors()` with no origin restriction). This is acceptable for the reference implementation but production deployments should restrict allowed origins via a same-origin allowlist.
+**Phase 6 (O-Low#2) update:** the global CORS middleware is now an origin allowlist driven by the `CORS_ALLOWED_ORIGINS` environment variable.
+
+| `CORS_ALLOWED_ORIGINS` value                       | Behavior                                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| unset / empty                                      | No cross-origin access. Same-origin requests still work.                                        |
+| `https://directory.epicflowstate.ai`               | Allow exactly that origin (production deploy posture).                                          |
+| `https://a.example,https://b.example` (comma list) | Allow each origin verbatim. Whitespace around commas is trimmed.                                |
+| `*`                                                | Allow ANY origin. The old reference-deploy default. **Production deployers must NOT use this.** |
+
+Wildcard `*` is the explicit opt-in for fully-open reference servers. Production handle holders MUST set `CORS_ALLOWED_ORIGINS` to their directory app's exact origin (or origins). The CORS middleware never echoes credentials and never allows arbitrary unlisted origins, even for OPTIONS preflight.
+
+Regression coverage: `packages/server/src/__tests__/cors.test.ts`.
+
+## User-rendered markdown (persona / cognitive fields)
+
+**Phase 6 (A-Low#7):** `packages/sdk/src/validate/markdown-safety.ts` provides `checkMarkdownSafety()` which rejects raw HTML tags, `javascript:` URIs, and `data:text/html` URIs in user-authored markdown fields. `validateSemantics()` invokes this on `persona.headline`, `persona.bio`, `persona.personality.communicationStyle`, `persona.personality.tone`, and `cognitive.systemPrompt.content`.
+
+**This is NOT a substitute for output-side sanitization.** Frontends rendering these fields MUST sanitize via DOMPurify-or-equivalent before innerHTML. The validator catches the obvious vectors so they never reach a renderer; the renderer's sanitizer is the second layer.
 
 ## Session Tokens
 

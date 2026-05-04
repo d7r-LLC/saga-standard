@@ -10,7 +10,13 @@ module.exports = {
   },
   extends: ['eslint:recommended', 'prettier'],
   rules: {
-    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    // Phase 6 (G-Med#2): no-console upgraded warn → error in production
+    // code. `console.warn` and `console.error` remain allowed because
+    // those are the sanctioned log channels (they go to stderr in CF
+    // Workers and to the operator dashboard in browsers). The CLI and
+    // tests overrides below keep `console.log` available where it's
+    // legitimate.
+    'no-console': ['error', { allow: ['warn', 'error'] }],
     'prefer-const': 'error',
     'no-var': 'error',
     eqeqeq: ['error', 'always', { null: 'ignore' }],
@@ -42,7 +48,8 @@ module.exports = {
         '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
         '@typescript-eslint/no-explicit-any': 'warn',
         '@typescript-eslint/no-non-null-assertion': 'warn',
-        'no-console': ['warn', { allow: ['warn', 'error'] }],
+        // Phase 6 (G-Med#2): see top-level rule for rationale.
+        'no-console': ['error', { allow: ['warn', 'error'] }],
         'prefer-const': 'error',
         'no-var': 'error',
         eqeqeq: ['error', 'always', { null: 'ignore' }],

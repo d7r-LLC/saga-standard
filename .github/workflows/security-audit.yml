@@ -1,0 +1,40 @@
+# Copyright 2026 d7r LLC
+# SPDX-License-Identifier: Apache-2.0
+#
+# Phase 6 (A-Med#10) — Weekly supply-chain audit. Fails the build on any
+# `high` or `critical` advisory in the workspace's resolved deps. The
+# workspace lockfile is the source of truth — `--frozen-lockfile` ensures
+# we audit what would actually ship, not what `pnpm install` would resolve
+# at the time of run.
+name: security-audit
+
+on:
+  schedule:
+    # Every Monday 13:00 UTC (~9am ET, ~6am PT) — weekday so engineers
+    # see failures during normal hours.
+    - cron: '0 13 * * 1'
+  push:
+    branches: [dev, main]
+    paths:
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/security-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Audit (high+ severity)
+        run: pnpm audit --audit-level=high

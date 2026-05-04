@@ -3,6 +3,7 @@
 
 import type { SagaDocument } from '../types/saga-document'
 import type { SagaValidationError, ValidationResult } from './errors'
+import { checkMarkdownSafety } from './markdown-safety'
 
 /**
  * Semantic validation: checks meaning beyond JSON Schema structure.
@@ -151,6 +152,36 @@ export function validateSemantics(doc: SagaDocument): ValidationResult {
           })
         }
       }
+    }
+  }
+
+  // Rule 11: Phase 6 (A-Low#7) — markdown XSS-vector rejection on user-
+  // authored markdown fields. The validator is the SDK-side gate; downstream
+  // renderers MUST still sanitize via DOMPurify-or-equivalent before
+  // innerHTML. See `validate/markdown-safety.ts` for the rule set and the
+  // SECURITY.md "User-rendered markdown" section for the consumer contract.
+  const markdownFields: Array<{ path: string; value: string | undefined }> = [
+    { path: '/layers/persona/headline', value: doc.layers?.persona?.headline },
+    { path: '/layers/persona/bio', value: doc.layers?.persona?.bio },
+    {
+      path: '/layers/persona/personality/communicationStyle',
+      value: doc.layers?.persona?.personality?.communicationStyle,
+    },
+    { path: '/layers/persona/personality/tone', value: doc.layers?.persona?.personality?.tone },
+    {
+      path: '/layers/cognitive/systemPrompt/content',
+      value: doc.layers?.cognitive?.systemPrompt?.content,
+    },
+  ]
+  for (const { path, value } of markdownFields) {
+    if (typeof value !== 'string' || value.length === 0) continue
+    const r = checkMarkdownSafety(value)
+    if (!r.ok) {
+      errors.push({
+        path,
+        message: `Field contains unsafe content (${r.reason}); rejected by markdown safety check`,
+        severity: 'error',
+      })
     }
   }
 
