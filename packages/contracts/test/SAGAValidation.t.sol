@@ -102,4 +102,24 @@ contract SAGAValidationTest is Test {
         vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
         harness.validateUrl("####://");
     }
+
+    // === Phase 8 (F-12) — require host bytes after scheme prefix ===
+
+    function test_validateUrl_revertsOnHttpPrefixOnly() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        harness.validateUrl("http://");
+    }
+
+    function test_validateUrl_revertsOnHttpsPrefixOnly() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        harness.validateUrl("https://");
+    }
+
+    function test_validateUrl_acceptsMinimalHostHttp() public view {
+        harness.validateUrl("http://a");
+    }
+
+    function test_validateUrl_acceptsMinimalHostHttps() public view {
+        harness.validateUrl("https://b");
+    }
 }

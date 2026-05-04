@@ -1,6 +1,12 @@
 [submodule "packages/contracts/lib/openzeppelin-contracts"]
 	path = packages/contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+	# Phase 8 (F-14): pin to v5.6.1. The submodule's gitlink commit
+	# (5fd1781b) is the v5.6.1 release tag. The branch declaration here
+	# documents the intent for `forge install --recursive` operations.
+	branch = v5.6.1
 [submodule "packages/contracts/lib/forge-std"]
 	path = packages/contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+	# Phase 8 (F-14): pin to v1.9.6 (gitlink commit 0844d7e1).
+	branch = v1.9.6

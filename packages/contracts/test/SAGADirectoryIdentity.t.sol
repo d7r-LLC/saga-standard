@@ -522,4 +522,23 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         );
         directory.updateDirectoryUrl(tokenId, "https://new.example/");
     }
+
+    // F-9: 32-byte cap on the self-claimed conformance level.
+    function test_registerDirectory_conformanceLevelCappedAt32() public {
+        string memory exact32 = "01234567890123456789012345678901"; // 32 bytes
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "cap-exact", "https://dir.example/", makeAddr("op"), exact32
+        );
+        assertEq(directory.conformanceLevel(tokenId), exact32);
+    }
+
+    function test_registerDirectory_revertsOnConformanceOverflow() public {
+        string memory tooBig = "012345678901234567890123456789012"; // 33 bytes
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: invalid conformance"));
+        directory.registerDirectory(
+            "cap-overflow", "https://dir.example/", makeAddr("op"), tooBig
+        );
+    }
 }

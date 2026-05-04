@@ -75,11 +75,17 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         revert("SAGADirectoryIdentity: renounce disabled");
     }
 
-    /// @notice Register a directory and mint an identity NFT
+    /// @notice Register a directory and mint an identity NFT.
     /// @param _directoryId Unique directory identifier (3-64 chars, validated by registry)
     /// @param url URL of the directory's hub endpoint
     /// @param operator Operator wallet address for the directory
-    /// @param conformanceLevel The SAGA conformance level (e.g. "full", "basic")
+    /// @param conformanceLevel A SELF-CLAIMED SAGA conformance level (e.g. "full",
+    ///        "basic"). Phase 8 (F-9): this string is self-attested at mint time
+    ///        with NO on-chain governance gate or whitelist. Off-chain consumers
+    ///        MUST treat this value as an unverified label and verify true
+    ///        conformance through an out-of-band SAGA conformance audit before
+    ///        relying on it for trust decisions. Capped at 32 bytes to bound
+    ///        per-mint storage cost.
     /// @return tokenId The minted token ID
     function registerDirectory(
         string calldata _directoryId,
@@ -89,7 +95,15 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     ) external nonReentrant returns (uint256) {
         SAGAValidation.validateUrl(url);
         require(operator != address(0), "SAGADirectoryIdentity: invalid operator");
-        require(bytes(conformanceLevel).length > 0, "SAGADirectoryIdentity: invalid conformance");
+        // Phase 8 (F-9): cap claimed conformance level at 32 bytes. Without the
+        // cap an attacker can inflate per-mint storage cost. The string is
+        // self-attested; off-chain consumers must verify out-of-band. Cache
+        // the length once — `bytes(stringCalldata).length` allocates each
+        // time it's evaluated.
+        uint256 levelLen = bytes(conformanceLevel).length;
+        require(
+            levelLen > 0 && levelLen <= 32, "SAGADirectoryIdentity: invalid conformance"
+        );
 
         uint256 tokenId = _nextTokenId++;
 
@@ -224,6 +238,10 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         return _operatorWallets[tokenId];
     }
 
+    // Phase 8 (F-9): the string returned here is SELF-ATTESTED at mint time
+    //                and NOT governance-verified. Consumers MUST treat it as
+    //                an unverified label. Function name preserved for ABI
+    //                compatibility; see registerDirectory's docstring.
     function conformanceLevel(uint256 tokenId) external view returns (string memory) {
         _requireOwned(tokenId);
         return _conformanceLevels[tokenId];

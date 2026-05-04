@@ -35,5 +35,12 @@ library SAGAValidation {
             && b[3] == "p" && b[4] == "s" && b[5] == ":" && b[6] == "/" && b[7] == "/";
 
         if (!isHttp && !isHttps) revert InvalidUrlProtocol();
+
+        // Phase 8 (F-12): require at least one byte of host content after the
+        // scheme prefix. Without this, "http://" (exactly 7 bytes) and
+        // "https://" (exactly 8) would silently pass validation — useless
+        // garbage that off-chain consumers attempt to resolve.
+        if (isHttp && len == 7) revert InvalidUrlLength();
+        if (isHttps && len == 8) revert InvalidUrlLength();
     }
 }

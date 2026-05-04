@@ -160,10 +160,27 @@ const tba = computeTBAAddress({
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 
-# Install dependencies (OpenZeppelin via git submodule)
-cd packages/contracts
-forge install OpenZeppelin/openzeppelin-contracts
+# Submodules are pinned in .gitmodules (Phase 8 F-14). Use --recursive on
+# clone or run submodule update directly. Do NOT run `forge install` against
+# latest — pin lives in the parent repo's gitlink, not in the submodule URL.
+git submodule update --init --recursive
 ```
+
+**Pinned dependency versions:**
+
+| Submodule | Version | Pinned commit |
+| --------- | ------- | ------------- |
+| `lib/openzeppelin-contracts` | v5.6.1 | `5fd1781b1454fd1ef8e722282f86f9293cacf256` |
+| `lib/forge-std`              | v1.9.6 | `0844d7e1fc5e60d77b68e469bff60265f236c398` |
+
+Verify after submodule init:
+
+```bash
+git submodule status packages/contracts/lib/
+```
+
+Both lines should show the SHAs above without an asterisk or `+` prefix
+(asterisk = uninitialised; `+` = local commit drift).
 
 ## Build & Test
 
@@ -186,6 +203,54 @@ forge script script/Deploy.s.sol --rpc-url base_sepolia
 # Deploy and verify
 forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 ```
+
+### Required env for Deploy.s.sol
+
+| Variable | Notes |
+| -------- | ----- |
+| `DEPLOYER_PRIVATE_KEY` | Deployer EOA — initial owner of all four Ownable2Step contracts |
+| `ERC6551_REGISTRY`     | Optional. Defaults to canonical `0x0000...775758` |
+| `TBA_IMPLEMENTATION`   | **Required.** Phase 8 (F-5) — must be a deployed contract; deploy reverts on zero/EOA |
+
+### Ownership transfer to Safe
+
+After mainnet deploy, hand ownership to the project Safe:
+
+```bash
+NEW_OWNER=<safe-address> \
+HANDLE_REGISTRY=<from-deploy> \
+AGENT_IDENTITY=<from-deploy> \
+ORG_IDENTITY=<from-deploy> \
+DIRECTORY_IDENTITY=<from-deploy> \
+forge script script/TransferOwnership.s.sol --rpc-url base --broadcast
+```
+
+This is a **two-step handoff** (Phase 8 F-3): the script calls
+`transferOwnership(safe)` from the deployer, which sets `pendingOwner`.
+The Safe must subsequently call `acceptOwnership()` on each contract from
+the multisig UI to finalize. `owner()` remains the deployer until each
+`acceptOwnership` lands.
+
+### Re-deploying contracts post-Safe-transfer
+
+`script/DeployOrg.s.sol` redeploys a single SAGAOrgIdentity and
+re-authorizes it on the existing registry. **Once registry ownership has
+been transferred to the Safe, the deployer EOA can no longer call
+`setAuthorizedContract` directly.** Two paths to re-deploy:
+
+1. **Recommended:** wrap the deploy + `setAuthorizedContract` call as a
+   single Safe transaction batched via Safe Transaction Builder, signed by
+   the multisig threshold. The deploy itself can still be initiated by the
+   deployer EOA; only the registry-authorization side needs to come from
+   the Safe.
+
+2. Temporarily revert ownership back to the deployer (Safe calls
+   `transferOwnership(deployerEOA)`; deployer calls `acceptOwnership()`),
+   run the script, then re-transfer to the Safe again. This is the
+   higher-friction path and should be avoided when possible.
+
+`DeployOrg.s.sol` also requires `TBA_HELPER` in env (Phase 8 F-4: identity
+constructors take `(registry, tbaHelper)`).
 
 ## License
 
