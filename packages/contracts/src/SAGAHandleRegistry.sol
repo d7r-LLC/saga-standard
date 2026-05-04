@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
+/// @notice Minimal interface used by SAGAHandleRegistry to validate that a
+///         scoped registration's directoryId resolves to a directory that is
+///         on-chain "active". Phase 8 (F-1).
+interface IDirectoryStatus {
+    function directoryStatus(uint256 tokenId) external view returns (string memory);
+}
 
 /// @title SAGAHandleRegistry
 /// @notice On-chain DNS for the SAGA ecosystem. Maps handle strings to entity types and token IDs.
 /// @dev Only contracts authorized by the owner (the identity NFT contracts) can register handles.
-contract SAGAHandleRegistry is Ownable {
+///      Phase 8 (F-3): uses Ownable2Step so the deployer-to-Safe handoff is two-step;
+///      renounceOwnership is overridden to revert.
+contract SAGAHandleRegistry is Ownable2Step {
     enum EntityType {
         NONE,
         AGENT,
@@ -30,6 +39,10 @@ contract SAGAHandleRegistry is Ownable {
     /// @notice Contracts authorized to register handles
     mapping(address => bool) public authorizedContracts;
 
+    /// @notice Address of SAGADirectoryIdentity used to validate scoped-registration
+    ///         directory existence + active status. Phase 8 (F-1).
+    address public directoryIdentity;
+
     event HandleRegistered(
         bytes32 indexed handleKey,
         string handle,
@@ -48,8 +61,16 @@ contract SAGAHandleRegistry is Ownable {
     );
 
     event AuthorizedContractSet(address indexed contractAddress, bool authorized);
+    event DirectoryIdentitySet(address indexed previous, address indexed next);
 
     constructor() Ownable(msg.sender) {}
+
+    /// @notice Renounce is disabled. Phase 8 (F-3) — losing the registry owner
+    ///         permanently removes the ability to authorize future identity contracts
+    ///         and to wire the directoryIdentity reference (F-1).
+    function renounceOwnership() public view override onlyOwner {
+        revert("SAGAHandleRegistry: renounce disabled");
+    }
 
     // --- Admin ---
 
@@ -57,6 +78,14 @@ contract SAGAHandleRegistry is Ownable {
     function setAuthorizedContract(address addr, bool authorized) external onlyOwner {
         authorizedContracts[addr] = authorized;
         emit AuthorizedContractSet(addr, authorized);
+    }
+
+    /// @notice Wire the SAGADirectoryIdentity address used by registerScopedHandle
+    ///         to verify directory existence + active status. Phase 8 (F-1).
+    function setDirectoryIdentity(address addr) external onlyOwner {
+        require(addr.code.length > 0, "SAGAHandleRegistry: directory identity not contract");
+        emit DirectoryIdentitySet(directoryIdentity, addr);
+        directoryIdentity = addr;
     }
 
     // --- Registration (callable only by authorized contracts) ---
@@ -99,6 +128,34 @@ contract SAGAHandleRegistry is Ownable {
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
         require(bytes(directoryId).length > 0, "SAGAHandleRegistry: empty directoryId");
         _validateHandle(handle);
+
+        // Phase 8 (F-1): scoped registrations must target an existing,
+        // active directory. Resolve directoryId in the global namespace and
+        // verify the directory's on-chain status is "active".
+        require(
+            directoryIdentity != address(0),
+            "SAGAHandleRegistry: directory identity not configured"
+        );
+        bytes32 globalKey = _handleKey(directoryId);
+        HandleRecord memory dirRecord = _handles[globalKey];
+        require(
+            dirRecord.entityType == EntityType.DIRECTORY,
+            "SAGAHandleRegistry: directory not found"
+        );
+        // The directory handle MUST have been registered by the configured
+        // directoryIdentity contract — otherwise a different authorized
+        // identity contract could front-register a DIRECTORY-typed handle
+        // pointing at an arbitrary tokenId in some other contract, and the
+        // status check below would resolve against the wrong tokenId space.
+        require(
+            dirRecord.contractAddress == directoryIdentity,
+            "SAGAHandleRegistry: directory handle not from directoryIdentity"
+        );
+        require(
+            keccak256(bytes(IDirectoryStatus(directoryIdentity).directoryStatus(dirRecord.tokenId)))
+                == keccak256("active"),
+            "SAGAHandleRegistry: directory not active"
+        );
 
         bytes32 key = _scopedHandleKey(handle, directoryId);
         require(

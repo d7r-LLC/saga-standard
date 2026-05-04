@@ -65,10 +65,17 @@ contract SAGATBAHelperTest is Test {
 
     function setUp() public {
         user1 = address(0x1);
-        mockImplementation = address(0xBEEF);
 
         mockRegistry = new MockERC6551Registry();
+        // Phase 8 (F-8): implementation must be a contract — etch dummy
+        // bytecode at the mockImplementation address so the SAGATBAHelper
+        // constructor's `code.length > 0` check passes.
+        mockImplementation = address(0xBEEF);
+        vm.etch(mockImplementation, hex"6080604052"); // arbitrary non-empty bytecode
         tbaHelper = new SAGATBAHelper(address(mockRegistry), mockImplementation);
+
+        // ---- F-8 constructor validation regression tests ----
+        // (executed below via separate test functions, not in setUp)
 
         handleRegistry = new SAGAHandleRegistry();
         agentIdentity = new SAGAAgentIdentity(address(handleRegistry));
@@ -171,5 +178,28 @@ contract SAGATBAHelperTest is Test {
 
         assertEq(addr1, addr2);
         assertTrue(addr1 != address(0));
+    }
+
+    // === Phase 8 regression tests ===
+
+    // F-8: TBA helper rejects zero/EOA registry or implementation.
+    function test_constructor_revertsOnZeroRegistry() public {
+        vm.expectRevert(bytes("SAGATBAHelper: registry not contract"));
+        new SAGATBAHelper(address(0), mockImplementation);
+    }
+
+    function test_constructor_revertsOnEoaRegistry() public {
+        vm.expectRevert(bytes("SAGATBAHelper: registry not contract"));
+        new SAGATBAHelper(makeAddr("eoa-registry"), mockImplementation);
+    }
+
+    function test_constructor_revertsOnZeroImplementation() public {
+        vm.expectRevert(bytes("SAGATBAHelper: implementation not contract"));
+        new SAGATBAHelper(address(mockRegistry), address(0));
+    }
+
+    function test_constructor_revertsOnEoaImplementation() public {
+        vm.expectRevert(bytes("SAGATBAHelper: implementation not contract"));
+        new SAGATBAHelper(address(mockRegistry), makeAddr("eoa-impl"));
     }
 }

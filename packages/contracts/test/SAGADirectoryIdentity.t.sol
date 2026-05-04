@@ -7,8 +7,20 @@ import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-contract SAGADirectoryIdentityTest is Test {
+contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
+    /// @dev Phase 8 (F-2): test contract receives directory NFTs via _safeMint,
+    ///      which now invokes onERC721Received.
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
     SAGAHandleRegistry public registry;
     SAGADirectoryIdentity public directory;
     SAGAAgentIdentity public agent;
@@ -381,5 +393,34 @@ contract SAGADirectoryIdentityTest is Test {
         vm.prank(user1);
         vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
         directory.updateDirectoryUrl(tokenId, "data:text/html,evil");
+    }
+
+    // === Phase 8 regression tests ===
+
+    // F-3
+    function test_ownership_twoStepRequired() public {
+        address pending = makeAddr("pending");
+        directory.transferOwnership(pending);
+        assertEq(directory.owner(), address(this));
+        assertEq(directory.pendingOwner(), pending);
+        vm.prank(pending);
+        directory.acceptOwnership();
+        assertEq(directory.owner(), pending);
+    }
+
+    function test_renounceOwnership_reverts() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: renounce disabled"));
+        directory.renounceOwnership();
+    }
+
+    // F-8
+    function test_constructor_revertsOnZeroRegistry() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: registry not contract"));
+        new SAGADirectoryIdentity(address(0));
+    }
+
+    function test_constructor_revertsOnEoaRegistry() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: registry not contract"));
+        new SAGADirectoryIdentity(makeAddr("eoa"));
     }
 }

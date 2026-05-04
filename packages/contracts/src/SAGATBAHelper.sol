@@ -17,6 +17,14 @@ contract SAGATBAHelper {
     bytes32 public constant DEFAULT_SALT = bytes32(0);
 
     constructor(address _registry, address _accountImplementation) {
+        // Phase 8 (F-8): reject zero / EOA / non-contract addresses. The
+        // helper is immutable — a bad input here is permanent and
+        // silently bricks every TBA the helper would create.
+        require(_registry.code.length > 0, "SAGATBAHelper: registry not contract");
+        require(
+            _accountImplementation.code.length > 0,
+            "SAGATBAHelper: implementation not contract"
+        );
         registry = IERC6551Registry(_registry);
         accountImplementation = _accountImplementation;
     }

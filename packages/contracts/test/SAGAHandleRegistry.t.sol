@@ -4,8 +4,18 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 
+/// @dev Phase 8 (F-1): registerScopedHandle now consults this interface on a
+///      configured directoryIdentity address. Tests use this minimal mock to
+///      simulate "active" directories so scoped registrations succeed.
+contract MockDirectoryIdentity {
+    function directoryStatus(uint256) external pure returns (string memory) {
+        return "active";
+    }
+}
+
 contract SAGAHandleRegistryTest is Test {
     SAGAHandleRegistry public registry;
+    MockDirectoryIdentity public mockDirectoryIdentity;
     address public owner;
     address public authorizedContract;
     address public unauthorizedUser;
@@ -36,6 +46,67 @@ contract SAGAHandleRegistryTest is Test {
 
         registry = new SAGAHandleRegistry();
         registry.setAuthorizedContract(authorizedContract, true);
+
+        // Phase 8 (F-1): wire the directory-identity mock and pre-register
+        // every directoryId the existing scoped tests use so they continue
+        // to exercise the same code paths. The mock must be an authorized
+        // contract AND must be the seeder of the directory handles, because
+        // registerScopedHandle now requires
+        // `dirRecord.contractAddress == directoryIdentity` (Copilot review
+        // on PR #45 hardened F-1 with this additional gate).
+        mockDirectoryIdentity = new MockDirectoryIdentity();
+        registry.setAuthorizedContract(address(mockDirectoryIdentity), true);
+        registry.setDirectoryIdentity(address(mockDirectoryIdentity));
+        _seedDirectory("epic-hub", 0);
+        _seedDirectory("dir-a", 1);
+        _seedDirectory("dir-b", 2);
+        _seedDirectory("some-dir", 3);
+    }
+
+    function _seedDirectory(string memory dirId, uint256 tokenId) internal {
+        // Seed AS the directoryIdentity contract — only its handles will pass
+        // the contractAddress gate added in PR #45 review.
+        vm.prank(address(mockDirectoryIdentity));
+        registry.registerHandle(dirId, SAGAHandleRegistry.EntityType.DIRECTORY, tokenId);
+    }
+
+    // === Phase 8 regression tests ===
+
+    // F-3: Ownable2Step migration on the registry
+    function test_ownership_twoStepRequired() public {
+        address pending = makeAddr("pending");
+        registry.transferOwnership(pending);
+        assertEq(registry.owner(), address(this));
+        assertEq(registry.pendingOwner(), pending);
+        vm.prank(pending);
+        registry.acceptOwnership();
+        assertEq(registry.owner(), pending);
+        assertEq(registry.pendingOwner(), address(0));
+    }
+
+    function test_renounceOwnership_reverts() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: renounce disabled"));
+        registry.renounceOwnership();
+    }
+
+    // F-1: directory existence + active-status check on scoped registration
+    function test_registerScopedHandle_revertsWhenDirectoryNotFound() public {
+        vm.prank(authorizedContract);
+        vm.expectRevert(bytes("SAGAHandleRegistry: directory not found"));
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 0, "ghost-dir"
+        );
+    }
+
+    function test_setDirectoryIdentity_revertsOnEoa() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: directory identity not contract"));
+        registry.setDirectoryIdentity(makeAddr("eoa"));
+    }
+
+    function test_setDirectoryIdentity_revertsForNonOwner() public {
+        vm.prank(unauthorizedUser);
+        vm.expectRevert(); // OZ Ownable: caller is not the owner
+        registry.setDirectoryIdentity(address(mockDirectoryIdentity));
     }
 
     // --- Test 1: registerHandle success ---
@@ -184,14 +255,16 @@ contract SAGAHandleRegistryTest is Test {
 
     // --- Test 16: register DIRECTORY entity type ---
     function test_registerHandle_directoryType() public {
+        // Phase 8 (F-1): pre-seeded directory handles ("epic-hub" etc.) are
+        // claimed by setUp; use a fresh handle here.
         vm.prank(authorizedContract);
-        registry.registerHandle("epic-hub", SAGAHandleRegistry.EntityType.DIRECTORY, 0);
+        registry.registerHandle("fresh-dir", SAGAHandleRegistry.EntityType.DIRECTORY, 100);
 
         (SAGAHandleRegistry.EntityType entityType, uint256 tokenId, address contractAddr) =
-            registry.resolveHandle("epic-hub");
+            registry.resolveHandle("fresh-dir");
 
         assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.DIRECTORY));
-        assertEq(tokenId, 0);
+        assertEq(tokenId, 100);
         assertEq(contractAddr, authorizedContract);
     }
 

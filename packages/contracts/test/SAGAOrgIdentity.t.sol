@@ -5,12 +5,26 @@ import {Test} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../src/SAGAOrgIdentity.sol";
+import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-contract SAGAOrgIdentityTest is Test {
+contract SAGAOrgIdentityTest is Test, IERC721Receiver {
+    /// @dev Phase 8 (F-2): test contract receives directory NFTs in setUp via
+    ///      _safeMint, which now invokes onERC721Received.
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
     SAGAHandleRegistry public registry;
     SAGAAgentIdentity public agent;
     SAGAOrgIdentity public org;
+    SAGADirectoryIdentity public directory;
     address public deployer;
     address public user1;
     address public user2;
@@ -31,9 +45,17 @@ contract SAGAOrgIdentityTest is Test {
         registry = new SAGAHandleRegistry();
         agent = new SAGAAgentIdentity(address(registry));
         org = new SAGAOrgIdentity(address(registry));
+        directory = new SAGADirectoryIdentity(address(registry));
 
         registry.setAuthorizedContract(address(agent), true);
         registry.setAuthorizedContract(address(org), true);
+        registry.setAuthorizedContract(address(directory), true);
+
+        // Phase 8 (F-1): wire directory identity + pre-mint scoped-test directories.
+        registry.setDirectoryIdentity(address(directory));
+        directory.registerDirectory("dir-a", "https://dir-a.example/", address(0xDA), "basic");
+        directory.registerDirectory("dir-b", "https://dir-b.example/", address(0xDB), "basic");
+        directory.registerDirectory("epic-hub", "https://epic-hub.example/", address(0xE1), "basic");
     }
 
     // --- Test 1: registerOrg success ---
@@ -230,5 +252,34 @@ contract SAGAOrgIdentityTest is Test {
         uint256 tokenId = org.registerOrganization("global-org", "Global Org");
 
         assertEq(org.orgDirectoryId(tokenId), "");
+    }
+
+    // === Phase 8 regression tests ===
+
+    // F-3
+    function test_ownership_twoStepRequired() public {
+        address pending = makeAddr("pending");
+        org.transferOwnership(pending);
+        assertEq(org.owner(), address(this));
+        assertEq(org.pendingOwner(), pending);
+        vm.prank(pending);
+        org.acceptOwnership();
+        assertEq(org.owner(), pending);
+    }
+
+    function test_renounceOwnership_reverts() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: renounce disabled"));
+        org.renounceOwnership();
+    }
+
+    // F-8
+    function test_constructor_revertsOnZeroRegistry() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: registry not contract"));
+        new SAGAOrgIdentity(address(0));
+    }
+
+    function test_constructor_revertsOnEoaRegistry() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: registry not contract"));
+        new SAGAOrgIdentity(makeAddr("eoa"));
     }
 }

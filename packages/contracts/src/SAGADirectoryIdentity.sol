@@ -5,7 +5,8 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {
     ERC721Enumerable
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 import {SAGAValidation} from "./SAGAValidation.sol";
 
@@ -14,7 +15,9 @@ import {SAGAValidation} from "./SAGAValidation.sol";
 ///         Each token represents a directory that can host agents and organizations.
 /// @dev Minting registers the directoryId as a DIRECTORY handle in SAGAHandleRegistry.
 ///      The directoryId is immutable once minted.
-contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
+///      Phase 8: Ownable2Step (F-3), ReentrancyGuard + CEI _safeMint-last (F-2),
+///      constructor address validation (F-8).
+contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 private _nextTokenId;
 
     SAGAHandleRegistry public immutable handleRegistry;
@@ -50,8 +53,15 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
         ERC721("SAGA Directory Identity", "SAGA-DIR")
         Ownable(msg.sender)
     {
+        // Phase 8 (F-8).
+        require(registry.code.length > 0, "SAGADirectoryIdentity: registry not contract");
         handleRegistry = SAGAHandleRegistry(registry);
         _baseTokenURI = "https://saga-standard.dev/api/metadata/directory/";
+    }
+
+    /// @notice Renounce is disabled. Phase 8 (F-3).
+    function renounceOwnership() public view override onlyOwner {
+        revert("SAGADirectoryIdentity: renounce disabled");
     }
 
     /// @notice Register a directory and mint an identity NFT
@@ -65,14 +75,14 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
         string calldata url,
         address operator,
         string calldata conformanceLevel
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         SAGAValidation.validateUrl(url);
         require(operator != address(0), "SAGADirectoryIdentity: invalid operator");
         require(bytes(conformanceLevel).length > 0, "SAGADirectoryIdentity: invalid conformance");
 
         uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
 
+        // Phase 8 (F-2): Effects FIRST.
         _directoryIds[tokenId] = _directoryId;
         _directoryUrls[tokenId] = url;
         _operatorWallets[tokenId] = operator;
@@ -85,6 +95,9 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
             _directoryId, SAGAHandleRegistry.EntityType.DIRECTORY, tokenId
         );
 
+        // Interactions LAST.
+        _safeMint(msg.sender, tokenId);
+
         emit DirectoryRegistered(
             tokenId, _directoryId, operator, url, conformanceLevel, block.timestamp
         );
@@ -92,7 +105,11 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
     }
 
     /// @notice Update the directory URL (token owner only)
-    function updateDirectoryUrl(uint256 tokenId, string calldata newUrl) external {
+    /// @dev nonReentrant — Phase 8 (Copilot review on PR #45). Same rationale
+    ///      as updateHomeHub on the agent contract: prevent re-entry via the
+    ///      _safeMint callback in registerDirectory from mutating URL before
+    ///      DirectoryRegistered is emitted.
+    function updateDirectoryUrl(uint256 tokenId, string calldata newUrl) external nonReentrant {
         require(ownerOf(tokenId) == msg.sender, "SAGADirectoryIdentity: not owner");
         SAGAValidation.validateUrl(newUrl);
         string memory oldUrl = _directoryUrls[tokenId];
@@ -120,7 +137,12 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable {
     ///      holder caught misbehaving cannot flip themselves back to
     ///      "active" once governance has flagged or revoked them.
     /// @param newStatus Must be one of: "active", "suspended", "flagged", "revoked".
-    function updateDirectoryStatus(uint256 tokenId, string calldata newStatus) external {
+    /// @dev nonReentrant — Phase 8 (Copilot review on PR #45). Same rationale
+    ///      as updateDirectoryUrl.
+    function updateDirectoryStatus(uint256 tokenId, string calldata newStatus)
+        external
+        nonReentrant
+    {
         bool isContractOwner = msg.sender == owner();
         bool isNftOwner = ownerOf(tokenId) == msg.sender;
         require(

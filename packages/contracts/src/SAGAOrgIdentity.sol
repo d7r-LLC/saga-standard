@@ -5,13 +5,16 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {
     ERC721Enumerable
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 
 /// @title SAGAOrgIdentity
 /// @notice ERC-721 NFT collection for SAGA organization identities
-/// @dev Shares the handle namespace with agents via SAGAHandleRegistry
-contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
+/// @dev Shares the handle namespace with agents via SAGAHandleRegistry.
+///      Phase 8: Ownable2Step (F-3), ReentrancyGuard + CEI _safeMint-last (F-2),
+///      constructor address validation (F-8).
+contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 private _nextTokenId;
 
     SAGAHandleRegistry public immutable handleRegistry;
@@ -35,8 +38,15 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     event OrgNameUpdated(uint256 indexed tokenId, string oldName, string newName);
 
     constructor(address registry) ERC721("SAGA Org Identity", "SAGA-ORG") Ownable(msg.sender) {
+        // Phase 8 (F-8).
+        require(registry.code.length > 0, "SAGAOrgIdentity: registry not contract");
         handleRegistry = SAGAHandleRegistry(registry);
         _baseTokenURI = "https://saga-standard.dev/api/metadata/org/";
+    }
+
+    /// @notice Renounce is disabled. Phase 8 (F-3).
+    function renounceOwnership() public view override onlyOwner {
+        revert("SAGAOrgIdentity: renounce disabled");
     }
 
     /// @notice Register an organization and mint an identity NFT
@@ -45,6 +55,7 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
     /// @return tokenId The minted token ID
     function registerOrganization(string calldata handle, string calldata name)
         external
+        nonReentrant
         returns (uint256)
     {
         require(
@@ -52,13 +63,16 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
         );
 
         uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
 
+        // Phase 8 (F-2): Effects FIRST.
         _orgHandles[tokenId] = handle;
         _orgNames[tokenId] = name;
         _registeredAt[tokenId] = block.timestamp;
 
         handleRegistry.registerHandle(handle, SAGAHandleRegistry.EntityType.ORG, tokenId);
+
+        // Interactions LAST.
+        _safeMint(msg.sender, tokenId);
 
         emit OrgRegistered(tokenId, handle, name, msg.sender, block.timestamp);
         return tokenId;
@@ -73,14 +87,14 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
         string calldata handle,
         string calldata name,
         string calldata directoryId
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         require(
             bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
         );
 
         uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
 
+        // Phase 8 (F-2): Effects FIRST.
         _orgHandles[tokenId] = handle;
         _orgNames[tokenId] = name;
         _registeredAt[tokenId] = block.timestamp;
@@ -90,12 +104,18 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable {
             handle, SAGAHandleRegistry.EntityType.ORG, tokenId, directoryId
         );
 
+        // Interactions LAST.
+        _safeMint(msg.sender, tokenId);
+
         emit OrgRegistered(tokenId, handle, name, msg.sender, block.timestamp);
         return tokenId;
     }
 
     /// @notice Update the organization display name (owner only)
-    function updateOrgName(uint256 tokenId, string calldata name) external {
+    /// @dev nonReentrant — Phase 8 (Copilot review on PR #45). Prevents an
+    ///      ERC721Receiver callback during register* from mutating org name
+    ///      before OrgRegistered is emitted.
+    function updateOrgName(uint256 tokenId, string calldata name) external nonReentrant {
         require(ownerOf(tokenId) == msg.sender, "SAGAOrgIdentity: not owner");
         require(
             bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"

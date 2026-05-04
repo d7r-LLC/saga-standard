@@ -16,9 +16,13 @@ contract Deploy is Script {
         address erc6551Registry =
             vm.envOr("ERC6551_REGISTRY", address(0x000000006551c19487814612e58FE06813775758));
 
-        // Tokenbound V3 account implementation (zero address if not yet deployed)
-        address tbaImplementation =
-            vm.envOr("TBA_IMPLEMENTATION", address(0));
+        // Tokenbound V3 account implementation. Required — must be set in env.
+        // Phase 8 (F-5): vm.envAddress reverts hard on unset; we additionally
+        // require a non-zero, code-bearing address so a typo'd env var no
+        // longer deploys a permanently broken SAGATBAHelper.
+        address tbaImplementation = vm.envAddress("TBA_IMPLEMENTATION");
+        require(tbaImplementation != address(0), "TBA_IMPLEMENTATION required");
+        require(tbaImplementation.code.length > 0, "TBA_IMPLEMENTATION not a contract");
 
         // Use DEPLOYER_PRIVATE_KEY from .env
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -49,6 +53,12 @@ contract Deploy is Script {
         registry.setAuthorizedContract(address(orgIdentity), true);
         registry.setAuthorizedContract(address(directoryIdentity), true);
         console.log("Authorized agent, org, and directory contracts on registry");
+
+        // 6. Wire the directoryIdentity address into the registry so
+        //    registerScopedHandle (Phase 8 F-1) can validate that the
+        //    target directoryId resolves to an existing, active directory.
+        registry.setDirectoryIdentity(address(directoryIdentity));
+        console.log("Wired directoryIdentity into registry for scoped-handle validation");
 
         vm.stopBroadcast();
 
