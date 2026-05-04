@@ -819,12 +819,15 @@ contract SAGAHandleRegistryTest is Test {
         assertEq(registry.pendingAuthorizedContractReadyAt(), block.timestamp + 24 hours);
 
         // Apply too early reverts.
+        vm.prank(safe);
         vm.expectRevert(bytes("SAGAHandleRegistry: authorize not yet ready"));
         registry.applyAuthorizedContract(newContract);
 
         vm.warp(block.timestamp + 24 hours);
 
-        // Apply from any caller succeeds (queue is the privileged action).
+        // Phase 12 (K-1): apply is now onlyOwner. The Safe queues AND
+        // applies; eliminates the cancel/apply front-running race.
+        vm.prank(safe);
         registry.applyAuthorizedContract(newContract);
         assertTrue(registry.authorizedContracts(newContract));
         assertEq(registry.pendingAuthorizedContract(), address(0));
@@ -868,10 +871,13 @@ contract SAGAHandleRegistryTest is Test {
         registry.queueTrustedDirectoryContract(address(v2));
         assertEq(registry.pendingTrustedDirectoryContract(), address(v2));
 
+        vm.prank(safe);
         vm.expectRevert(bytes("SAGAHandleRegistry: trust not yet ready"));
         registry.applyTrustedDirectoryContract(address(v2));
 
         vm.warp(block.timestamp + 24 hours);
+        // Phase 12 (K-1): apply is onlyOwner.
+        vm.prank(safe);
         registry.applyTrustedDirectoryContract(address(v2));
         assertTrue(registry.trustedDirectoryContracts(address(v2)));
     }
@@ -974,5 +980,83 @@ contract SAGAHandleRegistryTest is Test {
         registry.registerHandle("j7-pin", SAGAHandleRegistry.EntityType.AGENT, 9999);
         (SAGAHandleRegistry.EntityType et,,) = registry.resolveHandle("j7-pin");
         assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
+    }
+
+    // === Phase 12 regression tests ===
+
+    // K-1: applyAuthorizedContract / applyTrustedDirectoryContract are
+    // now onlyOwner. A non-owner cannot front-run a Safe cancel-tx
+    // with their own apply-tx the moment the timelock ripens.
+    function test_k1_applyAuthorizedContract_onlyOwner() public {
+        address newContract = makeAddr("k1-nc");
+        vm.etch(newContract, hex"60006000fd");
+        registry.queueAuthorizedContract(newContract);
+        vm.warp(block.timestamp + 24 hours);
+
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert();
+        registry.applyAuthorizedContract(newContract);
+
+        // Owner can still apply.
+        registry.applyAuthorizedContract(newContract);
+        assertTrue(registry.authorizedContracts(newContract));
+    }
+
+    function test_k1_applyTrustedDirectoryContract_onlyOwner() public {
+        MockDirectoryIdentity v2 = new MockDirectoryIdentity();
+        registry.queueTrustedDirectoryContract(address(v2));
+        vm.warp(block.timestamp + 24 hours);
+
+        vm.prank(makeAddr("rando"));
+        vm.expectRevert();
+        registry.applyTrustedDirectoryContract(address(v2));
+
+        registry.applyTrustedDirectoryContract(address(v2));
+        assertTrue(registry.trustedDirectoryContracts(address(v2)));
+    }
+
+    // K-2: codehash snapshot at queue time, compared at apply time.
+    // Catches CREATE2 metamorphism, proxy implementation flips, and
+    // any other code-mutation between queue and apply.
+    function test_k2_applyAuthorizedContract_revertsOnCodehashChange() public {
+        address target = makeAddr("k2-target");
+        vm.etch(target, hex"60006000fd");
+        registry.queueAuthorizedContract(target);
+        vm.warp(block.timestamp + 24 hours);
+
+        // Mutate the bytecode (simulates CREATE2 redeploy or proxy flip).
+        vm.etch(target, hex"60016001");
+
+        vm.expectRevert(bytes("SAGAHandleRegistry: code changed during timelock"));
+        registry.applyAuthorizedContract(target);
+    }
+
+    function test_k2_applyTrustedDirectoryContract_revertsOnCodehashChange() public {
+        MockDirectoryIdentity v2 = new MockDirectoryIdentity();
+        registry.queueTrustedDirectoryContract(address(v2));
+        vm.warp(block.timestamp + 24 hours);
+
+        // Replace code at v2's address with arbitrary bytes.
+        vm.etch(address(v2), hex"60016001");
+
+        vm.expectRevert(bytes("SAGAHandleRegistry: code changed during timelock"));
+        registry.applyTrustedDirectoryContract(address(v2));
+    }
+
+    // K-2: cancel paths clear the codehash slot too.
+    function test_k2_cancel_clearsCodehashSlot() public {
+        address target = makeAddr("k2-cancel");
+        vm.etch(target, hex"60006000fd");
+        registry.queueAuthorizedContract(target);
+        registry.cancelPendingAuthorizedContract();
+
+        // Re-queue with same address but rotated code. Should succeed
+        // because the cancel cleared the prior codehash. Apply with
+        // current code should pass.
+        vm.etch(target, hex"60016001");
+        registry.queueAuthorizedContract(target);
+        vm.warp(block.timestamp + 24 hours);
+        registry.applyAuthorizedContract(target);
+        assertTrue(registry.authorizedContracts(target));
     }
 }

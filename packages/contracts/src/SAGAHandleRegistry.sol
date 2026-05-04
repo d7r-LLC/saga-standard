@@ -103,6 +103,16 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
     address private _pendingTrustedDirectoryContract;
     uint256 private _pendingTrustedDirectoryContractReadyAt;
 
+    /// @notice Phase 12 (K-2): codehash snapshot at queue time. Compared
+    ///         at apply time so a bytecode swap during the 24h timelock
+    ///         (CREATE2 metamorphism after a SELFDESTRUCT-then-CREATE2
+    ///         sequence in some pre-Cancun chain history, or a proxy
+    ///         implementation flip behind a constant-codehash facade)
+    ///         invalidates the apply. The Phase 10 Copilot-review
+    ///         code.length re-check confirmed liveness but not integrity.
+    bytes32 private _pendingAuthorizedContractCodehash;
+    bytes32 private _pendingTrustedDirectoryContractCodehash;
+
     /// @notice Hours until a queued authorization can be applied.
     uint256 public constant AUTH_TIMELOCK = 24 hours;
 
@@ -193,28 +203,52 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
         _pendingAuthorizedContract = addr;
         _pendingAuthorizedContractReadyAt = block.timestamp + AUTH_TIMELOCK;
+        // Phase 12 (K-2): pin the codehash so a bytecode swap during
+        // the 24h window (CREATE2 metamorphism, proxy upgrade behind
+        // a constant-codehash facade) invalidates the apply.
+        _pendingAuthorizedContractCodehash = addr.codehash;
         emit AuthorizedContractQueued(addr, _pendingAuthorizedContractReadyAt);
     }
 
     /// @notice Apply a previously-queued authorization after the timelock.
-    ///         Anyone can call this — the queue is the privileged action.
-    /// @dev Phase 10 (Copilot review on PR #54): re-check code.length at
+    /// @dev Phase 12 (K-1): onlyOwner. The Phase 11 J-1 cancel path
+    ///      created a race window: at the exact block the M-1 24h
+    ///      timelock ripened, a watching attacker could front-run a
+    ///      Safe cancel-tx with their own permissionless apply-tx,
+    ///      defeating governance review. The Safe queues AND applies;
+    ///      the queue is the slow gate, not the apply.
+    ///      Phase 10 (Copilot review on PR #54): re-check code.length at
     ///      apply time. The queued target could have selfdestructed
     ///      during the 24h window; without this check, a code-less EOA
     ///      address could end up authorized, undermining the
     ///      "authorized must be contract" invariant from M-4.
-    function applyAuthorizedContract(address addr) external {
+    function applyAuthorizedContract(address addr) external onlyOwner {
         require(_pendingAuthorizedContractReadyAt > 0, "SAGAHandleRegistry: no pending authorize");
         require(_pendingAuthorizedContract == addr, "SAGAHandleRegistry: pending mismatch");
         require(
             block.timestamp >= _pendingAuthorizedContractReadyAt,
             "SAGAHandleRegistry: authorize not yet ready"
         );
-        require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
+        // Phase 12 (K-2): codehash integrity. Replaces the Phase 10
+        // code.length re-check (which only confirmed liveness, not
+        // sameness). extcodehash returns 0 for EOAs and keccak256("")
+        // for empty bytecode, so a SELFDESTRUCT-then-empty target also
+        // fails this comparison.
+        // Residual (Copilot review on PR #58): a Transparent / UUPS /
+        // ERC-1967 proxy can swap its implementation behind a constant
+        // proxy-shell codehash without changing addr.codehash. This
+        // check pins the proxy shell, not the live implementation.
+        // Safe diligence MUST refuse to queue any proxy address — see
+        // the README "Authorized contracts: residual risk" section.
+        require(
+            addr.codehash == _pendingAuthorizedContractCodehash,
+            "SAGAHandleRegistry: code changed during timelock"
+        );
         authorizedContracts[addr] = true;
         emit AuthorizedContractSet(addr, true);
         delete _pendingAuthorizedContract;
         delete _pendingAuthorizedContractReadyAt;
+        delete _pendingAuthorizedContractCodehash;
     }
 
     /// @notice Phase 11 (J-1): cancel a previously-queued authorize-true
@@ -230,6 +264,7 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         address cancelled = _pendingAuthorizedContract;
         delete _pendingAuthorizedContract;
         delete _pendingAuthorizedContractReadyAt;
+        delete _pendingAuthorizedContractCodehash; // K-2
         emit AuthorizedContractCancelled(cancelled);
     }
 
@@ -276,13 +311,16 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
         _pendingTrustedDirectoryContract = addr;
         _pendingTrustedDirectoryContractReadyAt = block.timestamp + AUTH_TIMELOCK;
+        // Phase 12 (K-2): see queueAuthorizedContract.
+        _pendingTrustedDirectoryContractCodehash = addr.codehash;
         emit TrustedDirectoryContractQueued(addr, _pendingTrustedDirectoryContractReadyAt);
     }
 
-    /// @dev Phase 10 (Copilot review on PR #54): re-check code.length at
-    ///      apply time, mirroring applyAuthorizedContract. See that
-    ///      function for the rationale.
-    function applyTrustedDirectoryContract(address addr) external {
+    /// @dev Phase 12 (K-1): onlyOwner. See applyAuthorizedContract for the
+    ///      cancel/apply race rationale.
+    ///      Phase 10 (Copilot review on PR #54): re-check code.length at
+    ///      apply time, mirroring applyAuthorizedContract.
+    function applyTrustedDirectoryContract(address addr) external onlyOwner {
         require(_pendingTrustedDirectoryContractReadyAt > 0, "SAGAHandleRegistry: no pending trust");
         require(
             _pendingTrustedDirectoryContract == addr, "SAGAHandleRegistry: pending mismatch"
@@ -291,11 +329,16 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
             block.timestamp >= _pendingTrustedDirectoryContractReadyAt,
             "SAGAHandleRegistry: trust not yet ready"
         );
-        require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
+        // Phase 12 (K-2): see applyAuthorizedContract.
+        require(
+            addr.codehash == _pendingTrustedDirectoryContractCodehash,
+            "SAGAHandleRegistry: code changed during timelock"
+        );
         trustedDirectoryContracts[addr] = true;
         emit TrustedDirectoryContractSet(addr, true);
         delete _pendingTrustedDirectoryContract;
         delete _pendingTrustedDirectoryContractReadyAt;
+        delete _pendingTrustedDirectoryContractCodehash;
     }
 
     /// @notice Phase 11 (J-1): cancel a previously-queued trust-true
@@ -307,6 +350,7 @@ contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
         address cancelled = _pendingTrustedDirectoryContract;
         delete _pendingTrustedDirectoryContract;
         delete _pendingTrustedDirectoryContractReadyAt;
+        delete _pendingTrustedDirectoryContractCodehash; // K-2
         emit TrustedDirectoryContractCancelled(cancelled);
     }
 

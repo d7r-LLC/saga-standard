@@ -283,7 +283,13 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             // gap left by the G-12 documented limitation. ~3k gas extra
             // (one staticcall + 3 SLOAD on the destination).
             if (to.code.length > 0) {
-                try IERC6551BoundAccount(to).token() returns (
+                // Phase 12 (K-3): bound the introspection gas. A
+                // malicious destination whose token() spins until OOG
+                // could otherwise consume all forwarded gas (EIP-150)
+                // and either grief the transfer or force fall-through
+                // under specific gas-state conditions. 30k is enough
+                // for any honest TBA's returndata (3 SLOADs + return).
+                try IERC6551BoundAccount(to).token{gas: 30000}() returns (
                     uint256 boundChainId, address boundContract, uint256 boundTokenId
                 ) {
                     if (

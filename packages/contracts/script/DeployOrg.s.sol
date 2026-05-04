@@ -32,6 +32,18 @@ contract DeployOrg is Script {
         require(registryAddr.code.length > 0, "HANDLE_REGISTRY not a contract");
         require(tbaHelperAddr.code.length > 0, "TBA_HELPER not a contract");
 
+        // Phase 12 (K-4): preflight against bootstrapFinalized. The
+        // Phase 11 J-3 gate makes setAuthorizedContract(addr, true)
+        // revert post-Deploy.s.sol; this script's tail call would
+        // otherwise brick at the auth step, leaving an orphaned org
+        // contract on-chain. Refuse to run; point operators at the
+        // companion QueueAuthorizeOrg.s.sol post-bootstrap script.
+        // (OpenAI + Gemini consensus.)
+        require(
+            !SAGAHandleRegistry(registryAddr).bootstrapFinalized(),
+            "DeployOrg: registry already finalized; use script/QueueAuthorizeOrg.s.sol (deploys + prints Safe calldata for queue/apply; 24h timelock applies)"
+        );
+
         // Phase 11 (J-9): chain-pinned helper-immutable allowlist on
         // production chains. Phase 10 H-7 pinned ERC6551_REGISTRY +
         // TBA_IMPLEMENTATION in Deploy.s.sol; DeployOrg.s.sol previously

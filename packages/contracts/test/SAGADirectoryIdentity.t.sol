@@ -35,6 +35,24 @@ contract StatusRankHarness is SAGADirectoryIdentity {
     }
 }
 
+/// @dev Phase 12 (K-3): destination whose `token()` deliberately spins
+///      until OOG. Pins that the bounded 30k gas budget on
+///      SAGADirectoryIdentity's J-13 transfer guard prevents griefing.
+contract DirectoryGasGrieferTBA {
+    function token() external pure returns (uint256, address, uint256) {
+        uint256 i = 1;
+        while (true) {
+            i = i + 1;
+        }
+        return (i, address(0), 0); // unreachable
+    }
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external pure returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+}
+
 contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     /// @dev Phase 8 (F-2): test contract receives directory NFTs via _safeMint,
     ///      which now invokes onERC721Received.
@@ -861,5 +879,22 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
                 "DirectoryRevoked must not fire on suspended"
             );
         }
+    }
+
+    // K-3: bounded J-13 token() introspection — directory transfer to
+    // a gas-griefing destination must not be blocked. SAGADirectoryIdentity's
+    // _update differs from agent/org (status gating, governance path);
+    // pin K-3 here independently (Copilot review on PR #58).
+    function test_k3_j13_gasGriefingDestinationDoesNotBlockTransfer() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "k3-dir-grief", "https://x.example/", makeAddr("op"), "basic"
+        );
+
+        DirectoryGasGrieferTBA grief = new DirectoryGasGrieferTBA();
+
+        vm.prank(user1);
+        directory.transferFrom(user1, address(grief), tokenId);
+        assertEq(directory.ownerOf(tokenId), address(grief));
     }
 }

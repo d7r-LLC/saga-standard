@@ -398,7 +398,8 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
             // regardless of salt or implementation. See
             // SAGAAgentIdentity._update for full rationale.
             if (to.code.length > 0) {
-                try IERC6551BoundAccount(to).token() returns (
+                // Phase 12 (K-3): bound the introspection gas (see SAGAAgentIdentity).
+                try IERC6551BoundAccount(to).token{gas: 30000}() returns (
                     uint256 boundChainId, address boundContract, uint256 boundTokenId
                 ) {
                     if (

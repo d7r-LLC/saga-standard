@@ -20,6 +20,20 @@ contract MockTBAHelper {
     }
 }
 
+/// @dev Phase 12 (K-3): destination whose `token()` deliberately spins
+///      until OOG. Used to pin that the bounded 30k gas budget on the
+///      J-13 transfer guard prevents a malicious destination from
+///      blocking legitimate org transfers via gas griefing.
+contract OrgGasGrieferTBA {
+    function token() external pure returns (uint256, address, uint256) {
+        uint256 i = 1;
+        while (true) {
+            i = i + 1;
+        }
+        return (i, address(0), 0); // unreachable
+    }
+}
+
 contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     /// @dev Phase 8 (F-2): test contract receives directory NFTs in setUp via
     ///      _safeMint, which now invokes onERC721Received.
@@ -426,5 +440,23 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     function test_j6_setBaseURI_rejectsQueryString() public {
         vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
         org.setBaseURI("https://x.example/api/?evil=");
+    }
+
+    // K-3: bounded J-13 token() introspection — a destination whose
+    // token() consumes all forwarded gas must NOT block the transfer.
+    // SAGAOrgIdentity has its own _update implementation; pin K-3 here
+    // independently of the agent suite (Copilot review on PR #58).
+    function test_k3_j13_gasGriefingDestinationDoesNotBlockTransfer() public {
+        vm.prank(user1);
+        uint256 tokenId = org.registerOrganization("k3-org-grief", "Org");
+
+        OrgGasGrieferTBA grief = new OrgGasGrieferTBA();
+
+        // The grief destination is NOT actually self-bound. With the
+        // 30k gas budget, the staticcall OOGs inside the budget and
+        // falls cleanly into the catch block; transfer succeeds.
+        vm.prank(user1);
+        org.transferFrom(user1, address(grief), tokenId);
+        assertEq(org.ownerOf(tokenId), address(grief));
     }
 }

@@ -43,6 +43,23 @@ contract MockSelfBoundAccount {
     }
 }
 
+/// @dev Phase 12 (K-3): destination whose `token()` deliberately spins
+///      until OOG. Used to pin that the bounded 30k gas budget on the
+///      J-13 transfer guard prevents a malicious destination from
+///      blocking legitimate transfers via a gas-griefing token().
+contract GasGrieferTBA {
+    function token() external pure returns (uint256, address, uint256) {
+        // Burn all forwarded gas via an unbounded loop. The 30k budget
+        // imposed by the caller's `try ... {gas: 30000}()` ensures this
+        // OOGs inside the budget, falling cleanly into the catch block.
+        uint256 i = 1;
+        while (true) {
+            i = i + 1;
+        }
+        return (i, address(0), 0); // unreachable
+    }
+}
+
 /// @dev Phase 9 (G-17): a malicious recipient that introspects the
 ///      half-initialized SAGAAgentIdentity state from inside
 ///      onERC721Received. With Phase 8 F-2's CEI ordering, the callback
@@ -747,5 +764,24 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         vm.prank(user1);
         agent.transferFrom(user1, address(otherBound), tokenId);
         assertEq(agent.ownerOf(tokenId), address(otherBound));
+    }
+
+    // K-3: a malicious destination whose token() consumes all forwarded
+    // gas must NOT block the transfer. The bounded 30k gas budget on
+    // the J-13 introspection ensures the staticcall OOGs inside the
+    // budget and falls cleanly into the catch block. Without K-3, an
+    // unbounded call could (a) consume all remaining gas and break the
+    // transfer, or (b) succeed at extreme cost.
+    function test_k3_j13_gasGriefingDestinationDoesNotBlockTransfer() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("k3-grief", "https://h.example/");
+
+        GasGrieferTBA grief = new GasGrieferTBA();
+
+        // The grief destination is NOT actually self-bound. With the
+        // bounded gas budget, transfer should succeed cleanly.
+        vm.prank(user1);
+        agent.transferFrom(user1, address(grief), tokenId);
+        assertEq(agent.ownerOf(tokenId), address(grief));
     }
 }

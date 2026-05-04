@@ -290,8 +290,27 @@ NFT transfers should:
    transferring" warning whenever the destination address has been
    recently created via the ERC-6551 registry.
 
-Re-audit reference: OpenAI LOW + Gemini MEDIUM (G-12 in
-`audits/2026-05-04-post-phase8-gap-matrix.md`).
+**Phase 11 (J-13) update — partial closure.** The `_update` hook also
+performs `try IERC6551BoundAccount(to).token() returns (chainId,
+contract, tokenId)` and reverts if the destination reports being bound
+to THIS NFT. This closes the salt + alternative-implementation gap
+on-chain **for any TBA implementation that conforms to ERC-6551's
+universal `token()` getter and reports its binding honestly** (every
+canonical Tokenbound, Manifold, and reference implementation does).
+
+**Phase 12 (K-3) update — bounded introspection + adversarial residual.**
+The introspection call is bounded at 30,000 gas via Solidity's
+try/catch gas option, so a malicious destination cannot grief by
+consuming all forwarded gas (EIP-150). The remaining residual: a
+destination contract that **lies** about its binding via a non-standard
+`token()` (e.g., returns fake chainId or contract values) bypasses
+J-13. The on-chain layer cannot verify that an arbitrary contract's
+reported binding is truthful; UX-layer warnings (option 1 above)
+remain valid for that adversarial-implementation case.
+
+Re-audit references: OpenAI LOW + Gemini MEDIUM
+(G-12 in `audits/2026-05-04-post-phase8-gap-matrix.md`); Anthropic
+HIGH (H-3 / K-3 in the post-Phase-11 re-audit response).
 
 ### Authorized contracts: residual risk
 
@@ -354,6 +373,26 @@ than a 24h read-only window.
 Re-audit reference: G-14 in
 `audits/2026-05-04-post-phase8-gap-matrix.md`; J-8 in
 `audits/2026-05-04-post-phase10-gap-matrix.md`.
+
+**Phase 12 (K-2) update — codehash snapshot.** The 24h timelock now
+also pins the queued address's `extcodehash` at queue time and re-checks
+it at apply time. This catches CREATE2 metamorphism (a contract that
+self-destructs and re-deploys with new code at the same address) and
+plain bytecode swaps via `vm.etch` in test environments.
+
+**Residual:** a Transparent / UUPS / ERC-1967 proxy can swap its
+implementation during the timelock without changing the proxy shell's
+own `extcodehash`. The K-2 check pins the proxy shell, NOT the live
+implementation. **Safe diligence MUST refuse to queue any proxy
+address** — the only way to ensure the implementation reviewed at
+queue time is what gets authorized at apply time is to require the
+queued contract be non-upgradeable. This is enforced as a policy
+boundary, not a code check, because on-chain detection of arbitrary
+proxy patterns is unreliable across Solidity versions and proxy
+families.
+
+Re-audit reference: K-2 in the post-Phase-11 audit response
+(Anthropic HIGH).
 
 ### TBA contents are NOT transferred atomically with the NFT
 
