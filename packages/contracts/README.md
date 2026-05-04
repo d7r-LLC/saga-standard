@@ -293,6 +293,62 @@ NFT transfers should:
 Re-audit reference: OpenAI LOW + Gemini MEDIUM (G-12 in
 `audits/2026-05-04-post-phase8-gap-matrix.md`).
 
+### Authorized contracts: residual risk
+
+`SAGAHandleRegistry.setAuthorizedContract(addr, true)` grants `addr`
+unrestricted ability to call `registerHandle` and `registerScopedHandle`
+under any handle, entity type, and token ID. The registry trusts the
+authorized caller's claim that the (handle, tokenId) pair corresponds
+to a real on-chain identity it owns.
+
+Currently, only the SAGA-deployed identity contracts (Agent, Org,
+Directory) are authorized. Granting authorization to any third-party
+contract effectively grants it the ability to:
+
+- Register handles with arbitrary token IDs that map nowhere (squatting)
+- Register handles claiming `EntityType.AGENT` / `ORG` / `DIRECTORY`
+  even when the contract is none of those
+- Block legitimate handle registrations by claiming the namespace first
+
+The mitigation is **policy, not code**: the SAGA project Safe multisig
+holds the registry owner role, and authorization changes can only be
+applied by reaching the Safe's signing threshold — that is what makes
+single-key compromise insufficient to hijack authorization.
+`Ownable2Step` is a complementary defense: it prevents an _accidental_
+ownership transfer to a wrong/non-existent address by requiring the
+incoming owner to explicitly accept, but it does NOT by itself defend
+against a compromised owner. The Safe threshold does.
+
+New `authorizedContracts` entries should be reviewed in the same way
+smart-contract upgrades are reviewed — diligence on the implementation,
+the deployer, and the operational governance — before the Safe
+transaction is signed.
+
+Re-audit reference: G-14 in
+`audits/2026-05-04-post-phase8-gap-matrix.md`.
+
+### `tokenURI` length expectations
+
+`SAGADirectoryIdentity.tokenURI` returns `_baseTokenURI` concatenated
+with the `tokenId` decimal representation. The base URI is bounded
+through `SAGAValidation.validateUrl` (Phase 8 F-6, 1024-byte cap,
+http/https only). The resulting `tokenURI` therefore stays under
+1024 + 78 (max `uint256` decimal length) = 1102 bytes — well within the
+ERC-721 metadata recommendations and within the maximum URL length of
+common indexers and marketplaces (Cloudflare 8192, OpenSea ~2048, the
+Graph subgraph indexer 4096).
+
+Indexers integrating SAGA identity NFTs may safely allocate a 1500-byte
+buffer for the `tokenURI` string. The base URI is rotated through the
+queue + apply pattern (Phase 9 G-8) with a 24-hour timelock; an indexer
+that recomputes `tokenURI` per-block is robust to base URI rotations
+without backfill.
+
+`SAGAAgentIdentity` and `SAGAOrgIdentity` follow the same construction.
+
+Re-audit reference: G-15 in
+`audits/2026-05-04-post-phase8-gap-matrix.md`.
+
 ## License
 
 Apache-2.0

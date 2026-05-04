@@ -616,4 +616,93 @@ contract SAGAHandleRegistryTest is Test {
         vm.expectRevert(bytes("SAGAHandleRegistry: directory not found"));
         registry.resolveActiveScopedHandle("alice", "ghost-dir");
     }
+
+    // G-9: global and scoped namespaces must be hash-disjoint. The global
+    // key is `keccak256(abi.encodePacked(_toLower(handle)))`; the scoped
+    // key is `keccak256(abi.encode(_toLower(directoryId), _toLower(handle)))`.
+    // `abi.encode` for dynamic-type tuples emits offsets, then for each
+    // operand its length followed by its bytes — a layout that CANNOT
+    // collide with the packed single-string encoding for any non-empty
+    // inputs. Production code lowercases both operands first, so this
+    // fuzz uses the registry's own `handleExists` for collision skips
+    // instead of byte-equality (the namespace is case-insensitive).
+    // Property: a global registration with handle X under any directoryId
+    // Y must NEVER produce a key that collides with a scoped registration
+    // under (Y, X) such that one record overwrites the other.
+    function testFuzz_g9_handleAndScopedKeyDisjoint(
+        string calldata globalHandle,
+        string calldata scopedHandle,
+        string calldata directoryId
+    ) public {
+        // Bound inputs to valid handle shape so registerHandle accepts.
+        // We mirror _validateHandle's rules instead of catching reverts so
+        // the fuzz exercises the real success path.
+        if (!_isValidHandle(globalHandle)) return;
+        if (!_isValidHandle(scopedHandle)) return;
+        if (!_isValidHandle(directoryId)) return;
+
+        // Skip directoryIds that already exist in the global namespace
+        // (fixture seeds from setUp). `handleExists` uses the registry's
+        // case-insensitive key, so a fuzz input like "EPIC-HUB" is
+        // correctly recognized as colliding with the "epic-hub" seed.
+        if (registry.handleExists(directoryId)) return;
+        // Skip globalHandle if it collides with directoryId or any
+        // already-registered handle. Same case-insensitive reasoning.
+        if (registry.handleExists(globalHandle)) return;
+        if (
+            keccak256(bytes(_lowerCopy(globalHandle)))
+                == keccak256(bytes(_lowerCopy(directoryId)))
+        ) {
+            return;
+        }
+
+        vm.prank(address(mockDirectoryIdentity));
+        registry.registerHandle(
+            directoryId, SAGAHandleRegistry.EntityType.DIRECTORY, 1000
+        );
+
+        vm.prank(authorizedContract);
+        registry.registerHandle(globalHandle, SAGAHandleRegistry.EntityType.AGENT, 1);
+
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            scopedHandle, SAGAHandleRegistry.EntityType.AGENT, 2, directoryId
+        );
+
+        // The global record is intact: it still resolves to (AGENT, 1, ac).
+        (SAGAHandleRegistry.EntityType etG, uint256 tidG,) =
+            registry.resolveHandle(globalHandle);
+        assertEq(uint256(etG), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(tidG, 1);
+
+        // The scoped record resolves to (AGENT, 2, ac) — disjoint storage.
+        (SAGAHandleRegistry.EntityType etS, uint256 tidS,) =
+            registry.resolveScopedHandle(scopedHandle, directoryId);
+        assertEq(uint256(etS), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(tidS, 2);
+    }
+
+    function _lowerCopy(string memory s) internal pure returns (string memory) {
+        bytes memory b = bytes(s);
+        bytes memory out = new bytes(b.length);
+        for (uint256 i = 0; i < b.length; i++) {
+            out[i] = (b[i] >= 0x41 && b[i] <= 0x5A) ? bytes1(uint8(b[i]) + 32) : b[i];
+        }
+        return string(out);
+    }
+
+    function _isValidHandle(string memory raw) internal pure returns (bool) {
+        bytes memory b = bytes(raw);
+        if (b.length < 3 || b.length > 64) return false;
+        if (!_isAlnum(b[0]) || !_isAlnum(b[b.length - 1])) return false;
+        bool prevSep = false;
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            bool sep = (c == 0x2E || c == 0x2D || c == 0x5F);
+            if (!_isAlnum(c) && !sep) return false;
+            if (sep && prevSep) return false;
+            prevSep = sep;
+        }
+        return true;
+    }
 }

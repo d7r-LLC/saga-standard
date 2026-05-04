@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../src/SAGAOrgIdentity.sol";
@@ -19,6 +19,38 @@ contract MockTBAHelper {
         returns (address)
     {
         return address(uint160(uint256(keccak256(abi.encode(tokenContract, tokenId)))));
+    }
+}
+
+/// @dev Phase 9 (G-17): a malicious recipient that introspects the
+///      half-initialized SAGAAgentIdentity state from inside
+///      onERC721Received. With Phase 8 F-2's CEI ordering, the callback
+///      runs AFTER the handle has been registered and the homeHub URL
+///      stored, so an introspecting recipient sees the "real" agent
+///      record. Without F-2, the recipient would see empty strings — and
+///      could decide based on those empty values to keep the NFT in some
+///      compromised flow, then exploit the eventual writeback.
+contract ProbingReceiver is IERC721Receiver {
+    string public observedHandle;
+    string public observedHubUrl;
+    bool public observedHandleRegistered;
+    SAGAAgentIdentity public agent;
+    SAGAHandleRegistry public registry;
+
+    constructor(SAGAAgentIdentity _agent, SAGAHandleRegistry _registry) {
+        agent = _agent;
+        registry = _registry;
+    }
+
+    function onERC721Received(address, address, uint256 tokenId, bytes calldata)
+        external
+        override
+        returns (bytes4)
+    {
+        observedHandle = agent.agentHandle(tokenId);
+        observedHubUrl = agent.homeHubUrl(tokenId);
+        observedHandleRegistered = registry.handleExists(observedHandle);
+        return IERC721Receiver.onERC721Received.selector;
     }
 }
 
@@ -517,5 +549,72 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         vm.prank(user1);
         vm.expectRevert(bytes("SAGAHandleRegistry: directory not found"));
         agent.registerAgentInDirectory("alice", "https://hub.example/", "ghost-dir");
+    }
+
+    // G-10: indexers expecting handle-then-NFT log ordering should still
+    // see HandleRegistered (from the registry) emitted BEFORE the ERC-721
+    // Transfer event (from the agent contract's _safeMint). This pins
+    // the Phase 8 F-2 CEI ordering — effects (handle registration) happen
+    // before interactions (the safeMint that triggers Transfer +
+    // onERC721Received). Indexers built against this ordering would
+    // double-process or miss tokens if it ever flipped.
+    function test_g10_eventOrdering_handleBeforeNftTransfer() public {
+        bytes32 handleRegisteredTopic = keccak256(
+            "HandleRegistered(bytes32,string,uint8,uint256,address)"
+        );
+        bytes32 transferTopic = keccak256("Transfer(address,address,uint256)");
+        bytes32 agentRegisteredTopic = keccak256(
+            "AgentRegistered(uint256,string,address,string,uint256)"
+        );
+
+        vm.recordLogs();
+        vm.prank(user1);
+        agent.registerAgent("ordering-test", "https://hub.example.com");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        int256 handleIdx = -1;
+        int256 transferIdx = -1;
+        int256 agentIdx = -1;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bytes32 t0 = logs[i].topics.length > 0 ? logs[i].topics[0] : bytes32(0);
+            if (t0 == handleRegisteredTopic && handleIdx == -1) {
+                handleIdx = int256(i);
+            } else if (t0 == transferTopic && transferIdx == -1) {
+                transferIdx = int256(i);
+            } else if (t0 == agentRegisteredTopic && agentIdx == -1) {
+                agentIdx = int256(i);
+            }
+        }
+
+        assertGt(handleIdx, -1, "HandleRegistered missing");
+        assertGt(transferIdx, -1, "Transfer missing");
+        assertGt(agentIdx, -1, "AgentRegistered missing");
+
+        // CEI ordering: handle registration runs as Effect; Transfer fires
+        // during the safeMint Interaction; AgentRegistered fires after.
+        assertLt(handleIdx, transferIdx, "handle must precede transfer");
+        assertLt(transferIdx, agentIdx, "transfer must precede agentRegistered");
+    }
+
+    // G-17: a malicious / curious recipient introspecting the agent state
+    // from inside onERC721Received MUST see the fully-initialized record.
+    // Phase 8 F-2 fixed CEI ordering for this exact reason; this test pins
+    // the property so a future refactor that re-orders effects after the
+    // safeMint interaction would fail loudly.
+    function test_g17_onERC721Received_seesInitializedAgentRecord() public {
+        ProbingReceiver receiver = new ProbingReceiver(agent, registry);
+
+        vm.prank(address(receiver));
+        uint256 tokenId =
+            agent.registerAgent("probing", "https://probe.example/");
+
+        assertEq(receiver.observedHandle(), "probing");
+        assertEq(receiver.observedHubUrl(), "https://probe.example/");
+        assertTrue(
+            receiver.observedHandleRegistered(),
+            "registry must already see the handle during onERC721Received"
+        );
+        // Sanity: the NFT actually went to the receiver.
+        assertEq(agent.ownerOf(tokenId), address(receiver));
     }
 }
