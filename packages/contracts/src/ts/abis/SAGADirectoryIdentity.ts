@@ -787,6 +787,25 @@ export const SAGADirectoryIdentityAbi = [
   },
   {
     type: 'event',
+    name: 'DirectoryRevoked',
+    inputs: [
+      {
+        name: 'tokenId',
+        type: 'uint256',
+        indexed: true,
+        internalType: 'uint256',
+      },
+      {
+        name: 'newStatus',
+        type: 'string',
+        indexed: false,
+        internalType: 'string',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'DirectoryStatusUpdated',
     inputs: [
       {

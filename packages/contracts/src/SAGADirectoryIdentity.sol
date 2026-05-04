@@ -60,6 +60,16 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
     event DirectoryUrlUpdated(uint256 indexed tokenId, string oldUrl, string newUrl);
     event DirectoryStatusUpdated(uint256 indexed tokenId, string oldStatus, string newStatus);
+    /// @notice Phase 11 (J-2): emitted when a directory enters flagged
+    ///         (rank 2) or revoked (rank 3) status. Indexers that mirror
+    ///         handleRegistry resolution should subscribe to this event
+    ///         to refresh their identity caches on revocation, instead
+    ///         of parsing every status update or relying on the
+    ///         documentation-only "prefer resolveActiveScopedHandle"
+    ///         mitigation. DirectoryStatusUpdated still fires for every
+    ///         transition; DirectoryRevoked is the indexer-friendly
+    ///         signal for the rank>=2 subset.
+    event DirectoryRevoked(uint256 indexed tokenId, string newStatus);
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
     /// @notice Phase 9 (G-8): emitted when a new base URI is queued.
     event BaseURIQueued(string newBaseURI, uint256 readyAt);
@@ -237,6 +247,12 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
         _statuses[tokenId] = newStatus;
         emit DirectoryStatusUpdated(tokenId, oldStatus, newStatus);
+        // Phase 11 (J-2): if the new status is rank >= 2, emit a
+        // distinct event so off-chain indexers can specifically watch
+        // for revocation events without parsing every status update.
+        if (_statusRank(newStatus) >= 2) {
+            emit DirectoryRevoked(tokenId, newStatus);
+        }
     }
 
     // --- Internal ---

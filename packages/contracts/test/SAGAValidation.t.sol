@@ -285,4 +285,36 @@ contract SAGAValidationTest is Test {
         vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
         harness.validateBaseUri("https://example.com/path&/");
     }
+
+    // Phase 11 (J-12): fuzz the H-4 byte-blacklist closure. Asserts
+    // that any byte in the rejected set (control bytes, space, DEL,
+    // backslash, both quote types, both angle brackets) causes
+    // InvalidUrlCharacter, while ANY byte outside that set is accepted
+    // — including printable ASCII punctuation and the entire high-byte
+    // range 0x80..0xFF (UTF-8 IDN tail bytes are RFC 3987 valid). The
+    // acceptance set is "everything not in the blacklist", not
+    // "alphanumeric + safe punctuation" — the on-chain validator is
+    // intentionally permissive past the blacklist.
+    function testFuzz_j12_validateUrl_charBlacklistClosure(uint8 b) public {
+        // Build a URL like "https://x.example/p<byte>" with the fuzzed
+        // byte appended. The prefix is always-valid; tail acceptance
+        // depends only on the fuzzed byte.
+        bytes memory url = abi.encodePacked(
+            bytes("https://x.example/p"), bytes1(b)
+        );
+
+        bool inBlacklist = (
+            b <= 0x20 || b == 0x7F || b == 0x5C
+                || b == 0x22 || b == 0x27 || b == 0x3C || b == 0x3E
+        );
+
+        if (inBlacklist) {
+            vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+            harness.validateUrl(string(url));
+        } else {
+            // Should not revert for allowed bytes — prefix + allowed
+            // tail is a well-formed URL clearing validateUrl.
+            harness.validateUrl(string(url));
+        }
+    }
 }

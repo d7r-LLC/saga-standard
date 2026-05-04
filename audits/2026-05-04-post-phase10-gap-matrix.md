@@ -223,3 +223,45 @@ Estimated: ~110 LOC + ~14 new tests. Single PR.
 | Phase 11 re-audit (this) | 13 J-findings       | (pending) | —                          | (pending) |
 
 13 new findings on a contract surface with **47 closed findings already** is a defensible diminishing-returns curve. No provider claims a Critical mainnet blocker. PR 11A closes the only HIGH and the most actionable MEDIUMs in ~110 LOC.
+
+---
+
+## Phase 11 closure (2026-05-04)
+
+All 13 J-findings closed across two PRs against `dev`.
+
+| ID   | Severity | Closed by    | Notes                                                                                                                                            |
+| ---- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| J-1  | HIGH     | PR #56 (11A) | `cancelPendingAuthorizedContract` + `cancelPendingTrustedDirectoryContract` (revert on empty-queue per Copilot review)                           |
+| J-2  | MEDIUM   | PR #57 (11B) | `DirectoryRevoked(tokenId, newStatus)` event on rank>=2 transitions                                                                              |
+| J-3  | MEDIUM   | PR #56 (11A) | `bootstrapFinalized` flag replaces `_initialOwner` check; `Deploy.s.sol` calls `finalizeBootstrap()`                                             |
+| J-4  | MEDIUM   | PR #57 (11B) | README "TBA contents are NOT transferred atomically" section                                                                                     |
+| J-5  | MEDIUM   | PR #56 (11A) | `SAGAValidation.validateDisplayText` applied to org name + directory conformance                                                                 |
+| J-6  | MEDIUM   | PR #56 (11A) | `SAGAValidation.validateBaseUri` enforces trailing `/`, rejects `?` `#` `&`; applied at all 3 `setBaseURI` queues + `applyBaseURI` re-validation |
+| J-7  | MEDIUM   | PR #56 (11A) | `SAGAHandleRegistry` inherits `ReentrancyGuard`; `nonReentrant` on register paths                                                                |
+| J-8  | MEDIUM   | PR #57 (11B) | README "dual-direction Safe-compromise risk" language                                                                                            |
+| J-9  | LOW      | PR #57 (11B) | `DeployOrg.s.sol` chain-pinned helper allowlist on Base mainnet/Sepolia                                                                          |
+| J-10 | LOW      | PR #57 (11B) | `Deploy.s.sol` warning log on non-pinned chains                                                                                                  |
+| J-11 | LOW      | PR #57 (11B) | `RegistryConsistencyHandler` drives directory mints; roundtrip invariant covers all 3 entity types                                               |
+| J-12 | INFO     | PR #57 (11B) | `testFuzz_j12_validateUrl_charBlacklistClosure(uint8)` covers full byte space                                                                    |
+| J-13 | MEDIUM   | PR #56 (11A) | `_update` adds ERC-6551 `token()` introspection across all three identity contracts                                                              |
+
+**Test counts after Phase 11 closure:** 274 forge tests passing (was
+237 pre-Phase-11, +37); 35 vitest TS tests passing (unchanged surface;
+ABI freshness pin extended). `forge build` clean. `pnpm typecheck`
+clean.
+
+**Mainnet readiness checklist additions from Phase 11:**
+
+1. After `Deploy.s.sol`, the deployer EOA cannot authorize new contracts
+   immediately (J-3 `finalizeBootstrap` fires automatically). All
+   post-deploy authorizations require the 24h timelock.
+2. `DeployOrg.s.sol` reverts on Base mainnet/Sepolia if `TBA_HELPER`'s
+   immutable refs don't match canonical Tokenbound V3 (J-9).
+3. Indexers should subscribe to `DirectoryRevoked` events to refresh
+   identity caches on revocation (J-2).
+4. Marketplace integrators MUST surface TBA-content-on-sale UX warnings
+   (J-4); DeFi consumers MUST treat TBA contents as untrusted on receipt.
+5. The Safe can `cancelPendingAuthorizedContract` /
+   `cancelPendingTrustedDirectoryContract` to back out of mistaken
+   queues (J-1) without overwrite-and-restart-timer.

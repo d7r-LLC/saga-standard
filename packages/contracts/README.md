@@ -324,8 +324,73 @@ smart-contract upgrades are reviewed — diligence on the implementation,
 the deployer, and the operational governance — before the Safe
 transaction is signed.
 
+**Phase 11 (J-8) update — dual-direction Safe-compromise risk.** The
+M-1 24h queue+apply timelock applies to authorize-true (and trust-true)
+ONCE `bootstrapFinalized` is set inside `Deploy.s.sol`. Deauthorization
+(`setAuthorizedContract(addr, false)`, `setTrustedDirectoryContract(addr, false)`)
+is always immediate — slowing it down would let a known-compromised
+contract continue operating against the registry for a full day.
+
+This creates an **asymmetric Safe-compromise profile:**
+
+- **Hijack direction (slow):** a compromised Safe queues a malicious
+  authorize-true. The 24h timelock window gives legitimate operators
+  time to detect, rotate signers, and call
+  `cancelPendingAuthorizedContract` / `cancelPendingTrustedDirectoryContract`
+  (Phase 11 J-1) to back out cleanly.
+- **Brick direction (fast):** a compromised Safe immediately
+  deauthorizes one or more identity contracts in a single transaction.
+  Every `registerAgent` / `registerOrganization` / `registerDirectory`
+  call reverts with `unauthorized`. Recovery requires queueing
+  re-authorization (24h delay) — for that 24h, the SAGA namespace is
+  read-only.
+
+Both directions are recovery-time issues, not permanent loss. The
+asymmetric design accepts the brick-direction tradeoff because slowing
+deauthorization would let attackers continue operating against a
+known-compromised authorized contract for 24h, which is strictly worse
+than a 24h read-only window.
+
 Re-audit reference: G-14 in
-`audits/2026-05-04-post-phase8-gap-matrix.md`.
+`audits/2026-05-04-post-phase8-gap-matrix.md`; J-8 in
+`audits/2026-05-04-post-phase10-gap-matrix.md`.
+
+### TBA contents are NOT transferred atomically with the NFT
+
+ERC-6551 binds a Token Bound Account's CONTROL to NFT ownership, but
+does NOT escrow the TBA's CONTENTS. A seller listing a SAGA identity
+NFT on a secondary marketplace can:
+
+1. List the NFT for sale (e.g., on OpenSea or Blur).
+2. Wait for a buyer to submit a purchase transaction.
+3. Front-run the buyer's transaction by withdrawing tokens, NFTs, or
+   other assets from the TBA.
+4. Let the buyer's transaction execute. The buyer receives the
+   identity NFT and control of an empty TBA.
+
+This is a fundamental ERC-6551 design tradeoff — the on-chain SAGA
+identity contracts cannot prevent it without breaking standard ERC-721
+transfer semantics.
+
+**Mitigations:**
+
+- **UX layer (REQUIRED):** SAGA-integrating frontends MUST display a
+  clear warning before any NFT-listing UI: "TBA contents are not
+  guaranteed to be transferred with the NFT. Verify TBA balance
+  immediately before purchase."
+- **Marketplace adapter (RECOMMENDED for official sales):** if SAGA
+  ships a first-party marketplace, use Seaport Zones (or a similar
+  conditional execution mechanism) to enforce that a hash of the TBA's
+  contents has not changed between order signing and settlement.
+  Alternatively, route through an escrow that locks the TBA's assets
+  during the listing.
+- **Buyer protection:** consumers integrating SAGA NFTs into DeFi
+  protocols (collateral, lending, fractionalization) MUST treat TBA
+  contents as untrusted at the moment of NFT receipt; only the NFT
+  itself is bound by the on-chain transfer.
+
+Re-audit reference: J-4 (OpenAI + Gemini consensus) in
+`audits/2026-05-04-post-phase10-gap-matrix.md`.
 
 ### `tokenURI` length expectations
 

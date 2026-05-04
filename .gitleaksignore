@@ -10,3 +10,6 @@ spec/SAGA-v1.0.md:generic-api-key:575
 # False positive — Tokenbound V3 canonical implementation address (public, documented
 # at docs/identity-nfts.md:114). Hard-pinned in Deploy.s.sol per Phase 9 G-6.
 packages/contracts/script/Deploy.s.sol:generic-api-key:39
+# Same canonical Tokenbound V3 address used in DeployOrg.s.sol's Phase 11 J-9
+# helper allowlist check on Base mainnet/Sepolia.
+packages/contracts/script/DeployOrg.s.sol:generic-api-key:45

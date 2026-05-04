@@ -3,22 +3,30 @@ pragma solidity ^0.8.24;
 
 import {SAGAAgentIdentity} from "../../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../../src/SAGAOrgIdentity.sol";
+import {SAGADirectoryIdentity} from "../../src/SAGADirectoryIdentity.sol";
 
 /// @notice Phase 8 (F-7) handler for the registry-NFT consistency invariant.
-///         Drives the two permissionless mint paths (registerAgent,
-///         registerOrganization) with fuzzed handle seeds. Tracks ghost
-///         counters of successful mints; the invariant compares them to the
-///         on-chain totalSupply().
+///         Drives the permissionless mint paths (registerAgent,
+///         registerOrganization, and Phase 11 J-11 registerDirectory) with
+///         fuzzed handle seeds. Tracks ghost counters of successful mints;
+///         the consistency invariant compares them to on-chain totalSupply.
 contract RegistryConsistencyHandler {
     SAGAAgentIdentity public immutable agent;
     SAGAOrgIdentity public immutable org;
+    SAGADirectoryIdentity public immutable directory;
 
     uint256 public agentMints;
     uint256 public orgMints;
+    uint256 public directoryMints;
 
-    constructor(SAGAAgentIdentity _agent, SAGAOrgIdentity _org) {
+    constructor(
+        SAGAAgentIdentity _agent,
+        SAGAOrgIdentity _org,
+        SAGADirectoryIdentity _directory
+    ) {
         agent = _agent;
         org = _org;
+        directory = _directory;
     }
 
     function registerAgent(uint256 seed) external {
@@ -37,6 +45,26 @@ contract RegistryConsistencyHandler {
             orgMints++;
         } catch {
             // see above
+        }
+    }
+
+    /// @notice Phase 11 (J-11): drive directory mints so the roundtrip
+    ///         invariant covers DIRECTORY entityType too. Seed-derived
+    ///         operator address keeps the per-call fuzz deterministic.
+    function registerDirectory(uint256 seed) external {
+        string memory dirId = string(abi.encodePacked("d", _toBase36(seed)));
+        // Operator must be non-zero per registerDirectory's require.
+        // OR with 1 to lift any zero-only seed without skewing distribution.
+        address operator = address(uint160((seed | 1) & type(uint160).max));
+        try directory.registerDirectory(
+            dirId,
+            "https://d.example/",
+            operator,
+            "basic"
+        ) {
+            directoryMints++;
+        } catch {
+            // Validation, duplicate, or registry-side revert. Leave ghost.
         }
     }
 

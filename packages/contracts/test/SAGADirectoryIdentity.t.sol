@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
@@ -820,5 +820,46 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     function test_j6_setBaseURI_rejectsQueryString() public {
         vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
         directory.setBaseURI("https://x.example/api/?evil=");
+    }
+
+    // J-2: DirectoryRevoked event fires on rank>=2 transitions only.
+    function test_j2_directoryRevoked_emittedOnRevocation() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "j2-rev", "https://x.example/", makeAddr("op"), "basic"
+        );
+
+        vm.expectEmit(true, false, false, true, address(directory));
+        emit SAGADirectoryIdentity.DirectoryRevoked(tokenId, "revoked");
+        directory.updateDirectoryStatus(tokenId, "revoked");
+    }
+
+    function test_j2_directoryRevoked_emittedOnFlagged() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "j2-flag", "https://x.example/", makeAddr("op"), "basic"
+        );
+
+        vm.expectEmit(true, false, false, true, address(directory));
+        emit SAGADirectoryIdentity.DirectoryRevoked(tokenId, "flagged");
+        directory.updateDirectoryStatus(tokenId, "flagged");
+    }
+
+    function test_j2_directoryRevoked_NOT_emittedForSuspended() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "j2-susp", "https://x.example/", makeAddr("op"), "basic"
+        );
+
+        vm.recordLogs();
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("DirectoryRevoked(uint256,string)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            require(
+                logs[i].topics[0] != topic,
+                "DirectoryRevoked must not fire on suspended"
+            );
+        }
     }
 }

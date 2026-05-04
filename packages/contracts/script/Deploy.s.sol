@@ -81,6 +81,19 @@ contract Deploy is Script {
             );
         }
 
+        // Phase 11 (J-10): warn operators when deploying to a non-pinned
+        // chain. The script accepts arbitrary TBA_IMPLEMENTATION and
+        // ERC6551_REGISTRY values on non-Base chains by design
+        // (staging/local/new-chain deploys can supply their own pair),
+        // but operators should know their env vars are not being
+        // checked. Single combined warning since both pin blocks share
+        // the same chain set.
+        if (block.chainid != 8453 && block.chainid != 84532) {
+            console.log("WARNING: deploying to non-pinned chain", block.chainid);
+            console.log("TBA_IMPLEMENTATION not pin-checked. Verify off-chain.");
+            console.log("ERC6551_REGISTRY not pin-checked. Verify off-chain.");
+        }
+
         // Use DEPLOYER_PRIVATE_KEY from .env
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerKey);

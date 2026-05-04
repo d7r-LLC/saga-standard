@@ -39,6 +39,7 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
     SAGAHandleRegistry public registry;
     SAGAAgentIdentity public agent;
     SAGAOrgIdentity public org;
+    SAGADirectoryIdentity public directory;
     MockTBAHelper public tba;
     RegistryConsistencyHandler public handler;
 
@@ -56,15 +57,13 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
         tba = new MockTBAHelper();
         agent = new SAGAAgentIdentity(address(registry), address(tba));
         org = new SAGAOrgIdentity(address(registry), address(tba));
-        SAGADirectoryIdentity directory = new SAGADirectoryIdentity(
-            address(registry), address(tba)
-        );
+        directory = new SAGADirectoryIdentity(address(registry), address(tba));
         registry.setAuthorizedContract(address(agent), true);
         registry.setAuthorizedContract(address(org), true);
         registry.setAuthorizedContract(address(directory), true);
         registry.setTrustedDirectoryContract(address(directory), true);
 
-        handler = new RegistryConsistencyHandler(agent, org);
+        handler = new RegistryConsistencyHandler(agent, org, directory);
         targetContract(address(handler));
     }
 
@@ -158,6 +157,24 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
             assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.ORG));
             assertEq(resolvedTid, tokenId);
             assertEq(resolvedAddr, address(org));
+        }
+
+        // Phase 11 (J-11): directory tokens roundtrip too. A bug in
+        // registerDirectory that registered the wrong entityType (e.g.,
+        // AGENT instead of DIRECTORY) would otherwise slip past the
+        // agent + org assertions above.
+        uint256 directorySupply = directory.totalSupply();
+        for (uint256 i = 0; i < directorySupply; i++) {
+            uint256 tokenId = directory.tokenByIndex(i);
+            string memory dirId = directory.directoryId(tokenId);
+            (
+                SAGAHandleRegistry.EntityType et,
+                uint256 resolvedTid,
+                address resolvedAddr
+            ) = registry.resolveHandle(dirId);
+            assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.DIRECTORY));
+            assertEq(resolvedTid, tokenId);
+            assertEq(resolvedAddr, address(directory));
         }
     }
 

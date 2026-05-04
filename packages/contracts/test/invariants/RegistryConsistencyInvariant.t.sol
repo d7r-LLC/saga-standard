@@ -30,6 +30,7 @@ contract MockTBAHelper {
 contract RegistryConsistencyInvariantTest is Test, IERC721Receiver {
     SAGAAgentIdentity public agent;
     SAGAOrgIdentity public org;
+    SAGADirectoryIdentity public directory;
     RegistryConsistencyHandler public handler;
 
     function onERC721Received(address, address, uint256, bytes calldata)
@@ -46,7 +47,7 @@ contract RegistryConsistencyInvariantTest is Test, IERC721Receiver {
         MockTBAHelper tba = new MockTBAHelper();
         agent = new SAGAAgentIdentity(address(registry), address(tba));
         org = new SAGAOrgIdentity(address(registry), address(tba));
-        SAGADirectoryIdentity directory = new SAGADirectoryIdentity(
+        directory = new SAGADirectoryIdentity(
             address(registry), address(tba)
         );
         registry.setAuthorizedContract(address(agent), true);
@@ -54,12 +55,17 @@ contract RegistryConsistencyInvariantTest is Test, IERC721Receiver {
         registry.setAuthorizedContract(address(directory), true);
         registry.setTrustedDirectoryContract(address(directory), true);
 
-        handler = new RegistryConsistencyHandler(agent, org);
+        handler = new RegistryConsistencyHandler(agent, org, directory);
         targetContract(address(handler));
     }
 
     function invariant_registryMatchesNftSupply() public view {
         assertEq(agent.totalSupply(), handler.agentMints());
         assertEq(org.totalSupply(), handler.orgMints());
+        // Phase 11 (J-11) extension: the handler now also drives
+        // registerDirectory. Pin directory supply against the ghost
+        // counter so a future bug where registerDirectory mints but
+        // fails to register the global handle is caught here.
+        assertEq(directory.totalSupply(), handler.directoryMints());
     }
 }
