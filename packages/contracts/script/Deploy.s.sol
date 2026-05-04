@@ -28,33 +28,37 @@ contract Deploy is Script {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerKey);
 
-        // 1. Deploy handle registry
+        // 1. Deploy handle registry (no dependencies)
         SAGAHandleRegistry registry = new SAGAHandleRegistry();
         console.log("SAGAHandleRegistry:", address(registry));
 
-        // 2. Deploy agent identity (pass registry)
-        SAGAAgentIdentity agentIdentity = new SAGAAgentIdentity(address(registry));
-        console.log("SAGAAgentIdentity:", address(agentIdentity));
-
-        // 3. Deploy org identity (pass registry)
-        SAGAOrgIdentity orgIdentity = new SAGAOrgIdentity(address(registry));
-        console.log("SAGAOrgIdentity:", address(orgIdentity));
-
-        // 3b. Deploy directory identity (pass registry)
-        SAGADirectoryIdentity directoryIdentity = new SAGADirectoryIdentity(address(registry));
-        console.log("SAGADirectoryIdentity:", address(directoryIdentity));
-
-        // 4. Deploy TBA helper
+        // 2. Deploy TBA helper (Phase 8 F-4: identity contracts now reference
+        //    the helper for the self-TBA transfer guard, so it must exist
+        //    BEFORE identity contract construction).
         SAGATBAHelper tbaHelper = new SAGATBAHelper(erc6551Registry, tbaImplementation);
         console.log("SAGATBAHelper:", address(tbaHelper));
 
-        // 5. Authorize identity contracts to register handles
+        // 3. Deploy agent identity (pass registry + tbaHelper)
+        SAGAAgentIdentity agentIdentity =
+            new SAGAAgentIdentity(address(registry), address(tbaHelper));
+        console.log("SAGAAgentIdentity:", address(agentIdentity));
+
+        // 4. Deploy org identity (pass registry + tbaHelper)
+        SAGAOrgIdentity orgIdentity = new SAGAOrgIdentity(address(registry), address(tbaHelper));
+        console.log("SAGAOrgIdentity:", address(orgIdentity));
+
+        // 5. Deploy directory identity (pass registry + tbaHelper)
+        SAGADirectoryIdentity directoryIdentity =
+            new SAGADirectoryIdentity(address(registry), address(tbaHelper));
+        console.log("SAGADirectoryIdentity:", address(directoryIdentity));
+
+        // 6. Authorize identity contracts to register handles
         registry.setAuthorizedContract(address(agentIdentity), true);
         registry.setAuthorizedContract(address(orgIdentity), true);
         registry.setAuthorizedContract(address(directoryIdentity), true);
         console.log("Authorized agent, org, and directory contracts on registry");
 
-        // 6. Wire the directoryIdentity address into the registry so
+        // 7. Wire the directoryIdentity address into the registry so
         //    registerScopedHandle (Phase 8 F-1) can validate that the
         //    target directoryId resolves to an existing, active directory.
         registry.setDirectoryIdentity(address(directoryIdentity));

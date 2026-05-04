@@ -10,15 +10,26 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 import {SAGAValidation} from "./SAGAValidation.sol";
 
+/// @notice Minimal interface for the TBA helper used by the self-TBA transfer
+///         guard added in Phase 8 (F-4). Identity contracts hold an immutable
+///         reference to the helper and call computeAccount during _update.
+interface ITBAHelperLite {
+    function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
+}
+
 /// @title SAGAAgentIdentity
 /// @notice ERC-721 NFT collection for SAGA agent identities
 /// @dev Minting registers the handle in the SAGAHandleRegistry and stores the agent's home hub URL.
 ///      Phase 8: Ownable2Step (F-3), ReentrancyGuard + CEI _safeMint-last (F-2),
-///      constructor address validation (F-8).
+///      constructor address validation (F-8), self-TBA transfer guard (F-4),
+///      setBaseURI validation + event (F-6).
 contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 private _nextTokenId;
 
     SAGAHandleRegistry public immutable handleRegistry;
+
+    /// @notice TBA helper reference for the self-TBA transfer guard. Phase 8 (F-4).
+    address public immutable tbaHelper;
 
     /// tokenId → handle string
     mapping(uint256 => string) private _agentHandles;
@@ -41,13 +52,23 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     );
 
     event HomeHubUpdated(uint256 indexed tokenId, string oldHubUrl, string newHubUrl);
+    event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
-    constructor(address registry) ERC721("SAGA Agent Identity", "SAGA-AGENT") Ownable(msg.sender) {
+    constructor(address registry, address _tbaHelper)
+        ERC721("SAGA Agent Identity", "SAGA-AGENT")
+        Ownable(msg.sender)
+    {
         // Phase 8 (F-8): reject zero / EOA / non-contract registry addresses to
         // prevent a deployer typo from producing identity contracts that mint
         // NFTs but never register handles.
         require(registry.code.length > 0, "SAGAAgentIdentity: registry not contract");
+        // Phase 8 (F-4): reject zero / EOA / non-contract tbaHelper. The helper
+        // is used by the self-TBA transfer guard in _update; a misconfigured
+        // address would either revert every transfer or fail to detect the
+        // ownership-loop.
+        require(_tbaHelper.code.length > 0, "SAGAAgentIdentity: tba helper not contract");
         handleRegistry = SAGAHandleRegistry(registry);
+        tbaHelper = _tbaHelper;
         _baseTokenURI = "https://saga-standard.dev/api/metadata/agent/";
     }
 
@@ -153,11 +174,34 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     // --- Metadata ---
 
+    /// @notice Update the base URI for token metadata (owner only).
+    /// @dev Phase 8 (F-6): pipe through SAGAValidation.validateUrl (1024 byte
+    ///      cap, http(s)-only) and emit BaseURIUpdated so indexers can detect
+    ///      the change without polling storage.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
+        SAGAValidation.validateUrl(newBaseURI);
+        emit BaseURIUpdated(_baseTokenURI, newBaseURI);
         _baseTokenURI = newBaseURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
+    }
+
+    // --- ERC-721 transfer hooks ---
+
+    /// @dev Phase 8 (F-4): block transfers into the token's own ERC-6551 TBA.
+    ///      The ownership-loop would permanently lock the NFT (TBA owns NFT,
+    ///      NFT controls TBA, no signer can authorize recovery).
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address)
+    {
+        if (to != address(0)) {
+            address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
+            require(to != selfTba, "SAGAAgentIdentity: cannot transfer to own TBA");
+        }
+        return super._update(to, tokenId, auth);
     }
 }

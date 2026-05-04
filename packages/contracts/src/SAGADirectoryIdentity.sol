@@ -10,17 +10,24 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
 import {SAGAValidation} from "./SAGAValidation.sol";
 
+interface ITBAHelperLite {
+    function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
+}
+
 /// @title SAGADirectoryIdentity
 /// @notice ERC-721 NFT collection for SAGA directory identities.
 ///         Each token represents a directory that can host agents and organizations.
 /// @dev Minting registers the directoryId as a DIRECTORY handle in SAGAHandleRegistry.
 ///      The directoryId is immutable once minted.
 ///      Phase 8: Ownable2Step (F-3), ReentrancyGuard + CEI _safeMint-last (F-2),
-///      constructor address validation (F-8).
+///      constructor address validation (F-8), self-TBA transfer guard (F-4),
+///      setBaseURI validation + event (F-6), block transfer/URL on flagged/
+///      revoked directories (F-10).
 contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 private _nextTokenId;
 
     SAGAHandleRegistry public immutable handleRegistry;
+    address public immutable tbaHelper;
 
     /// tokenId → directoryId string
     mapping(uint256 => string) private _directoryIds;
@@ -48,14 +55,18 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
     event DirectoryUrlUpdated(uint256 indexed tokenId, string oldUrl, string newUrl);
     event DirectoryStatusUpdated(uint256 indexed tokenId, string oldStatus, string newStatus);
+    event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
-    constructor(address registry)
+    constructor(address registry, address _tbaHelper)
         ERC721("SAGA Directory Identity", "SAGA-DIR")
         Ownable(msg.sender)
     {
         // Phase 8 (F-8).
         require(registry.code.length > 0, "SAGADirectoryIdentity: registry not contract");
+        // Phase 8 (F-4).
+        require(_tbaHelper.code.length > 0, "SAGADirectoryIdentity: tba helper not contract");
         handleRegistry = SAGAHandleRegistry(registry);
+        tbaHelper = _tbaHelper;
         _baseTokenURI = "https://saga-standard.dev/api/metadata/directory/";
     }
 
@@ -109,8 +120,17 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     ///      as updateHomeHub on the agent contract: prevent re-entry via the
     ///      _safeMint callback in registerDirectory from mutating URL before
     ///      DirectoryRegistered is emitted.
+    ///
+    ///      Phase 8 (F-10): rejected when the directory is flagged or revoked
+    ///      (status rank >= 2). Without this gate, the original token owner
+    ///      could redirect a revoked directory's URL to a phishing site even
+    ///      after governance has revoked the directory.
     function updateDirectoryUrl(uint256 tokenId, string calldata newUrl) external nonReentrant {
         require(ownerOf(tokenId) == msg.sender, "SAGADirectoryIdentity: not owner");
+        require(
+            _statusRank(_statuses[tokenId]) < 2,
+            "SAGADirectoryIdentity: cannot update url when flagged or revoked"
+        );
         SAGAValidation.validateUrl(newUrl);
         string memory oldUrl = _directoryUrls[tokenId];
         _directoryUrls[tokenId] = newUrl;
@@ -221,11 +241,40 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
     // --- Metadata ---
 
+    /// @dev Phase 8 (F-6): validate URL + emit BaseURIUpdated.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
+        SAGAValidation.validateUrl(newBaseURI);
+        emit BaseURIUpdated(_baseTokenURI, newBaseURI);
         _baseTokenURI = newBaseURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
+    }
+
+    // --- ERC-721 transfer hooks ---
+
+    /// @dev Phase 8 transfer guard:
+    ///      (F-4) block transfers into the token's own ERC-6551 TBA
+    ///      (F-10) block transfers when status is flagged or revoked
+    ///             (rank >= 2). Mints (`from == 0`) and burns
+    ///             (`to == 0`) are unaffected.
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address)
+    {
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0)) {
+            // F-4: self-TBA loop guard
+            address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
+            require(to != selfTba, "SAGADirectoryIdentity: cannot transfer to own TBA");
+            // F-10: revoked / flagged directories are non-transferable
+            require(
+                _statusRank(_statuses[tokenId]) < 2,
+                "SAGADirectoryIdentity: cannot transfer flagged or revoked"
+            );
+        }
+        return super._update(to, tokenId, auth);
     }
 }

@@ -6,8 +6,19 @@ import {SAGAHandleRegistry} from "../src/SAGAHandleRegistry.sol";
 import {SAGAAgentIdentity} from "../src/SAGAAgentIdentity.sol";
 import {SAGAOrgIdentity} from "../src/SAGAOrgIdentity.sol";
 import {SAGADirectoryIdentity} from "../src/SAGADirectoryIdentity.sol";
+import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+
+contract MockTBAHelper {
+    function computeAccount(address tokenContract, uint256 tokenId)
+        external
+        pure
+        returns (address)
+    {
+        return address(uint160(uint256(keccak256(abi.encode(tokenContract, tokenId)))));
+    }
+}
 
 contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     /// @dev Phase 8 (F-2): test contract receives directory NFTs in setUp via
@@ -25,6 +36,7 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     SAGAAgentIdentity public agent;
     SAGAOrgIdentity public org;
     SAGADirectoryIdentity public directory;
+    MockTBAHelper public tbaHelper;
     address public deployer;
     address public user1;
     address public user2;
@@ -43,9 +55,10 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         user2 = address(0x2);
 
         registry = new SAGAHandleRegistry();
-        agent = new SAGAAgentIdentity(address(registry));
-        org = new SAGAOrgIdentity(address(registry));
-        directory = new SAGADirectoryIdentity(address(registry));
+        tbaHelper = new MockTBAHelper();
+        agent = new SAGAAgentIdentity(address(registry), address(tbaHelper));
+        org = new SAGAOrgIdentity(address(registry), address(tbaHelper));
+        directory = new SAGADirectoryIdentity(address(registry), address(tbaHelper));
 
         registry.setAuthorizedContract(address(agent), true);
         registry.setAuthorizedContract(address(org), true);
@@ -275,11 +288,46 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     // F-8
     function test_constructor_revertsOnZeroRegistry() public {
         vm.expectRevert(bytes("SAGAOrgIdentity: registry not contract"));
-        new SAGAOrgIdentity(address(0));
+        new SAGAOrgIdentity(address(0), address(tbaHelper));
     }
 
     function test_constructor_revertsOnEoaRegistry() public {
         vm.expectRevert(bytes("SAGAOrgIdentity: registry not contract"));
-        new SAGAOrgIdentity(makeAddr("eoa"));
+        new SAGAOrgIdentity(makeAddr("eoa"), address(tbaHelper));
+    }
+
+    // F-4: constructor rejects zero / EOA tbaHelper
+    function test_constructor_revertsOnZeroTbaHelper() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: tba helper not contract"));
+        new SAGAOrgIdentity(address(registry), address(0));
+    }
+
+    function test_constructor_revertsOnEoaTbaHelper() public {
+        vm.expectRevert(bytes("SAGAOrgIdentity: tba helper not contract"));
+        new SAGAOrgIdentity(address(registry), makeAddr("eoa-tba"));
+    }
+
+    // F-4: self-TBA transfer guard
+    function test_safeTransferToOwnTBA_reverts() public {
+        vm.prank(user1);
+        uint256 tokenId = org.registerOrganization("self-tba", "Self TBA Org");
+        address selfTba = tbaHelper.computeAccount(address(org), tokenId);
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGAOrgIdentity: cannot transfer to own TBA"));
+        org.transferFrom(user1, selfTba, tokenId);
+    }
+
+    // F-6: setBaseURI validation + event
+    function test_setBaseURI_emitsEvent() public {
+        vm.expectEmit(false, false, false, true, address(org));
+        emit SAGAOrgIdentity.BaseURIUpdated(
+            "https://saga-standard.dev/api/metadata/org/", "https://x.example/"
+        );
+        org.setBaseURI("https://x.example/");
+    }
+
+    function test_setBaseURI_revertsOnInvalidProtocol() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        org.setBaseURI("javascript:alert(1)");
     }
 }

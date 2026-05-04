@@ -78,7 +78,9 @@ contract SAGATBAHelperTest is Test {
         // (executed below via separate test functions, not in setUp)
 
         handleRegistry = new SAGAHandleRegistry();
-        agentIdentity = new SAGAAgentIdentity(address(handleRegistry));
+        // Phase 8 (F-4): agent constructor now takes a tbaHelper. Reuse the
+        // tbaHelper deployed above.
+        agentIdentity = new SAGAAgentIdentity(address(handleRegistry), address(tbaHelper));
         handleRegistry.setAuthorizedContract(address(agentIdentity), true);
 
         // Mint an agent for testing

@@ -8,16 +8,23 @@ import {
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SAGAHandleRegistry} from "./SAGAHandleRegistry.sol";
+import {SAGAValidation} from "./SAGAValidation.sol";
+
+interface ITBAHelperLite {
+    function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
+}
 
 /// @title SAGAOrgIdentity
 /// @notice ERC-721 NFT collection for SAGA organization identities
 /// @dev Shares the handle namespace with agents via SAGAHandleRegistry.
 ///      Phase 8: Ownable2Step (F-3), ReentrancyGuard + CEI _safeMint-last (F-2),
-///      constructor address validation (F-8).
+///      constructor address validation (F-8), self-TBA transfer guard (F-4),
+///      setBaseURI validation + event (F-6).
 contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 private _nextTokenId;
 
     SAGAHandleRegistry public immutable handleRegistry;
+    address public immutable tbaHelper;
 
     mapping(uint256 => string) private _orgHandles;
     mapping(uint256 => string) private _orgNames;
@@ -36,11 +43,18 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     );
 
     event OrgNameUpdated(uint256 indexed tokenId, string oldName, string newName);
+    event BaseURIUpdated(string oldBaseURI, string newBaseURI);
 
-    constructor(address registry) ERC721("SAGA Org Identity", "SAGA-ORG") Ownable(msg.sender) {
+    constructor(address registry, address _tbaHelper)
+        ERC721("SAGA Org Identity", "SAGA-ORG")
+        Ownable(msg.sender)
+    {
         // Phase 8 (F-8).
         require(registry.code.length > 0, "SAGAOrgIdentity: registry not contract");
+        // Phase 8 (F-4).
+        require(_tbaHelper.code.length > 0, "SAGAOrgIdentity: tba helper not contract");
         handleRegistry = SAGAHandleRegistry(registry);
+        tbaHelper = _tbaHelper;
         _baseTokenURI = "https://saga-standard.dev/api/metadata/org/";
     }
 
@@ -149,11 +163,29 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     // --- Metadata ---
 
+    /// @dev Phase 8 (F-6): validate URL + emit BaseURIUpdated.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
+        SAGAValidation.validateUrl(newBaseURI);
+        emit BaseURIUpdated(_baseTokenURI, newBaseURI);
         _baseTokenURI = newBaseURI;
     }
 
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
+    }
+
+    // --- ERC-721 transfer hooks ---
+
+    /// @dev Phase 8 (F-4): block transfers into the token's own ERC-6551 TBA.
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address)
+    {
+        if (to != address(0)) {
+            address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
+            require(to != selfTba, "SAGAOrgIdentity: cannot transfer to own TBA");
+        }
+        return super._update(to, tokenId, auth);
     }
 }

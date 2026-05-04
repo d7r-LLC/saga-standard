@@ -9,6 +9,16 @@ import {SAGAValidation} from "../src/SAGAValidation.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
+contract MockTBAHelper {
+    function computeAccount(address tokenContract, uint256 tokenId)
+        external
+        pure
+        returns (address)
+    {
+        return address(uint160(uint256(keccak256(abi.encode(tokenContract, tokenId)))));
+    }
+}
+
 contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     /// @dev Phase 8 (F-2): test contract receives directory NFTs via _safeMint,
     ///      which now invokes onERC721Received.
@@ -24,6 +34,7 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     SAGAHandleRegistry public registry;
     SAGADirectoryIdentity public directory;
     SAGAAgentIdentity public agent;
+    MockTBAHelper public tbaHelper;
     address public deployer;
     address public user1;
     address public user2;
@@ -46,8 +57,9 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         user2 = address(0x2);
 
         registry = new SAGAHandleRegistry();
-        directory = new SAGADirectoryIdentity(address(registry));
-        agent = new SAGAAgentIdentity(address(registry));
+        tbaHelper = new MockTBAHelper();
+        directory = new SAGADirectoryIdentity(address(registry), address(tbaHelper));
+        agent = new SAGAAgentIdentity(address(registry), address(tbaHelper));
 
         registry.setAuthorizedContract(address(directory), true);
         registry.setAuthorizedContract(address(agent), true);
@@ -416,11 +428,98 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     // F-8
     function test_constructor_revertsOnZeroRegistry() public {
         vm.expectRevert(bytes("SAGADirectoryIdentity: registry not contract"));
-        new SAGADirectoryIdentity(address(0));
+        new SAGADirectoryIdentity(address(0), address(tbaHelper));
     }
 
     function test_constructor_revertsOnEoaRegistry() public {
         vm.expectRevert(bytes("SAGADirectoryIdentity: registry not contract"));
-        new SAGADirectoryIdentity(makeAddr("eoa"));
+        new SAGADirectoryIdentity(makeAddr("eoa"), address(tbaHelper));
+    }
+
+    // F-4: constructor rejects zero / EOA tbaHelper
+    function test_constructor_revertsOnZeroTbaHelper() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: tba helper not contract"));
+        new SAGADirectoryIdentity(address(registry), address(0));
+    }
+
+    function test_constructor_revertsOnEoaTbaHelper() public {
+        vm.expectRevert(bytes("SAGADirectoryIdentity: tba helper not contract"));
+        new SAGADirectoryIdentity(address(registry), makeAddr("eoa-tba"));
+    }
+
+    // F-4: self-TBA transfer guard
+    function test_safeTransferToOwnTBA_reverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "self-tba-dir", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        address selfTba = tbaHelper.computeAccount(address(directory), tokenId);
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer to own TBA"));
+        directory.transferFrom(user1, selfTba, tokenId);
+    }
+
+    // F-6: setBaseURI validation + event
+    function test_setBaseURI_emitsEvent() public {
+        vm.expectEmit(false, false, false, true, address(directory));
+        emit SAGADirectoryIdentity.BaseURIUpdated(
+            "https://saga-standard.dev/api/metadata/directory/", "https://x.example/"
+        );
+        directory.setBaseURI("https://x.example/");
+    }
+
+    function test_setBaseURI_revertsOnInvalidProtocol() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
+        directory.setBaseURI("javascript:alert(1)");
+    }
+
+    // F-10: block transfer + URL update on flagged/revoked directories
+    function test_transferFlaggedDirectoryReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "flag-test", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        // Contract owner (this test contract) flags the directory
+        directory.updateDirectoryStatus(tokenId, "flagged");
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer flagged or revoked"));
+        directory.transferFrom(user1, user2, tokenId);
+    }
+
+    function test_transferRevokedDirectoryReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "revoke-test", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "revoked");
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer flagged or revoked"));
+        directory.transferFrom(user1, user2, tokenId);
+    }
+
+    function test_updateUrlOnFlaggedReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "url-flag", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "flagged");
+        vm.prank(user1);
+        vm.expectRevert(
+            bytes("SAGADirectoryIdentity: cannot update url when flagged or revoked")
+        );
+        directory.updateDirectoryUrl(tokenId, "https://new.example/");
+    }
+
+    function test_updateUrlOnRevokedReverts() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "url-revoke", "https://dir.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "revoked");
+        vm.prank(user1);
+        vm.expectRevert(
+            bytes("SAGADirectoryIdentity: cannot update url when flagged or revoked")
+        );
+        directory.updateDirectoryUrl(tokenId, "https://new.example/");
     }
 }
