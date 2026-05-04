@@ -167,7 +167,8 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     // --- Test 9: empty conformance level reverts ---
     function test_registerDirectory_emptyConformanceReverts() public {
         vm.prank(user1);
-        vm.expectRevert("SAGADirectoryIdentity: invalid conformance");
+        // Phase 11 (J-5): conformance length enforced via SAGAValidation.
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
         directory.registerDirectory("no-conf", "https://hub.com", user1, "");
     }
 
@@ -591,7 +592,8 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     function test_registerDirectory_revertsOnConformanceOverflow() public {
         string memory tooBig = "012345678901234567890123456789012"; // 33 bytes
         vm.prank(user1);
-        vm.expectRevert(bytes("SAGADirectoryIdentity: invalid conformance"));
+        // Phase 11 (J-5): conformance > 32 bytes via SAGAValidation.
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
         directory.registerDirectory(
             "cap-overflow", "https://dir.example/", makeAddr("op"), tooBig
         );
@@ -786,5 +788,37 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         vm.prank(user1);
         vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer to own TBA"));
         directory.safeTransferFrom(user1, selfTba, tokenId, "");
+    }
+
+    // === Phase 11 regression tests ===
+
+    // J-5: registerDirectory rejects HTML metachars + control bytes in
+    // the conformance level.
+    function test_j5_registerDirectory_rejectsHtmlConformance() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        directory.registerDirectory(
+            "j5-dir", "https://x.example/", makeAddr("op"), "<bad>"
+        );
+    }
+
+    function test_j5_registerDirectory_rejectsControlInConformance() public {
+        bytes memory bad = bytes("bad\x00");
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        directory.registerDirectory(
+            "j5-dir2", "https://x.example/", makeAddr("op"), string(bad)
+        );
+    }
+
+    // J-6: setBaseURI requires trailing `/`.
+    function test_j6_setBaseURI_requiresTrailingSlash() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        directory.setBaseURI("https://x.example/api");
+    }
+
+    function test_j6_setBaseURI_rejectsQueryString() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        directory.setBaseURI("https://x.example/api/?evil=");
     }
 }

@@ -14,6 +14,11 @@ interface ITBAHelperLite {
     function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
 }
 
+/// @notice Phase 11 (J-13): see SAGAAgentIdentity for rationale.
+interface IERC6551BoundAccount {
+    function token() external view returns (uint256 chainId, address tokenContract, uint256 tokenId);
+}
+
 /// @title SAGAOrgIdentity
 /// @notice ERC-721 NFT collection for SAGA organization identities
 /// @dev Shares the handle namespace with agents via SAGAHandleRegistry.
@@ -84,12 +89,14 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         nonReentrant
         returns (uint256)
     {
-        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
-        // doesn't allocate, but reading `.length` twice still costs an
-        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
-        // contract's conformance-level check.
-        uint256 nameLen = bytes(name).length;
-        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
+        // Phase 11 (J-5): validateDisplayText enforces length bounds
+        // (1..128 bytes) AND rejects HTML metacharacters / control
+        // bytes that downstream renderers (HTML, JSON, terminal UIs)
+        // cannot safely display. Replaced the prior length-only check
+        // (and its cached-length micro-optimization from Phase 10 L-3)
+        // — the validator does both checks in a single pass.
+        SAGAValidation.validateDisplayText(name, 128);
+        
 
         uint256 tokenId = _nextTokenId++;
 
@@ -117,12 +124,14 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         string calldata name,
         string calldata directoryId
     ) external nonReentrant returns (uint256) {
-        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
-        // doesn't allocate, but reading `.length` twice still costs an
-        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
-        // contract's conformance-level check.
-        uint256 nameLen = bytes(name).length;
-        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
+        // Phase 11 (J-5): validateDisplayText enforces length bounds
+        // (1..128 bytes) AND rejects HTML metacharacters / control
+        // bytes that downstream renderers (HTML, JSON, terminal UIs)
+        // cannot safely display. Replaced the prior length-only check
+        // (and its cached-length micro-optimization from Phase 10 L-3)
+        // — the validator does both checks in a single pass.
+        SAGAValidation.validateDisplayText(name, 128);
+        
 
         uint256 tokenId = _nextTokenId++;
 
@@ -158,12 +167,14 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             _isAuthorized(tokenOwner, msg.sender, tokenId),
             "SAGAOrgIdentity: not authorized"
         );
-        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
-        // doesn't allocate, but reading `.length` twice still costs an
-        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
-        // contract's conformance-level check.
-        uint256 nameLen = bytes(name).length;
-        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
+        // Phase 11 (J-5): validateDisplayText enforces length bounds
+        // (1..128 bytes) AND rejects HTML metacharacters / control
+        // bytes that downstream renderers (HTML, JSON, terminal UIs)
+        // cannot safely display. Replaced the prior length-only check
+        // (and its cached-length micro-optimization from Phase 10 L-3)
+        // — the validator does both checks in a single pass.
+        SAGAValidation.validateDisplayText(name, 128);
+        
         string memory oldName = _orgNames[tokenId];
         _orgNames[tokenId] = name;
         emit OrgNameUpdated(tokenId, oldName, name);
@@ -207,7 +218,8 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     /// @notice Queue a new base URI for later application (owner only).
     /// @dev Phase 9 (G-8): see SAGAAgentIdentity.setBaseURI for rationale.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
-        SAGAValidation.validateUrl(newBaseURI);
+        // Phase 11 (J-6): stricter validator for base URIs.
+        SAGAValidation.validateBaseUri(newBaseURI);
         _pendingBaseURI = newBaseURI;
         _pendingBaseURIReadyAt = block.timestamp + BASE_URI_TIMELOCK;
         emit BaseURIQueued(newBaseURI, _pendingBaseURIReadyAt);
@@ -220,9 +232,9 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGAOrgIdentity: base uri not yet ready"
         );
-        // Phase 10 (M-2): re-validate at apply time as defense-in-depth.
-        // See SAGAAgentIdentity for rationale.
-        SAGAValidation.validateUrl(_pendingBaseURI);
+        // Phase 10 (M-2) + Phase 11 (J-6): re-validate via the stricter
+        // base-URI validator at apply time as defense-in-depth.
+        SAGAValidation.validateBaseUri(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;
@@ -242,8 +254,26 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         returns (address)
     {
         if (to != address(0)) {
+            // F-4 (Phase 8): canonical salt-zero TBA check.
             address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
             require(to != selfTba, "SAGAOrgIdentity: cannot transfer to own TBA");
+
+            // J-13 (Phase 11): ERC-6551 token() introspection for any
+            // salt or implementation. See SAGAAgentIdentity._update for
+            // full rationale.
+            if (to.code.length > 0) {
+                try IERC6551BoundAccount(to).token() returns (
+                    uint256 boundChainId, address boundContract, uint256 boundTokenId
+                ) {
+                    if (
+                        boundChainId == block.chainid
+                            && boundContract == address(this)
+                            && boundTokenId == tokenId
+                    ) {
+                        revert("SAGAOrgIdentity: cannot transfer to own TBA");
+                    }
+                } catch {}
+            }
         }
         return super._update(to, tokenId, auth);
     }

@@ -17,6 +17,15 @@ interface ITBAHelperLite {
     function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
 }
 
+/// @notice Phase 11 (J-13): every ERC-6551 TBA implementation MUST
+///         expose `token()` returning the binding tuple. Used by
+///         `_update` to block transfers to ANY contract bound to this
+///         NFT — closes the salt + alternative-implementation gap left
+///         by the G-12 documented limitation.
+interface IERC6551BoundAccount {
+    function token() external view returns (uint256 chainId, address tokenContract, uint256 tokenId);
+}
+
 /// @title SAGAAgentIdentity
 /// @notice ERC-721 NFT collection for SAGA agent identities
 /// @dev Minting registers the handle in the SAGAHandleRegistry and stores the agent's home hub URL.
@@ -219,7 +228,11 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     ///      detect the change before it lands. Phase 8 (F-6) URL validation
     ///      runs at queue time so a bogus URI fails fast.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
-        SAGAValidation.validateUrl(newBaseURI);
+        // Phase 11 (J-6): stricter validator since tokenURI concatenates
+        // `_baseTokenURI + tokenId.toString()`. Rejects `?`, `#`, `&`
+        // and requires trailing `/` so the appended tokenId always
+        // lands in a path component, not a query/fragment.
+        SAGAValidation.validateBaseUri(newBaseURI);
         _pendingBaseURI = newBaseURI;
         _pendingBaseURIReadyAt = block.timestamp + BASE_URI_TIMELOCK;
         emit BaseURIQueued(newBaseURI, _pendingBaseURIReadyAt);
@@ -234,12 +247,10 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGAAgentIdentity: base uri not yet ready"
         );
-        // Phase 10 (M-2): re-validate the queued URL at apply time as
-        // defense-in-depth. validateUrl ran at queue time, but the URI
-        // sat in storage for 24+ hours; if SAGAValidation ever tightens
-        // (e.g. a future governance vote bans a new byte class), the
-        // queued value should not slip through.
-        SAGAValidation.validateUrl(_pendingBaseURI);
+        // Phase 10 (M-2) + Phase 11 (J-6): re-validate the queued URL
+        // at apply time using the stricter base-URI validator (which
+        // also enforces J-6's trailing-slash + no-query-string rules).
+        SAGAValidation.validateBaseUri(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;
@@ -261,8 +272,31 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         returns (address)
     {
         if (to != address(0)) {
+            // F-4 (Phase 8): block the canonical salt-zero TBA derived
+            // by SAGATBAHelper. Cheap path; ~700 gas.
             address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
             require(to != selfTba, "SAGAAgentIdentity: cannot transfer to own TBA");
+
+            // J-13 (Phase 11): also block ANY contract that exposes
+            // ERC-6551 `token()` introspection and reports being bound
+            // to THIS NFT — closes the salt + alternative-implementation
+            // gap left by the G-12 documented limitation. ~3k gas extra
+            // (one staticcall + 3 SLOAD on the destination).
+            if (to.code.length > 0) {
+                try IERC6551BoundAccount(to).token() returns (
+                    uint256 boundChainId, address boundContract, uint256 boundTokenId
+                ) {
+                    if (
+                        boundChainId == block.chainid
+                            && boundContract == address(this)
+                            && boundTokenId == tokenId
+                    ) {
+                        revert("SAGAAgentIdentity: cannot transfer to own TBA");
+                    }
+                } catch {
+                    // Not a TBA (or non-conforming) — proceed.
+                }
+            }
         }
         return super._update(to, tokenId, auth);
     }

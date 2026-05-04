@@ -14,6 +14,11 @@ interface ITBAHelperLite {
     function computeAccount(address tokenContract, uint256 tokenId) external view returns (address);
 }
 
+/// @notice Phase 11 (J-13): see SAGAAgentIdentity for rationale.
+interface IERC6551BoundAccount {
+    function token() external view returns (uint256 chainId, address tokenContract, uint256 tokenId);
+}
+
 /// @title SAGADirectoryIdentity
 /// @notice ERC-721 NFT collection for SAGA directory identities.
 ///         Each token represents a directory that can host agents and organizations.
@@ -107,15 +112,15 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     ) external nonReentrant returns (uint256) {
         SAGAValidation.validateUrl(url);
         require(operator != address(0), "SAGADirectoryIdentity: invalid operator");
-        // Phase 8 (F-9): cap claimed conformance level at 32 bytes. Without the
-        // cap an attacker can inflate per-mint storage cost. The string is
-        // self-attested; off-chain consumers must verify out-of-band. Cache
-        // the length once — `bytes(stringCalldata).length` allocates each
-        // time it's evaluated.
-        uint256 levelLen = bytes(conformanceLevel).length;
-        require(
-            levelLen > 0 && levelLen <= 32, "SAGADirectoryIdentity: invalid conformance"
-        );
+        // Phase 8 (F-9) + Phase 11 (J-5): cap the self-attested
+        // conformance level at 32 bytes AND reject HTML metacharacters
+        // / control bytes. The 32-byte cap bounds per-mint storage cost
+        // an attacker can otherwise inflate; the byte blacklist closes
+        // a downstream-rendering hazard for indexers and admin
+        // dashboards that emit the field. validateDisplayText does both
+        // checks in a single pass; off-chain consumers must verify
+        // actual SAGA conformance out-of-band.
+        SAGAValidation.validateDisplayText(conformanceLevel, 32);
 
         uint256 tokenId = _nextTokenId++;
 
@@ -317,7 +322,8 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
     /// @notice Queue a new base URI for later application (owner only).
     /// @dev Phase 9 (G-8): see SAGAAgentIdentity.setBaseURI for rationale.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
-        SAGAValidation.validateUrl(newBaseURI);
+        // Phase 11 (J-6): stricter validator for base URIs.
+        SAGAValidation.validateBaseUri(newBaseURI);
         _pendingBaseURI = newBaseURI;
         _pendingBaseURIReadyAt = block.timestamp + BASE_URI_TIMELOCK;
         emit BaseURIQueued(newBaseURI, _pendingBaseURIReadyAt);
@@ -330,9 +336,9 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
             block.timestamp >= _pendingBaseURIReadyAt,
             "SAGADirectoryIdentity: base uri not yet ready"
         );
-        // Phase 10 (M-2): re-validate at apply time as defense-in-depth.
-        // See SAGAAgentIdentity for rationale.
-        SAGAValidation.validateUrl(_pendingBaseURI);
+        // Phase 10 (M-2) + Phase 11 (J-6): re-validate via the stricter
+        // base-URI validator at apply time as defense-in-depth.
+        SAGAValidation.validateBaseUri(_pendingBaseURI);
         emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
         _baseTokenURI = _pendingBaseURI;
         delete _pendingBaseURI;
@@ -370,6 +376,25 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
             // F-4: self-TBA loop guard (always enforced)
             address selfTba = ITBAHelperLite(tbaHelper).computeAccount(address(this), tokenId);
             require(to != selfTba, "SAGADirectoryIdentity: cannot transfer to own TBA");
+
+            // J-13 (Phase 11): ERC-6551 token() introspection — block
+            // any contract that reports being bound to THIS NFT,
+            // regardless of salt or implementation. See
+            // SAGAAgentIdentity._update for full rationale.
+            if (to.code.length > 0) {
+                try IERC6551BoundAccount(to).token() returns (
+                    uint256 boundChainId, address boundContract, uint256 boundTokenId
+                ) {
+                    if (
+                        boundChainId == block.chainid
+                            && boundContract == address(this)
+                            && boundTokenId == tokenId
+                    ) {
+                        revert("SAGADirectoryIdentity: cannot transfer to own TBA");
+                    }
+                } catch {}
+            }
+
             // F-10 + G-1: rank >= 2 transfer block, EXCEPT for governance.
             if (auth != owner()) {
                 require(

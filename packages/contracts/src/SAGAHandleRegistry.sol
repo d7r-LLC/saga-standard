@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @notice Minimal interface used by SAGAHandleRegistry to validate that a
 ///         scoped registration's directoryId resolves to a directory that is
@@ -15,7 +16,7 @@ interface IDirectoryStatus {
 /// @dev Only contracts authorized by the owner (the identity NFT contracts) can register handles.
 ///      Phase 8 (F-3): uses Ownable2Step so the deployer-to-Safe handoff is two-step;
 ///      renounceOwnership is overridden to revert.
-contract SAGAHandleRegistry is Ownable2Step {
+contract SAGAHandleRegistry is Ownable2Step, ReentrancyGuard {
     enum EntityType {
         NONE,
         AGENT,
@@ -66,19 +67,35 @@ contract SAGAHandleRegistry is Ownable2Step {
 
     event AuthorizedContractSet(address indexed contractAddress, bool authorized);
     event TrustedDirectoryContractSet(address indexed addr, bool trusted);
-    /// @notice Phase 10 (M-1): emitted when an authorize-true is queued for
-    ///         post-handoff timelock. Auth = true requires a 24h delay
-    ///         after the Safe has accepted ownership; deauthorization is
-    ///         always immediate (safety action).
+    /// @notice Phase 10 (M-1) + Phase 11 (J-3): emitted when an
+    ///         authorize-true is queued for post-bootstrap timelock.
+    ///         Auth = true requires a 24h delay once `bootstrapFinalized`
+    ///         is set (typically inside Deploy.s.sol's final step);
+    ///         deauthorization is always immediate (safety action).
     event AuthorizedContractQueued(address indexed addr, uint256 readyAt);
     event TrustedDirectoryContractQueued(address indexed addr, uint256 readyAt);
+    /// @notice Phase 11 (J-1): emitted when a queued authorize-true /
+    ///         trust-true is canceled before apply. The Safe's prior
+    ///         recourse to back out of a mistake was to overwrite the
+    ///         slot with a different address (which started its own
+    ///         24h timer); these events accompany an explicit cancel.
+    event AuthorizedContractCancelled(address indexed addr);
+    event TrustedDirectoryContractCancelled(address indexed addr);
+    /// @notice Phase 11 (J-3): emitted when the bootstrap window closes.
+    event BootstrapFinalized();
 
-    /// @notice Phase 10 (M-1): the initial owner (deploy-time deployer EOA)
-    ///         can authorize contracts immediately via setAuthorizedContract
-    ///         to support same-tx Deploy.s.sol wiring. Once ownership
-    ///         transfers to the Safe (owner() != _initialOwner), all new
-    ///         authorizations must go through the 24h queue+apply path.
-    address private immutable _initialOwner;
+    /// @notice Phase 11 (J-3): bootstrap-finalization flag. While `false`,
+    ///         the current owner can authorize identity contracts
+    ///         immediately via setAuthorizedContract so Deploy.s.sol can
+    ///         wire the system in a single transaction. Deploy.s.sol
+    ///         calls `finalizeBootstrap` at the end of the run; from
+    ///         that point on, EVERY new authorize-true requires the
+    ///         24h queue+apply path, regardless of who the current
+    ///         owner is. Replaces the Phase 10 `_initialOwner == owner()`
+    ///         check, which left a window between Deploy.s.sol and the
+    ///         Safe's `acceptOwnership` during which a compromised
+    ///         deployer EOA could authorize without the timelock.
+    bool public bootstrapFinalized;
 
     /// @notice Phase 10 (M-1): single-slot pending queues for the timelock.
     address private _pendingAuthorizedContract;
@@ -89,8 +106,16 @@ contract SAGAHandleRegistry is Ownable2Step {
     /// @notice Hours until a queued authorization can be applied.
     uint256 public constant AUTH_TIMELOCK = 24 hours;
 
-    constructor() Ownable(msg.sender) {
-        _initialOwner = msg.sender;
+    constructor() Ownable(msg.sender) {}
+
+    /// @notice Phase 11 (J-3): finalize the bootstrap window. Once called,
+    ///         every new authorize-true goes through the 24h queue+apply
+    ///         path. Idempotent: reverts on second call to make
+    ///         deploy-script ordering errors loud.
+    function finalizeBootstrap() external onlyOwner {
+        require(!bootstrapFinalized, "SAGAHandleRegistry: already finalized");
+        bootstrapFinalized = true;
+        emit BootstrapFinalized();
     }
 
     /// @notice Renounce is disabled. Phase 8 (F-3) — losing the registry owner
@@ -143,9 +168,13 @@ contract SAGAHandleRegistry is Ownable2Step {
     function setAuthorizedContract(address addr, bool authorized) external onlyOwner {
         if (authorized) {
             require(addr.code.length > 0, "SAGAHandleRegistry: authorized must be contract");
+            // Phase 11 (J-3): the bootstrap-finalization flag replaces
+            // the Phase 10 `owner() == _initialOwner` check so the
+            // immediate-authorize window closes at a deterministic
+            // point inside Deploy.s.sol, not at Safe acceptOwnership.
             require(
-                owner() == _initialOwner,
-                "SAGAHandleRegistry: post-handoff: use queueAuthorizedContract"
+                !bootstrapFinalized,
+                "SAGAHandleRegistry: post-bootstrap: use queueAuthorizedContract"
             );
             authorizedContracts[addr] = true;
             emit AuthorizedContractSet(addr, true);
@@ -188,6 +217,22 @@ contract SAGAHandleRegistry is Ownable2Step {
         delete _pendingAuthorizedContractReadyAt;
     }
 
+    /// @notice Phase 11 (J-1): cancel a previously-queued authorize-true
+    ///         before it applies. The Safe's prior recourse to back out
+    ///         of a mistake was to overwrite the slot with a different
+    ///         contract (which itself started a 24h timer); a forgotten
+    ///         or mistaken queue could then be permissionlessly applied
+    ///         at the 24h mark by anyone watching the Safe.
+    /// @dev Reverts when nothing is queued so callers don't accidentally
+    ///      emit a misleading no-op `AuthorizedContractCancelled(0)`.
+    function cancelPendingAuthorizedContract() external onlyOwner {
+        require(_pendingAuthorizedContractReadyAt > 0, "SAGAHandleRegistry: no pending authorize");
+        address cancelled = _pendingAuthorizedContract;
+        delete _pendingAuthorizedContract;
+        delete _pendingAuthorizedContractReadyAt;
+        emit AuthorizedContractCancelled(cancelled);
+    }
+
     /// @notice Add or remove a trusted directory NFT contract used by
     ///         registerScopedHandle to verify directory existence + active
     ///         status. Phase 9 (G-11) replaced the singleton
@@ -210,9 +255,10 @@ contract SAGAHandleRegistry is Ownable2Step {
     function setTrustedDirectoryContract(address addr, bool trusted) external onlyOwner {
         if (trusted) {
             require(addr.code.length > 0, "SAGAHandleRegistry: trusted directory must be contract");
+            // Phase 11 (J-3): bootstrap-finalization gate. See setAuthorizedContract.
             require(
-                owner() == _initialOwner,
-                "SAGAHandleRegistry: post-handoff: use queueTrustedDirectoryContract"
+                !bootstrapFinalized,
+                "SAGAHandleRegistry: post-bootstrap: use queueTrustedDirectoryContract"
             );
             trustedDirectoryContracts[addr] = true;
             emit TrustedDirectoryContractSet(addr, true);
@@ -252,6 +298,18 @@ contract SAGAHandleRegistry is Ownable2Step {
         delete _pendingTrustedDirectoryContractReadyAt;
     }
 
+    /// @notice Phase 11 (J-1): cancel a previously-queued trust-true
+    ///         before it applies. See cancelPendingAuthorizedContract.
+    /// @dev Reverts when nothing is queued so callers don't accidentally
+    ///      emit a misleading no-op `TrustedDirectoryContractCancelled(0)`.
+    function cancelPendingTrustedDirectoryContract() external onlyOwner {
+        require(_pendingTrustedDirectoryContractReadyAt > 0, "SAGAHandleRegistry: no pending trust");
+        address cancelled = _pendingTrustedDirectoryContract;
+        delete _pendingTrustedDirectoryContract;
+        delete _pendingTrustedDirectoryContractReadyAt;
+        emit TrustedDirectoryContractCancelled(cancelled);
+    }
+
     // --- Registration (callable only by authorized contracts) ---
 
     /// @notice Register a handle for an entity. Only authorized contracts can call this.
@@ -260,6 +318,7 @@ contract SAGAHandleRegistry is Ownable2Step {
     /// @param tokenId The token ID in the calling contract
     function registerHandle(string calldata handle, EntityType entityType, uint256 tokenId)
         external
+        nonReentrant
     {
         require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
@@ -287,7 +346,7 @@ contract SAGAHandleRegistry is Ownable2Step {
         EntityType entityType,
         uint256 tokenId,
         string calldata directoryId
-    ) external {
+    ) external nonReentrant {
         require(authorizedContracts[msg.sender], "SAGAHandleRegistry: unauthorized");
         require(entityType != EntityType.NONE, "SAGAHandleRegistry: invalid entity type");
         require(bytes(directoryId).length > 0, "SAGAHandleRegistry: empty directoryId");

@@ -77,6 +77,40 @@ export const SAGAHandleRegistryAbi = [
   },
   {
     type: 'function',
+    name: 'bootstrapFinalized',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'bool',
+        internalType: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'cancelPendingAuthorizedContract',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'cancelPendingTrustedDirectoryContract',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'finalizeBootstrap',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'handleExists',
     inputs: [
       {
@@ -447,6 +481,19 @@ export const SAGAHandleRegistryAbi = [
   },
   {
     type: 'event',
+    name: 'AuthorizedContractCancelled',
+    inputs: [
+      {
+        name: 'addr',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'AuthorizedContractQueued',
     inputs: [
       {
@@ -481,6 +528,12 @@ export const SAGAHandleRegistryAbi = [
         internalType: 'bool',
       },
     ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'BootstrapFinalized',
+    inputs: [],
     anonymous: false,
   },
   {
@@ -603,6 +656,19 @@ export const SAGAHandleRegistryAbi = [
   },
   {
     type: 'event',
+    name: 'TrustedDirectoryContractCancelled',
+    inputs: [
+      {
+        name: 'addr',
+        type: 'address',
+        indexed: true,
+        internalType: 'address',
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
     name: 'TrustedDirectoryContractQueued',
     inputs: [
       {
@@ -660,5 +726,10 @@ export const SAGAHandleRegistryAbi = [
         internalType: 'address',
       },
     ],
+  },
+  {
+    type: 'error',
+    name: 'ReentrancyGuardReentrantCall',
+    inputs: [],
   },
 ] as const

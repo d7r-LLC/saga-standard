@@ -956,6 +956,11 @@ export const SAGAAgentIdentityAbi = [
   },
   {
     type: 'error',
+    name: 'InvalidBaseUriPath',
+    inputs: [],
+  },
+  {
+    type: 'error',
     name: 'InvalidUrlCharacter',
     inputs: [],
   },

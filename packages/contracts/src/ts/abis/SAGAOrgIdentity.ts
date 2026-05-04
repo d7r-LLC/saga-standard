@@ -956,6 +956,21 @@ export const SAGAOrgIdentityAbi = [
   },
   {
     type: 'error',
+    name: 'InvalidBaseUriPath',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidTextCharacter',
+    inputs: [],
+  },
+  {
+    type: 'error',
+    name: 'InvalidTextLength',
+    inputs: [],
+  },
+  {
+    type: 'error',
     name: 'InvalidUrlCharacter',
     inputs: [],
   },

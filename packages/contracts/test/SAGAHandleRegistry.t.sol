@@ -785,22 +785,20 @@ contract SAGAHandleRegistryTest is Test {
         address newContract = makeAddr("newContract");
         vm.etch(newContract, hex"60006000fd");
 
-        // Hand off ownership to a Safe-equivalent test address.
-        address safe = makeAddr("safe");
-        registry.transferOwnership(safe);
-        vm.prank(safe);
-        registry.acceptOwnership();
-        assertEq(registry.owner(), safe);
+        // Phase 11 (J-3): close the bootstrap window. The post-bootstrap
+        // gate replaces Phase 10's `_initialOwner == owner()` check;
+        // the bootstrap-finalized flag is set explicitly inside Deploy.s.sol
+        // (or in tests, via this direct call) regardless of whether an
+        // ownership handoff has completed.
+        registry.finalizeBootstrap();
 
-        // Post-handoff: authorize-true via setAuthorizedContract reverts.
-        vm.prank(safe);
+        // Post-bootstrap: authorize-true via setAuthorizedContract reverts.
         vm.expectRevert(
-            bytes("SAGAHandleRegistry: post-handoff: use queueAuthorizedContract")
+            bytes("SAGAHandleRegistry: post-bootstrap: use queueAuthorizedContract")
         );
         registry.setAuthorizedContract(newContract, true);
 
-        // Post-handoff: deauthorize-false is immediate (safety action).
-        vm.prank(safe);
+        // Post-bootstrap: deauthorize-false is immediate (safety action).
         registry.setAuthorizedContract(newContract, false);
     }
 
@@ -846,19 +844,15 @@ contract SAGAHandleRegistryTest is Test {
     function test_m1_setTrustedDirectoryContract_postHandoffRevertsOnTrust() public {
         MockDirectoryIdentity v2 = new MockDirectoryIdentity();
 
-        address safe = makeAddr("safe");
-        registry.transferOwnership(safe);
-        vm.prank(safe);
-        registry.acceptOwnership();
+        // Phase 11 (J-3): bootstrap-finalized gate (see preceding test).
+        registry.finalizeBootstrap();
 
-        vm.prank(safe);
         vm.expectRevert(
-            bytes("SAGAHandleRegistry: post-handoff: use queueTrustedDirectoryContract")
+            bytes("SAGAHandleRegistry: post-bootstrap: use queueTrustedDirectoryContract")
         );
         registry.setTrustedDirectoryContract(address(v2), true);
 
         // Detrust still immediate.
-        vm.prank(safe);
         registry.setTrustedDirectoryContract(address(v2), false);
     }
 
@@ -880,5 +874,105 @@ contract SAGAHandleRegistryTest is Test {
         vm.warp(block.timestamp + 24 hours);
         registry.applyTrustedDirectoryContract(address(v2));
         assertTrue(registry.trustedDirectoryContracts(address(v2)));
+    }
+
+    // === Phase 11 regression tests ===
+
+    // J-1: cancelPendingAuthorizedContract clears the queue cleanly so
+    // the Safe can back out of a mistake without overwrite-and-restart.
+    function test_j1_cancelPendingAuthorizedContract_clearsSlot() public {
+        address newContract = makeAddr("newContract-j1a");
+        vm.etch(newContract, hex"60006000fd");
+
+        registry.queueAuthorizedContract(newContract);
+        assertEq(registry.pendingAuthorizedContract(), newContract);
+
+        registry.cancelPendingAuthorizedContract();
+        assertEq(registry.pendingAuthorizedContract(), address(0));
+        assertEq(registry.pendingAuthorizedContractReadyAt(), 0);
+
+        vm.warp(block.timestamp + 24 hours);
+        vm.expectRevert(bytes("SAGAHandleRegistry: no pending authorize"));
+        registry.applyAuthorizedContract(newContract);
+    }
+
+    function test_j1_cancelPendingAuthorizedContract_onlyOwner() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert();
+        registry.cancelPendingAuthorizedContract();
+    }
+
+    // J-1 Copilot review fix: reverts when nothing is queued so callers
+    // don't accidentally emit a misleading no-op cancellation event.
+    function test_j1_cancelPendingAuthorizedContract_revertsWhenEmpty() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: no pending authorize"));
+        registry.cancelPendingAuthorizedContract();
+    }
+
+    function test_j1_cancelPendingTrustedDirectoryContract_clearsSlot() public {
+        MockDirectoryIdentity v2 = new MockDirectoryIdentity();
+
+        registry.queueTrustedDirectoryContract(address(v2));
+        registry.cancelPendingTrustedDirectoryContract();
+        assertEq(registry.pendingTrustedDirectoryContract(), address(0));
+
+        vm.warp(block.timestamp + 24 hours);
+        vm.expectRevert(bytes("SAGAHandleRegistry: no pending trust"));
+        registry.applyTrustedDirectoryContract(address(v2));
+    }
+
+    function test_j1_cancelPendingTrustedDirectoryContract_onlyOwner() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert();
+        registry.cancelPendingTrustedDirectoryContract();
+    }
+
+    // J-1 Copilot review fix: reverts when nothing is queued.
+    function test_j1_cancelPendingTrustedDirectoryContract_revertsWhenEmpty() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: no pending trust"));
+        registry.cancelPendingTrustedDirectoryContract();
+    }
+
+    // J-3: bootstrapFinalized flag closes the immediate-authorize window.
+    function test_j3_finalizeBootstrap_disablesImmediateAuthorize() public {
+        // Pre-finalize: deployer can authorize immediately.
+        address contractA = makeAddr("contractA-j3");
+        vm.etch(contractA, hex"60006000fd");
+        registry.setAuthorizedContract(contractA, true);
+        assertTrue(registry.authorizedContracts(contractA));
+
+        // Finalize bootstrap.
+        registry.finalizeBootstrap();
+        assertTrue(registry.bootstrapFinalized());
+
+        // Post-finalize: even the deployer must use the queue path.
+        address contractB = makeAddr("contractB-j3");
+        vm.etch(contractB, hex"60006000fd");
+        vm.expectRevert(
+            bytes("SAGAHandleRegistry: post-bootstrap: use queueAuthorizedContract")
+        );
+        registry.setAuthorizedContract(contractB, true);
+    }
+
+    function test_j3_finalizeBootstrap_onlyOwner() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert();
+        registry.finalizeBootstrap();
+    }
+
+    function test_j3_finalizeBootstrap_idempotentRevert() public {
+        registry.finalizeBootstrap();
+        vm.expectRevert(bytes("SAGAHandleRegistry: already finalized"));
+        registry.finalizeBootstrap();
+    }
+
+    // J-7: structural pin that the registry inherits ReentrancyGuard.
+    // Real re-entrancy would require a malicious authorized contract; this
+    // test confirms registerHandle still works through the new guard path.
+    function test_j7_registry_registerHandle_withGuardActive() public {
+        vm.prank(authorizedContract);
+        registry.registerHandle("j7-pin", SAGAHandleRegistry.EntityType.AGENT, 9999);
+        (SAGAHandleRegistry.EntityType et,,) = registry.resolveHandle("j7-pin");
+        assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
     }
 }

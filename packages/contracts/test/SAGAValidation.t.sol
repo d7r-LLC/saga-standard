@@ -11,6 +11,14 @@ contract ValidationHarness {
     function validateUrl(string calldata url) external pure {
         SAGAValidation.validateUrl(url);
     }
+
+    function validateDisplayText(string calldata s, uint256 maxLen) external pure {
+        SAGAValidation.validateDisplayText(s, maxLen);
+    }
+
+    function validateBaseUri(string calldata uri) external pure {
+        SAGAValidation.validateBaseUri(uri);
+    }
 }
 
 contract SAGAValidationTest is Test {
@@ -205,5 +213,76 @@ contract SAGAValidationTest is Test {
         bytes memory utf8 = bytes("https://\xc3\xa9.example.com");
         harness.validateUrl(string(utf8));
         // No revert == pass.
+    }
+
+    // === Phase 11 (J-5) — validateDisplayText ===
+
+    function test_j5_validateDisplayText_acceptsPlainAscii() public view {
+        harness.validateDisplayText("d7r LLC", 128);
+        harness.validateDisplayText("Org Name 1", 128);
+    }
+
+    function test_j5_validateDisplayText_acceptsHighBytes() public view {
+        // UTF-8 multi-byte must still pass (non-ASCII names allowed).
+        bytes memory utf8 = bytes("\xc3\x89pic D\xc3\xa9sign");
+        harness.validateDisplayText(string(utf8), 128);
+    }
+
+    function test_j5_validateDisplayText_rejectsAngleBrackets() public {
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        harness.validateDisplayText("<script>", 128);
+    }
+
+    function test_j5_validateDisplayText_rejectsBackslash() public {
+        bytes memory bad = bytes("Foo\\bar");
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        harness.validateDisplayText(string(bad), 128);
+    }
+
+    function test_j5_validateDisplayText_rejectsControlBytes() public {
+        bytes memory withNull = bytes("Foo\x00bar");
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        harness.validateDisplayText(string(withNull), 128);
+
+        bytes memory withEsc = bytes("Foo\x1bbar");
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        harness.validateDisplayText(string(withEsc), 128);
+    }
+
+    function test_j5_validateDisplayText_lengthBounds() public {
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
+        harness.validateDisplayText("", 128);
+
+        bytes memory longName = new bytes(129);
+        for (uint256 i = 0; i < 129; i++) longName[i] = "a";
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
+        harness.validateDisplayText(string(longName), 128);
+    }
+
+    // === Phase 11 (J-6) — validateBaseUri ===
+
+    function test_j6_validateBaseUri_acceptsPathPrefix() public view {
+        harness.validateBaseUri("https://saga-standard.dev/api/metadata/agent/");
+        harness.validateBaseUri("http://example.com/path/");
+    }
+
+    function test_j6_validateBaseUri_requiresTrailingSlash() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        harness.validateBaseUri("https://example.com/path");
+    }
+
+    function test_j6_validateBaseUri_rejectsQueryString() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        harness.validateBaseUri("https://example.com/?evil=");
+    }
+
+    function test_j6_validateBaseUri_rejectsFragment() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        harness.validateBaseUri("https://example.com/#frag/");
+    }
+
+    function test_j6_validateBaseUri_rejectsAmpersand() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        harness.validateBaseUri("https://example.com/path&/");
     }
 }

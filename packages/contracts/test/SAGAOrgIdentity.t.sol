@@ -111,7 +111,8 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     // --- Test 4: empty name reverts ---
     function test_registerOrg_emptyNameReverts() public {
         vm.prank(user1);
-        vm.expectRevert("SAGAOrgIdentity: invalid name");
+        // Phase 11 (J-5): name length is enforced via SAGAValidation.
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
         org.registerOrganization("valid-handle", "");
     }
 
@@ -124,7 +125,8 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         }
 
         vm.prank(user1);
-        vm.expectRevert("SAGAOrgIdentity: invalid name");
+        // Phase 11 (J-5): same validator enforces the 128-byte cap.
+        vm.expectRevert(SAGAValidation.InvalidTextLength.selector);
         org.registerOrganization("long-name-org", string(longName));
     }
 
@@ -392,5 +394,37 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         vm.prank(operator);
         org.updateOrgName(tokenId, "New Name");
         assertEq(org.orgName(tokenId), "New Name");
+    }
+
+    // === Phase 11 regression tests ===
+
+    // J-5: registerOrganization rejects HTML metacharacters.
+    function test_j5_registerOrg_rejectsHtmlMetacharacters() public {
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        org.registerOrganization("good-handle", "<script>alert(1)</script>");
+    }
+
+    // J-5: updateOrgName rejects control bytes.
+    function test_j5_updateOrgName_rejectsControlByte() public {
+        vm.prank(user1);
+        uint256 tokenId = org.registerOrganization("legit-org", "Legit Name");
+
+        bytes memory bad = bytes("Bad\x00Name");
+        vm.prank(user1);
+        vm.expectRevert(SAGAValidation.InvalidTextCharacter.selector);
+        org.updateOrgName(tokenId, string(bad));
+    }
+
+    // J-6: setBaseURI requires trailing `/`.
+    function test_j6_setBaseURI_requiresTrailingSlash() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        org.setBaseURI("https://x.example/api");
+    }
+
+    // J-6: setBaseURI rejects query strings.
+    function test_j6_setBaseURI_rejectsQueryString() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        org.setBaseURI("https://x.example/api/?evil=");
     }
 }

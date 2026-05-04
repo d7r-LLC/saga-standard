@@ -19,6 +19,13 @@ library SAGAValidation {
     ///         cannot safely render. Rejected: 0x00..0x20 (control + space),
     ///         0x7F (DEL), 0x5C (\), 0x22 ("), 0x27 ('), 0x3C (<), 0x3E (>).
     error InvalidUrlCharacter();
+    /// @notice Phase 11 (J-5): display-text shape violations.
+    error InvalidTextLength();
+    error InvalidTextCharacter();
+    /// @notice Phase 11 (J-6): base-URI shape violations (missing trailing
+    ///         `/` OR contains `?`/`#`/`&` that would cause `tokenURI`
+    ///         concatenation to inject the tokenId into a query/fragment).
+    error InvalidBaseUriPath();
 
     /// @notice Validate a URL string is non-empty, ≤MAX_URL_BYTES bytes, and
     ///         starts with "http://" or "https://".
@@ -71,6 +78,55 @@ library SAGAValidation {
                     || c == 0x3E     // >
             ) {
                 revert InvalidUrlCharacter();
+            }
+        }
+    }
+
+    /// @notice Phase 11 (J-5): validate a free-form display string.
+    /// @dev Mirrors validateUrl's H-4 byte blacklist EXCEPT space (0x20)
+    ///      is permitted because legitimate display names like
+    ///      "d7r LLC" require it. Rejects: C0
+    ///      controls (0x00..0x1F), DEL (0x7F), backslash, both quote
+    ///      types, and the angle brackets that downstream HTML/JSON
+    ///      renderers cannot escape. Multi-byte UTF-8 (>=0x80) passes
+    ///      so non-ASCII display names work.
+    function validateDisplayText(string calldata s, uint256 maxLen) internal pure {
+        bytes calldata b = bytes(s);
+        if (b.length == 0 || b.length > maxLen) revert InvalidTextLength();
+
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            if (
+                c <= 0x1F            // C0 control bytes (incl. NUL, TAB, ESC)
+                    || c == 0x7F     // DEL
+                    || c == 0x22     // double quote
+                    || c == 0x27     // single quote
+                    || c == 0x3C     // <
+                    || c == 0x3E     // >
+                    || c == 0x5C     // backslash
+            ) {
+                revert InvalidTextCharacter();
+            }
+        }
+    }
+
+    /// @notice Phase 11 (J-6): validate a base URI suitable for ERC-721
+    ///         `tokenURI` concatenation.
+    /// @dev Must pass `validateUrl` AND end in `/` AND contain no `?`,
+    ///      `#`, or `&`. Without these constraints, a Safe-compromised
+    ///      `setBaseURI` to `https://x.example/api/?redirect=` would
+    ///      produce `tokenURI(42) = https://x.example/api/?redirect=42`
+    ///      — tokenId injected into the query string with off-chain
+    ///      consequences (open-redirect chaining, indexer cache
+    ///      poisoning) gated only by the 24h G-8 timelock.
+    function validateBaseUri(string memory uri) internal pure {
+        validateUrl(uri);
+        bytes memory b = bytes(uri);
+        if (b[b.length - 1] != 0x2F) revert InvalidBaseUriPath();
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            if (c == 0x3F || c == 0x23 || c == 0x26) {
+                revert InvalidBaseUriPath();
             }
         }
     }

@@ -64,7 +64,7 @@ describe('ABI exports', () => {
   const fns = (abi: readonly { type: string; name?: string }[]) =>
     new Set(abi.filter(e => e.type === 'function').map(e => e.name))
 
-  it('SAGAHandleRegistry ABI is fresh against post-Phase-10 surface', () => {
+  it('SAGAHandleRegistry ABI is fresh against post-Phase-11 surface', () => {
     const names = fns(SAGAHandleRegistryAbi)
     for (const expected of [
       'acceptOwnership',
@@ -89,6 +89,11 @@ describe('ABI exports', () => {
       'pendingTrustedDirectoryContract',
       'pendingTrustedDirectoryContractReadyAt',
       'AUTH_TIMELOCK',
+      // Phase 11 (J-1 + J-3): cancel paths + bootstrapFinalized flag
+      'cancelPendingAuthorizedContract',
+      'cancelPendingTrustedDirectoryContract',
+      'finalizeBootstrap',
+      'bootstrapFinalized',
     ]) {
       expect(names, `missing ${expected}`).toContain(expected)
     }

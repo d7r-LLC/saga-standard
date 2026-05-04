@@ -22,6 +22,27 @@ contract MockTBAHelper {
     }
 }
 
+/// @dev Phase 11 (J-13): mock that exposes the ERC-6551 `token()`
+///      introspection function returning a self-binding tuple. Used by
+///      the J-13 transfer-guard test to confirm `_update` blocks
+///      transfers to ANY contract reporting bound-to-this-NFT,
+///      regardless of salt or implementation.
+contract MockSelfBoundAccount {
+    uint256 public immutable chainId;
+    address public immutable tokenContract;
+    uint256 public immutable tokenId;
+
+    constructor(uint256 _chainId, address _tokenContract, uint256 _tokenId) {
+        chainId = _chainId;
+        tokenContract = _tokenContract;
+        tokenId = _tokenId;
+    }
+
+    function token() external view returns (uint256, address, uint256) {
+        return (chainId, tokenContract, tokenId);
+    }
+}
+
 /// @dev Phase 9 (G-17): a malicious recipient that introspects the
 ///      half-initialized SAGAAgentIdentity state from inside
 ///      onERC721Received. With Phase 8 F-2's CEI ordering, the callback
@@ -677,5 +698,54 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
             abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 9999)
         );
         agent.updateHomeHub(9999, "https://x.example/");
+    }
+
+    // === Phase 11 regression tests ===
+
+    // J-6: setBaseURI requires trailing `/` and rejects query strings.
+    function test_j6_setBaseURI_requiresTrailingSlash() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        agent.setBaseURI("https://x.example/api");
+    }
+
+    function test_j6_setBaseURI_rejectsQueryString() public {
+        vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+        agent.setBaseURI("https://x.example/api/?evil=");
+    }
+
+    // J-13: ERC-6551 token() introspection blocks transfer to ANY contract
+    // that reports being bound to THIS NFT, regardless of salt.
+    function test_j13_blocksSelfTBA_withNonZeroSalt() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("j13", "https://h.example/");
+
+        // Mock a TBA that reports `token()` matching this (chainId,
+        // agent, tokenId). Its address is independent of the canonical
+        // helper-derived TBA — F-4 wouldn't fire on it.
+        MockSelfBoundAccount selfBound =
+            new MockSelfBoundAccount(block.chainid, address(agent), tokenId);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGAAgentIdentity: cannot transfer to own TBA"));
+        agent.transferFrom(user1, address(selfBound), tokenId);
+    }
+
+    // J-13: cross-NFT TBAs (bound to a DIFFERENT tokenId) must be allowed.
+    // The introspection only blocks self-binding.
+    function test_j13_allowsCrossNftBoundDestination() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("j13-cross-a", "https://h.example/");
+        vm.prank(user1);
+        uint256 otherTokenId = agent.registerAgent("j13-cross-b", "https://h.example/");
+
+        // Mock TBA bound to a DIFFERENT tokenId (otherTokenId, not tokenId).
+        MockSelfBoundAccount otherBound =
+            new MockSelfBoundAccount(block.chainid, address(agent), otherTokenId);
+
+        // Transfer of `tokenId` to `otherBound` is allowed because the
+        // bound tokenId differs.
+        vm.prank(user1);
+        agent.transferFrom(user1, address(otherBound), tokenId);
+        assertEq(agent.ownerOf(tokenId), address(otherBound));
     }
 }

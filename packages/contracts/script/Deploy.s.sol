@@ -122,6 +122,15 @@ contract Deploy is Script {
         registry.setTrustedDirectoryContract(address(directoryIdentity), true);
         console.log("Marked directoryIdentity as trusted for scoped-handle validation");
 
+        // Phase 11 (J-3): close the bootstrap window. From this point on,
+        // every new authorize-true requires the 24h queue+apply timelock,
+        // even from the initial deployer. Eliminates the bootstrap-window
+        // attack where a compromised deployer EOA could authorize a
+        // malicious contract immediately between Deploy.s.sol and the
+        // Safe's `acceptOwnership` call.
+        registry.finalizeBootstrap();
+        console.log("Bootstrap finalized - post-bootstrap timelock active");
+
         vm.stopBroadcast();
 
         // Log summary
