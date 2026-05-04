@@ -204,4 +204,19 @@ contract SAGATBAHelperTest is Test {
         vm.expectRevert(bytes("SAGATBAHelper: implementation not contract"));
         new SAGATBAHelper(address(mockRegistry), makeAddr("eoa-impl"));
     }
+
+    // === Phase 8 (F-7) — TBA determinism + collision-resistance fuzz ===
+
+    function testFuzz_computeAccount_isDeterministic(uint256 tokenId) public view {
+        address a = tbaHelper.computeAccount(address(0xCafe), tokenId);
+        address b = tbaHelper.computeAccount(address(0xCafe), tokenId);
+        assertEq(a, b);
+    }
+
+    function testFuzz_computeAccount_collisionResistant(uint256 idA, uint256 idB) public view {
+        vm.assume(idA != idB);
+        address a = tbaHelper.computeAccount(address(0xCafe), idA);
+        address b = tbaHelper.computeAccount(address(0xCafe), idB);
+        assertTrue(a != b);
+    }
 }

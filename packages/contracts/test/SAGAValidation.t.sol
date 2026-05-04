@@ -122,4 +122,22 @@ contract SAGAValidationTest is Test {
     function test_validateUrl_acceptsMinimalHostHttps() public view {
         harness.validateUrl("https://b");
     }
+
+    // === Phase 8 (F-7) — URL length boundary fuzz ===
+
+    /// @notice Build "https://" + N filler bytes for N in [0, 1500]. Total
+    ///         length = N + 8. Accepted iff total > 8 (host present) AND
+    ///         total <= 1024. Outside that range must revert.
+    function testFuzz_validateUrl_lengthBoundary(uint16 hostLen) public {
+        vm.assume(hostLen <= 1500);
+        bytes memory host = new bytes(hostLen);
+        for (uint16 i = 0; i < hostLen; i++) host[i] = "a";
+        string memory url = string(abi.encodePacked("https://", host));
+        uint256 totalLen = bytes(url).length;
+
+        if (totalLen == 8 || totalLen > 1024) {
+            vm.expectRevert(SAGAValidation.InvalidUrlLength.selector);
+        }
+        harness.validateUrl(url);
+    }
 }

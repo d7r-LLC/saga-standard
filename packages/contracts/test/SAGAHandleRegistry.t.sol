@@ -377,4 +377,47 @@ contract SAGAHandleRegistryTest is Test {
         assertEq(globalTid, 0);
         assertEq(scopedTid, 1);
     }
+
+    // === Phase 8 (F-7) — handle validation fuzz ===
+
+    /// @notice Fuzz: any input the registry accepts must be 3-64 bytes,
+    ///         start+end alphanumeric, and contain only ASCII alphanumeric
+    ///         plus '.', '-', '_'. Conversely, any input violating those
+    ///         rules must revert. The test predicate (in pure Solidity)
+    ///         tracks the contract's rules verbatim.
+    function testFuzz_validateHandle_acceptOnlyValidAscii(string memory raw) public {
+        bytes memory b = bytes(raw);
+
+        bool invalid = b.length < 3 || b.length > 64;
+        if (!invalid && !_isAlnum(b[0])) invalid = true;
+        if (!invalid && !_isAlnum(b[b.length - 1])) invalid = true;
+        if (!invalid) {
+            for (uint256 i = 0; i < b.length; i++) {
+                bytes1 c = b[i];
+                if (!_isAlnum(c) && c != 0x2E && c != 0x2D && c != 0x5F) {
+                    invalid = true;
+                    break;
+                }
+            }
+        }
+
+        vm.prank(authorizedContract);
+        if (invalid) {
+            vm.expectRevert();
+            registry.registerHandle(raw, SAGAHandleRegistry.EntityType.AGENT, 0);
+        } else {
+            // Valid: either succeeds, or reverts with "handle taken" if the
+            // same input has already been registered earlier in the run.
+            try registry.registerHandle(raw, SAGAHandleRegistry.EntityType.AGENT, 0) {
+                // accepted
+            } catch Error(string memory reason) {
+                assertEq(reason, "SAGAHandleRegistry: handle taken");
+            }
+        }
+    }
+
+    function _isAlnum(bytes1 c) internal pure returns (bool) {
+        return (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5A)
+            || (c >= 0x61 && c <= 0x7A);
+    }
 }

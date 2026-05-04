@@ -9,6 +9,15 @@ evm_version = "cancun"
 via_ir = false
 ffi = false
 
+# Phase 8 (F-7): invariant test config. 256 random sequences × 50 calls
+# each = 12,800 calls per invariant. fail_on_revert is false because
+# handler functions deliberately swallow validation reverts to drive
+# the contract through both success and revert paths.
+[invariant]
+runs = 256
+depth = 50
+fail_on_revert = false
+
 [profile.default.fmt]
 line_length = 100
 tab_width = 4
