@@ -72,7 +72,12 @@ contract SAGAHandleRegistry is Ownable2Step {
     /// @notice Renounce is disabled. Phase 8 (F-3) — losing the registry owner
     ///         permanently removes the ability to authorize future identity contracts
     ///         and to wire the directoryIdentity reference (F-1).
-    function renounceOwnership() public view override onlyOwner {
+    function renounceOwnership() public override {
+        // Phase 10 (H-6): drop `view` and `onlyOwner` so the disabled
+        // message wins for everyone. Previously, non-owners hit OZ's
+        // `OwnableUnauthorizedAccount` error first, masking the actual
+        // intent. The override permanently disables renounce regardless
+        // of caller — that is the property worth pinning.
         revert("SAGAHandleRegistry: renounce disabled");
     }
 
@@ -232,6 +237,17 @@ contract SAGAHandleRegistry is Ownable2Step {
             dirRecord.entityType == EntityType.DIRECTORY,
             "SAGAHandleRegistry: directory not found"
         );
+        // Phase 10 (H-2): mirror registerScopedHandle's trust gate. Without
+        // this check, a directory contract that governance has detrusted
+        // (compromised or upgraded out) can continue to spoof "active" via
+        // its directoryStatus() implementation, letting existing scoped
+        // handles resolve as if nothing changed. The write path
+        // (registerScopedHandle) already blocks this; the read path must
+        // too, otherwise governance deauthorization is bypassable.
+        require(
+            trustedDirectoryContracts[dirRecord.contractAddress],
+            "SAGAHandleRegistry: untrusted directory contract"
+        );
         require(
             keccak256(
                 bytes(IDirectoryStatus(dirRecord.contractAddress).directoryStatus(dirRecord.tokenId))
@@ -277,11 +293,17 @@ contract SAGAHandleRegistry is Ownable2Step {
 
     /// @dev Validate handle: 3-64 chars, alphanumeric + dots/hyphens/underscores,
     ///      must start and end with alphanumeric, no consecutive separators.
-    ///      Phase 9 (G-2): consecutive-separator rejection closes the
-    ///      ENS-style homoglyph attack class — a malicious actor cannot
-    ///      register `m.arcus`, `m..arcus`, `m-arcus`, `m_arcus` etc as
-    ///      visually-similar variants of `marcus`. Single separators
-    ///      between alphanumeric characters remain valid.
+    ///      Phase 9 (G-2) added the consecutive-separator rejection as an
+    ///      anti-spam measure: it blocks `m..arcus`, `m--arcus`, `m._arcus`,
+    ///      etc. but does NOT defend against the broader homoglyph /
+    ///      visual-similarity attack class. Single-separator variants like
+    ///      `m.arcus`, `m-arcus`, `m_arcus`, `mar.cus`, `marc.us` remain
+    ///      registrable and are visually similar to `marcus`. Phase 10
+    ///      (H-3) corrected the original docstring's overclaim — handle
+    ///      similarity is an off-chain UX concern (indexers should warn on
+    ///      Damerau-Levenshtein distance ≤ 2 to an existing handle); the
+    ///      on-chain layer cannot solve it without breaking legitimate
+    ///      separator-bearing handles. ENS reached the same conclusion.
     function _validateHandle(string calldata handle) internal pure {
         bytes memory b = bytes(handle);
         require(b.length >= 3 && b.length <= 64, "SAGAHandleRegistry: invalid length");

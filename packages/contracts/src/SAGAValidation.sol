@@ -15,6 +15,10 @@ library SAGAValidation {
 
     error InvalidUrlLength();
     error InvalidUrlProtocol();
+    /// @notice Phase 10 (H-4): URL contains a byte that off-chain consumers
+    ///         cannot safely render. Rejected: 0x00..0x20 (control + space),
+    ///         0x7F (DEL), 0x5C (\), 0x22 ("), 0x27 ('), 0x3C (<), 0x3E (>).
+    error InvalidUrlCharacter();
 
     /// @notice Validate a URL string is non-empty, ≤MAX_URL_BYTES bytes, and
     ///         starts with "http://" or "https://".
@@ -42,5 +46,27 @@ library SAGAValidation {
         // garbage that off-chain consumers attempt to resolve.
         if (isHttp && len == 7) revert InvalidUrlLength();
         if (isHttps && len == 8) revert InvalidUrlLength();
+
+        // Phase 10 (H-4): reject control bytes, raw whitespace, backslash,
+        // and HTML metacharacters. The on-chain layer is not the right
+        // place to defend against XSS, but it IS the right place to reject
+        // obvious garbage at zero marginal cost so off-chain consumers
+        // (indexers, frontends, log processors) can trust that a stored
+        // URL is at least parser-stable. Multi-byte UTF-8 (>=0x80) is
+        // permitted because RFC 3987 IDN domains rely on it.
+        for (uint256 i = 0; i < len; i++) {
+            bytes1 c = b[i];
+            if (
+                c <= 0x20            // control + space
+                    || c == 0x7F     // DEL
+                    || c == 0x5C     // backslash
+                    || c == 0x22     // double quote
+                    || c == 0x27     // single quote
+                    || c == 0x3C     // <
+                    || c == 0x3E     // >
+            ) {
+                revert InvalidUrlCharacter();
+            }
+        }
     }
 }

@@ -705,4 +705,51 @@ contract SAGAHandleRegistryTest is Test {
         }
         return true;
     }
+
+    // === Phase 10 regression tests ===
+
+    // H-2: resolveActiveScopedHandle MUST honor trustedDirectoryContracts.
+    // Without this gate, a directory contract that governance has
+    // detrusted (compromised or upgraded out) can keep returning "active"
+    // and let scoped handles resolve as if nothing changed. The write
+    // path (registerScopedHandle) already enforces the gate; the read
+    // path was missing it after the Phase 9 G-5 view was added.
+    function test_h2_resolveActiveScopedHandle_revertsWhenContractDetrusted() public {
+        StatusMutableMock mut = new StatusMutableMock();
+        mut.setStatus("active");
+        registry.setAuthorizedContract(address(mut), true);
+        registry.setTrustedDirectoryContract(address(mut), true);
+
+        vm.prank(address(mut));
+        registry.registerHandle(
+            "h2-dir", SAGAHandleRegistry.EntityType.DIRECTORY, 300
+        );
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 0, "h2-dir"
+        );
+
+        // Sanity: succeeds while trusted.
+        registry.resolveActiveScopedHandle("alice", "h2-dir");
+
+        // Detrust the directory contract. The mock still returns "active"
+        // but the registry must reject.
+        registry.setTrustedDirectoryContract(address(mut), false);
+
+        vm.expectRevert(bytes("SAGAHandleRegistry: untrusted directory contract"));
+        registry.resolveActiveScopedHandle("alice", "h2-dir");
+
+        // Raw resolveScopedHandle still returns the record (forensic path,
+        // unchanged by H-2).
+        (SAGAHandleRegistry.EntityType et,,) =
+            registry.resolveScopedHandle("alice", "h2-dir");
+        assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
+    }
+
+    // H-6: renounceOwnership disabled-message wins for every caller.
+    function test_h6_renounceOwnership_revertsForNonOwnerWithSameMessage() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert(bytes("SAGAHandleRegistry: renounce disabled"));
+        registry.renounceOwnership();
+    }
 }

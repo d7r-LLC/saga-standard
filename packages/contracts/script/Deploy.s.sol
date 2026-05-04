@@ -53,6 +53,27 @@ contract Deploy is Script {
         // Other chains: skip the check — staging/local/new-chain deploys
         // can supply their own implementation address.
 
+        // Phase 10 (H-7): Phase 9 G-6 hard-pinned the Tokenbound
+        // implementation but left ERC6551_REGISTRY unpinned — same
+        // misconfiguration class on the other half of SAGATBAHelper's
+        // immutable references. A compromised CI env or operator typo
+        // setting ERC6551_REGISTRY to a malicious code-bearing contract
+        // would silently deploy a helper that returns wrong TBA addresses
+        // forever (immutable). Pin the canonical address per production
+        // chain; staging/local can still override.
+        address canonical6551Registry = 0x000000006551c19487814612e58FE06813775758;
+        if (block.chainid == 8453) {
+            require(
+                erc6551Registry == canonical6551Registry,
+                "Base mainnet ERC6551_REGISTRY mismatch"
+            );
+        } else if (block.chainid == 84532) {
+            require(
+                erc6551Registry == canonical6551Registry,
+                "Base Sepolia ERC6551_REGISTRY mismatch"
+            );
+        }
+
         // Use DEPLOYER_PRIVATE_KEY from .env
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerKey);

@@ -626,4 +626,44 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer flagged or revoked"));
         directory.transferFrom(user1, user2, tokenId);
     }
+
+    // === Phase 10 regression tests ===
+
+    // H-1: governance is no longer authorized to spend ACTIVE or SUSPENDED
+    // directory NFTs. The Phase 9 G-1 _isAuthorized override was scoped
+    // too broadly; H-1 tightens it to rank >= 2 only. The existing G-1
+    // governance-can-rescue tests above continue to pass because they
+    // use flagged/revoked tokens.
+    function test_h1_governanceCannotTransferActiveDirectory() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "h1-active", "https://x.example/", makeAddr("op"), "basic"
+        );
+        // Status is "active" by default. address(this) is the contract
+        // owner from setUp; without the H-1 fix this would succeed.
+        vm.expectRevert();
+        directory.transferFrom(user1, user2, tokenId);
+        // user1 still owns the NFT.
+        assertEq(directory.ownerOf(tokenId), user1);
+    }
+
+    function test_h1_governanceCannotTransferSuspendedDirectory() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "h1-susp", "https://x.example/", makeAddr("op"), "basic"
+        );
+        directory.updateDirectoryStatus(tokenId, "suspended");
+        vm.expectRevert();
+        directory.transferFrom(user1, user2, tokenId);
+        assertEq(directory.ownerOf(tokenId), user1);
+    }
+
+    // H-6: renounceOwnership now reverts with the disabled-message for
+    // ALL callers, not just the owner. Previously non-owners hit OZ's
+    // OwnableUnauthorizedAccount error, masking the actual intent.
+    function test_h6_renounceOwnership_revertsForNonOwnerWithSameMessage() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert(bytes("SAGADirectoryIdentity: renounce disabled"));
+        directory.renounceOwnership();
+    }
 }

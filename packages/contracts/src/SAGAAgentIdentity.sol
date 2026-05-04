@@ -83,8 +83,11 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         _baseTokenURI = "https://saga-standard.dev/api/metadata/agent/";
     }
 
-    /// @notice Renounce is disabled. Phase 8 (F-3).
-    function renounceOwnership() public view override onlyOwner {
+    /// @notice Renounce is disabled. Phase 8 (F-3) + Phase 10 (H-6).
+    function renounceOwnership() public override {
+        // Phase 10 (H-6): drop `view` and `onlyOwner` so the disabled
+        // message wins for every caller. See SAGAHandleRegistry for the
+        // full rationale.
         revert("SAGAAgentIdentity: renounce disabled");
     }
 

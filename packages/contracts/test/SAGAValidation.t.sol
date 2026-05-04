@@ -140,4 +140,70 @@ contract SAGAValidationTest is Test {
         }
         harness.validateUrl(url);
     }
+
+    // === Phase 10 (H-4) regression tests ===
+
+    /// @notice URLs containing control bytes, raw whitespace, backslash,
+    ///         or HTML metacharacters are now rejected so off-chain
+    ///         consumers (indexers, frontends, log processors) get a
+    ///         parser-stable URL out of the registry.
+    function test_h4_validateUrl_rejectsControlByte() public {
+        bytes memory bad = bytes("https://x.example/\x00path");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(bad));
+    }
+
+    function test_h4_validateUrl_rejectsRawSpace() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl("https:// example.com");
+    }
+
+    function test_h4_validateUrl_rejectsNewline() public {
+        bytes memory bad = bytes("https://x.example/\npath");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(bad));
+    }
+
+    function test_h4_validateUrl_rejectsTab() public {
+        bytes memory bad = bytes("https://x.example/\tpath");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(bad));
+    }
+
+    function test_h4_validateUrl_rejectsBackslash() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl("https://x.example/\\path");
+    }
+
+    function test_h4_validateUrl_rejectsAngleBrackets() public {
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl("https://x.example/<script>");
+    }
+
+    function test_h4_validateUrl_rejectsQuotes() public {
+        // Double quote (0x22) and single quote (0x27) are both rejected.
+        // Use byte construction to keep the literal unambiguous regardless
+        // of which quote style the file's author prefers.
+        bytes memory withDoubleQuote = bytes("https://x.example/\x22");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(withDoubleQuote));
+
+        bytes memory withSingleQuote = bytes("https://x.example/\x27");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(withSingleQuote));
+    }
+
+    function test_h4_validateUrl_rejectsDel() public {
+        bytes memory bad = bytes("https://x.example/\x7Fpath");
+        vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+        harness.validateUrl(string(bad));
+    }
+
+    /// @notice Multi-byte UTF-8 IDN host bytes (>=0x80) MUST still pass —
+    ///         RFC 3987 IDN domains rely on them.
+    function test_h4_validateUrl_acceptsHighBytes() public {
+        bytes memory utf8 = bytes("https://\xc3\xa9.example.com");
+        harness.validateUrl(string(utf8));
+        // No revert == pass.
+    }
 }

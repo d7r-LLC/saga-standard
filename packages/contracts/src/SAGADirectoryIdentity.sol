@@ -79,8 +79,11 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         _baseTokenURI = "https://saga-standard.dev/api/metadata/directory/";
     }
 
-    /// @notice Renounce is disabled. Phase 8 (F-3).
-    function renounceOwnership() public view override onlyOwner {
+    /// @notice Renounce is disabled. Phase 8 (F-3) + Phase 10 (H-6).
+    function renounceOwnership() public override {
+        // Phase 10 (H-6): drop `view` and `onlyOwner` so the disabled
+        // message wins for every caller. See SAGAHandleRegistry for the
+        // full rationale.
         revert("SAGADirectoryIdentity: renounce disabled");
     }
 
@@ -343,16 +346,21 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         return super._update(to, tokenId, auth);
     }
 
-    /// @dev Phase 9 (G-1): governance recovery path for flagged/revoked
-    ///      directories. The contract owner (Safe multisig) must be able to
-    ///      reassign a directory NFT to a clean caretaker without first
-    ///      requiring the existing token-owner to grant approval — the
-    ///      whole point of governance intervention is that the existing
-    ///      owner is uncooperative or compromised. We mark the contract
-    ///      owner as authorized for every token; the F-10 flagged/revoked
-    ///      gate in `_update` already exempts governance, so this completes
-    ///      the recovery path. Non-governance callers continue to need
-    ///      explicit owner-or-approved authorization.
+    /// @dev Phase 9 (G-1) + Phase 10 (H-1): governance recovery path for
+    ///      flagged/revoked directories. The contract owner (Safe multisig)
+    ///      must be able to reassign a directory NFT to a clean caretaker
+    ///      without first requiring the existing token-owner to grant
+    ///      approval — the whole point of governance intervention is that
+    ///      the existing owner is uncooperative or compromised.
+    ///
+    ///      Phase 10 (H-1) tightens the scope: the bypass is only granted
+    ///      when the directory is at rank >= 2 (flagged or revoked).
+    ///      Active and suspended directories require normal
+    ///      owner-or-approved authorization, so governance cannot
+    ///      unilaterally seize a customer's active directory NFT. The
+    ///      original Phase 9 implementation returned `true` unconditionally
+    ///      for `spender == owner()`, which was broader than the rescue
+    ///      narrative documented.
     function _isAuthorized(address tokenOwner, address spender, uint256 tokenId)
         internal
         view
@@ -360,7 +368,9 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
         returns (bool)
     {
         if (spender == owner() && spender != address(0)) {
-            return true;
+            if (_statusRank(_statuses[tokenId]) >= 2) {
+                return true;
+            }
         }
         return super._isAuthorized(tokenOwner, spender, tokenId);
     }

@@ -617,4 +617,14 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         // Sanity: the NFT actually went to the receiver.
         assertEq(agent.ownerOf(tokenId), address(receiver));
     }
+
+    // H-6: renounceOwnership disabled-message wins for every caller. The
+    // existing test_renounceOwnership_reverts above only exercises the
+    // owner path; this pins the non-owner path so removing onlyOwner
+    // doesn't silently regress.
+    function test_h6_renounceOwnership_revertsForNonOwnerWithSameMessage() public {
+        vm.prank(makeAddr("randomEoa"));
+        vm.expectRevert(bytes("SAGAAgentIdentity: renounce disabled"));
+        agent.renounceOwnership();
+    }
 }

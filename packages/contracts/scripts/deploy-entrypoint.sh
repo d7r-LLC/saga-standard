@@ -19,6 +19,20 @@ SAFE_ADDR=$(echo "$CONFIG" | jq -r '.safe') || die "missing .safe"
 SAFE_TX_SERVICE=$(echo "$CONFIG" | jq -r '.safeTransactionService') || die "missing .safeTransactionService"
 VERIFY=$(echo "$CONFIG" | jq -r '.verify') || die "missing .verify"
 SAFE_THRESHOLD=$(echo "$CONFIG" | jq -r '.safeThreshold') || die "missing .safeThreshold"
+
+# Phase 10 (H-5): allow factory deploys to broadcast directly from the
+# deployer EOA even when the resolved Safe threshold is > 1. The Safe
+# accepts ownership AFTERWARD via TransferOwnership.s.sol; the initial
+# Deploy.s.sol uses `new Contract()` (raw CREATE) which Safe MultiSend
+# cannot execute. Without this flag, mainnet deploy day deterministically
+# fails with "A Safe cannot execute raw CREATE" — see audit gap matrix
+# 2026-05-04-post-phase9-gap-matrix.md H-5.
+if [ "${DEPLOY_DIRECT:-false}" = "true" ]; then
+  echo "[deploy] DEPLOY_DIRECT=true — bypassing Safe-routing for initial CREATE deploy"
+  SAFE_THRESHOLD_EFFECTIVE=1
+else
+  SAFE_THRESHOLD_EFFECTIVE="$SAFE_THRESHOLD"
+fi
 ERC6551_REGISTRY=$(echo "$CONFIG" | jq -r '.external.erc6551Registry') || die "missing .external.erc6551Registry"
 TBA_IMPLEMENTATION=$(echo "$CONFIG" | jq -r '.external.tbaImplementation') || die "missing .external.tbaImplementation"
 MODE=${DEPLOY_MODE:-dry-run}
@@ -125,8 +139,10 @@ fi
 if [ "$MODE" = "broadcast" ]; then
 
   # Direct deployment when signer has sole authority (threshold == 1)
-  if [ "$SAFE_THRESHOLD" = "1" ]; then
-    log "deploying directly (threshold=1, signer is sole owner)"
+  # OR when Phase 10 H-5 DEPLOY_DIRECT=true is set for the initial factory
+  # deploy (the Safe will accept ownership afterward via TransferOwnership.s.sol).
+  if [ "$SAFE_THRESHOLD_EFFECTIVE" = "1" ]; then
+    log "deploying directly (effective threshold=1, signer broadcasts)"
 
     BROADCAST_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
       forge script script/Deploy.s.sol \
