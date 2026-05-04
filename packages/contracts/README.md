@@ -212,9 +212,33 @@ forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 | `ERC6551_REGISTRY`     | Optional. Defaults to canonical `0x0000...775758`                                                                                                                                                                                                                                                                                                             |
 | `TBA_IMPLEMENTATION`   | **Required.** Phase 8 (F-5) — must be a deployed contract; deploy reverts on zero/EOA. Phase 9 (G-6) — on Base mainnet (chainId 8453) and Base Sepolia (chainId 84532), MUST equal the canonical Tokenbound V3 address `0x55266d75D1a14E4572138116aF39863Ed6596E7F`; any other contract reverts the deploy. Other chains may supply their own implementation. |
 
+### Mainnet deploy runbook (Phase 12 K-15)
+
+`Deploy.s.sol` no longer calls `finalizeBootstrap` itself; the
+finalization is a separate transaction so a partial mid-script
+failure cannot leave the registry both partially configured AND
+already finalized (which would force every fix-up authorize through
+the M-1 24h timelock).
+
+The end-to-end runbook is:
+
+1. `forge script script/Deploy.s.sol --rpc-url base --broadcast`
+   (with `DEPLOY_DIRECT=true` per H-5).
+2. Verify all four contracts on Basescan with constructor args.
+3. Smoke test: register a test agent, org, and directory in the
+   bootstrap window (still using `setAuthorizedContract` immediate
+   path — the bootstrap window is open until step 4).
+4. `HANDLE_REGISTRY=<from-deploy> forge script
+   script/FinalizeBootstrap.s.sol --rpc-url base --broadcast` —
+   closes the bootstrap window. Cannot be undone.
+5. `forge script script/TransferOwnership.s.sol --rpc-url base
+   --broadcast` — sets `pendingOwner = Safe` on all four contracts.
+6. Safe calls `acceptOwnership()` on each contract through its
+   multisig flow.
+
 ### Ownership transfer to Safe
 
-After mainnet deploy, hand ownership to the project Safe:
+After bootstrap finalization, hand ownership to the project Safe:
 
 ```bash
 NEW_OWNER=<safe-address> \

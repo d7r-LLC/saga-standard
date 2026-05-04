@@ -44,17 +44,15 @@ contract Deploy is Script {
             console.log("Expected TBA_IMPLEMENTATION (canonical V3):", tokenboundV3);
             console.log("Got TBA_IMPLEMENTATION (env):", tbaImplementation);
         }
-        if (block.chainid == 8453) {
-            // Base mainnet
+        // Phase 12 (K-14): the original Phase 9 G-6 block had two
+        // if/else-if arms that differed only by the chain-name suffix
+        // in the revert message. Combine into a single OR'd require —
+        // mainnet and Sepolia share the canonical Tokenbound V3
+        // address, so no chain-name distinction is needed.
+        if (block.chainid == 8453 || block.chainid == 84532) {
             require(
                 tbaImplementation == tokenboundV3,
-                "Base mainnet TBA_IMPLEMENTATION mismatch"
-            );
-        } else if (block.chainid == 84532) {
-            // Base Sepolia
-            require(
-                tbaImplementation == tokenboundV3,
-                "Base Sepolia TBA_IMPLEMENTATION mismatch"
+                "Base TBA_IMPLEMENTATION mismatch"
             );
         }
         // Other chains: skip the check — staging/local/new-chain deploys
@@ -69,15 +67,11 @@ contract Deploy is Script {
         // forever (immutable). Pin the canonical address per production
         // chain; staging/local can still override.
         address canonical6551Registry = 0x000000006551c19487814612e58FE06813775758;
-        if (block.chainid == 8453) {
+        // Phase 12 (K-14): same dedupe as the TBA-impl block above.
+        if (block.chainid == 8453 || block.chainid == 84532) {
             require(
                 erc6551Registry == canonical6551Registry,
-                "Base mainnet ERC6551_REGISTRY mismatch"
-            );
-        } else if (block.chainid == 84532) {
-            require(
-                erc6551Registry == canonical6551Registry,
-                "Base Sepolia ERC6551_REGISTRY mismatch"
+                "Base ERC6551_REGISTRY mismatch"
             );
         }
 
@@ -108,6 +102,22 @@ contract Deploy is Script {
         SAGATBAHelper tbaHelper = new SAGATBAHelper(erc6551Registry, tbaImplementation);
         console.log("SAGATBAHelper:", address(tbaHelper));
 
+        // Phase 12 (K-13, Anthropic): verify the deployed helper's
+        // immutable getters match the env-pinned addresses. DeployOrg.s.sol
+        // performs this verification (J-9 follow-on) — Deploy.s.sol
+        // skipped it. Catches a constructor argument swap or stale ABI
+        // BEFORE the helper becomes immutably wired into the identity
+        // contracts on the next two lines.
+        require(
+            address(tbaHelper.registry()) == erc6551Registry,
+            "Deploy: helper.registry() mismatch"
+        );
+        require(
+            tbaHelper.accountImplementation() == tbaImplementation,
+            "Deploy: helper.accountImplementation() mismatch"
+        );
+        console.log("SAGATBAHelper getters verified against env vars");
+
         // 3. Deploy agent identity (pass registry + tbaHelper)
         SAGAAgentIdentity agentIdentity =
             new SAGAAgentIdentity(address(registry), address(tbaHelper));
@@ -135,14 +145,19 @@ contract Deploy is Script {
         registry.setTrustedDirectoryContract(address(directoryIdentity), true);
         console.log("Marked directoryIdentity as trusted for scoped-handle validation");
 
-        // Phase 11 (J-3): close the bootstrap window. From this point on,
-        // every new authorize-true requires the 24h queue+apply timelock,
-        // even from the initial deployer. Eliminates the bootstrap-window
-        // attack where a compromised deployer EOA could authorize a
-        // malicious contract immediately between Deploy.s.sol and the
-        // Safe's `acceptOwnership` call.
-        registry.finalizeBootstrap();
-        console.log("Bootstrap finalized - post-bootstrap timelock active");
+        // Phase 12 (K-15, Anthropic): finalizeBootstrap moved to a
+        // separate script (FinalizeBootstrap.s.sol). A foundry script
+        // broadcast is NOT atomic across contract deployments; a
+        // partial mid-script failure could leave the registry
+        // partially configured AND already finalized — recovery would
+        // then require the 24h timelock for every fix-up authorize.
+        // Splitting also gives the operator a chance to smoke-test
+        // registrations in the still-open bootstrap window before
+        // committing to the post-bootstrap timelock regime.
+        console.log("");
+        console.log(
+            "WARNING: bootstrap NOT finalized. Run FinalizeBootstrap.s.sol after verifying deploy."
+        );
 
         vm.stopBroadcast();
 

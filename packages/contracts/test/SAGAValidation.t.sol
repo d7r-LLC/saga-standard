@@ -317,4 +317,37 @@ contract SAGAValidationTest is Test {
             harness.validateUrl(string(url));
         }
     }
+
+    // Phase 12 (K-12): mirror the J-12 byte-space closure for
+    // validateBaseUri. The J-6 tests for validateBaseUri only covered
+    // hand-picked positive/negative cases; the full byte sweep catches
+    // any divergence between validateUrl and validateBaseUri's byte
+    // handling. Ensures the J-6 base-URI extras (`?`, `#`, `&`) are
+    // additive on top of validateUrl's blacklist, not contradictory.
+    function testFuzz_k12_validateBaseUri_charBlacklistClosure(uint8 b) public {
+        // Build "https://x.example/p<byte>/" — the trailing slash
+        // satisfies J-6's required-slash rule so the only effect of
+        // the fuzzed byte is the blacklist check itself.
+        bytes memory uri = abi.encodePacked(
+            bytes("https://x.example/p"), bytes1(b), bytes("/")
+        );
+
+        bool inUrlBlacklist = (
+            b <= 0x20 || b == 0x7F || b == 0x5C
+                || b == 0x22 || b == 0x27 || b == 0x3C || b == 0x3E
+        );
+        bool inBaseUriBlacklist = (b == 0x3F || b == 0x23 || b == 0x26);
+
+        if (inUrlBlacklist) {
+            // validateUrl rejects first; validateBaseUri inherits.
+            vm.expectRevert(SAGAValidation.InvalidUrlCharacter.selector);
+            harness.validateBaseUri(string(uri));
+        } else if (inBaseUriBlacklist) {
+            vm.expectRevert(SAGAValidation.InvalidBaseUriPath.selector);
+            harness.validateBaseUri(string(uri));
+        } else {
+            // Allowed: prefix + path-safe byte + trailing slash.
+            harness.validateBaseUri(string(uri));
+        }
+    }
 }
