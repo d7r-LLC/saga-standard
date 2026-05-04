@@ -44,6 +44,15 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     event OrgNameUpdated(uint256 indexed tokenId, string oldName, string newName);
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
+    /// @notice Phase 9 (G-8): emitted when a new base URI is queued.
+    event BaseURIQueued(string newBaseURI, uint256 readyAt);
+
+    /// @notice Phase 9 (G-8): pending base URI awaiting timelock expiry.
+    string private _pendingBaseURI;
+    uint256 private _pendingBaseURIReadyAt;
+
+    /// @notice Hours until a queued base URI can be applied.
+    uint256 public constant BASE_URI_TIMELOCK = 24 hours;
 
     constructor(address registry, address _tbaHelper)
         ERC721("SAGA Org Identity", "SAGA-ORG")
@@ -163,11 +172,37 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     // --- Metadata ---
 
-    /// @dev Phase 8 (F-6): validate URL + emit BaseURIUpdated.
+    /// @notice Read the queued (not-yet-applied) base URI.
+    function pendingBaseURI() external view returns (string memory) {
+        return _pendingBaseURI;
+    }
+
+    /// @notice Earliest timestamp at which `applyBaseURI` will accept the
+    ///         queued URI.
+    function pendingBaseURIReadyAt() external view returns (uint256) {
+        return _pendingBaseURIReadyAt;
+    }
+
+    /// @notice Queue a new base URI for later application (owner only).
+    /// @dev Phase 9 (G-8): see SAGAAgentIdentity.setBaseURI for rationale.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
         SAGAValidation.validateUrl(newBaseURI);
-        emit BaseURIUpdated(_baseTokenURI, newBaseURI);
-        _baseTokenURI = newBaseURI;
+        _pendingBaseURI = newBaseURI;
+        _pendingBaseURIReadyAt = block.timestamp + BASE_URI_TIMELOCK;
+        emit BaseURIQueued(newBaseURI, _pendingBaseURIReadyAt);
+    }
+
+    /// @notice Apply a previously-queued base URI after the 24h timelock.
+    function applyBaseURI() external {
+        require(_pendingBaseURIReadyAt > 0, "SAGAOrgIdentity: no pending base uri");
+        require(
+            block.timestamp >= _pendingBaseURIReadyAt,
+            "SAGAOrgIdentity: base uri not yet ready"
+        );
+        emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
+        _baseTokenURI = _pendingBaseURI;
+        delete _pendingBaseURI;
+        delete _pendingBaseURIReadyAt;
     }
 
     function _baseURI() internal view override returns (string memory) {

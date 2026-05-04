@@ -459,18 +459,57 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         directory.transferFrom(user1, selfTba, tokenId);
     }
 
-    // F-6: setBaseURI validation + event
+    // F-6 / G-8: setBaseURI queues; applyBaseURI emits BaseURIUpdated.
     function test_setBaseURI_emitsEvent() public {
+        vm.expectEmit(false, false, false, true, address(directory));
+        emit SAGADirectoryIdentity.BaseURIQueued(
+            "https://x.example/", block.timestamp + 24 hours
+        );
+        directory.setBaseURI("https://x.example/");
+
+        vm.warp(block.timestamp + 24 hours);
         vm.expectEmit(false, false, false, true, address(directory));
         emit SAGADirectoryIdentity.BaseURIUpdated(
             "https://saga-standard.dev/api/metadata/directory/", "https://x.example/"
         );
-        directory.setBaseURI("https://x.example/");
+        directory.applyBaseURI();
     }
 
     function test_setBaseURI_revertsOnInvalidProtocol() public {
         vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
         directory.setBaseURI("javascript:alert(1)");
+    }
+
+    // G-8: queue + 24h timelock + apply
+    function test_g8_setBaseURI_requiresQueueAndDelay() public {
+        directory.setBaseURI("https://x.example/");
+        assertEq(directory.pendingBaseURI(), "https://x.example/");
+        vm.expectRevert(bytes("SAGADirectoryIdentity: base uri not yet ready"));
+        directory.applyBaseURI();
+        vm.warp(block.timestamp + 24 hours);
+        directory.applyBaseURI();
+        assertEq(directory.pendingBaseURIReadyAt(), 0);
+
+        // Apply with no queue reverts.
+        vm.expectRevert(bytes("SAGADirectoryIdentity: no pending base uri"));
+        directory.applyBaseURI();
+    }
+
+    function test_g8_setBaseURI_anyoneCanApplyAfterTimelock() public {
+        directory.setBaseURI("https://anyone.example/");
+        vm.warp(block.timestamp + 24 hours);
+        // Non-owner finalizes the queued URI.
+        vm.prank(makeAddr("randomCaller"));
+        directory.applyBaseURI();
+        assertEq(directory.pendingBaseURIReadyAt(), 0);
+    }
+
+    function test_g8_setBaseURI_overwritesPendingValue() public {
+        directory.setBaseURI("https://first.example/");
+        directory.setBaseURI("https://second.example/");
+        assertEq(directory.pendingBaseURI(), "https://second.example/");
+        vm.warp(block.timestamp + 24 hours);
+        directory.applyBaseURI();
     }
 
     // F-10: block transfer + URL update on flagged/revoked directories

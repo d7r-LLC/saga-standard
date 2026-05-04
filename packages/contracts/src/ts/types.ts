@@ -59,7 +59,16 @@ export interface DirectoryIdentity {
   directoryId: string
   url: string
   operatorWallet: `0x${string}`
-  conformanceLevel: string
+  /**
+   * Self-claimed conformance level. SAGA does NOT verify this string
+   * on-chain — the directory operator sets it at registration time.
+   * Off-chain consumers must verify true SAGA conformance through an
+   * out-of-band audit. Phase 9 (G-7): renamed from `conformanceLevel`
+   * to make the self-claim semantics explicit at the API layer. The
+   * Solidity function name (`conformanceLevel(uint256)`) is preserved
+   * for ABI compatibility with the indexer and SDK clients.
+   */
+  claimedConformanceLevel: string
   status: string
   registeredAt: bigint
 }

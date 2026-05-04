@@ -14,6 +14,21 @@ contract MockDirectoryIdentity {
     }
 }
 
+/// @dev Phase 9 (G-5): mock with mutable status so a single test can flip a
+///      directory between active and revoked to exercise the active-only
+///      resolver.
+contract StatusMutableMock {
+    string private _status;
+
+    function setStatus(string memory s) external {
+        _status = s;
+    }
+
+    function directoryStatus(uint256) external view returns (string memory) {
+        return _status;
+    }
+}
+
 contract SAGAHandleRegistryTest is Test {
     SAGAHandleRegistry public registry;
     MockDirectoryIdentity public mockDirectoryIdentity;
@@ -383,10 +398,11 @@ contract SAGAHandleRegistryTest is Test {
     // === Phase 8 (F-7) — handle validation fuzz ===
 
     /// @notice Fuzz: any input the registry accepts must be 3-64 bytes,
-    ///         start+end alphanumeric, and contain only ASCII alphanumeric
-    ///         plus '.', '-', '_'. Conversely, any input violating those
-    ///         rules must revert. The test predicate (in pure Solidity)
-    ///         tracks the contract's rules verbatim.
+    ///         start+end alphanumeric, contain only ASCII alphanumeric
+    ///         plus '.', '-', '_', AND have no consecutive separators
+    ///         (Phase 9 G-2). Conversely, any input violating those rules
+    ///         must revert. The test predicate (in pure Solidity) tracks
+    ///         the contract's rules verbatim.
     function testFuzz_validateHandle_acceptOnlyValidAscii(string memory raw) public {
         bytes memory b = bytes(raw);
 
@@ -394,12 +410,20 @@ contract SAGAHandleRegistryTest is Test {
         if (!invalid && !_isAlnum(b[0])) invalid = true;
         if (!invalid && !_isAlnum(b[b.length - 1])) invalid = true;
         if (!invalid) {
+            bool prevWasSeparator = false;
             for (uint256 i = 0; i < b.length; i++) {
                 bytes1 c = b[i];
-                if (!_isAlnum(c) && c != 0x2E && c != 0x2D && c != 0x5F) {
+                bool isSep = (c == 0x2E || c == 0x2D || c == 0x5F);
+                if (!_isAlnum(c) && !isSep) {
                     invalid = true;
                     break;
                 }
+                // Phase 9 (G-2): consecutive separators are rejected.
+                if (isSep && prevWasSeparator) {
+                    invalid = true;
+                    break;
+                }
+                prevWasSeparator = isSep;
             }
         }
 
@@ -536,5 +560,60 @@ contract SAGAHandleRegistryTest is Test {
         registry.registerScopedHandle(
             "alice", SAGAHandleRegistry.EntityType.AGENT, 1, "epic-hub"
         );
+    }
+
+    // G-5: resolveActiveScopedHandle filters revoked directories.
+
+    function test_g5_resolveActiveScopedHandle_succeedsOnActive() public {
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "alice", SAGAHandleRegistry.EntityType.AGENT, 0, "epic-hub"
+        );
+
+        (SAGAHandleRegistry.EntityType et, uint256 tid, address ca) =
+            registry.resolveActiveScopedHandle("alice", "epic-hub");
+        assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
+        assertEq(tid, 0);
+        assertEq(ca, authorizedContract);
+    }
+
+    function test_g5_resolveActiveScopedHandle_revertsAfterDirectoryRevoked() public {
+        // Stand up a directory whose status is mutable so we can simulate
+        // the revocation event after registrations have already landed.
+        StatusMutableMock mut = new StatusMutableMock();
+        mut.setStatus("active");
+        registry.setAuthorizedContract(address(mut), true);
+        registry.setTrustedDirectoryContract(address(mut), true);
+
+        vm.prank(address(mut));
+        registry.registerHandle(
+            "mut-dir", SAGAHandleRegistry.EntityType.DIRECTORY, 200
+        );
+        vm.prank(authorizedContract);
+        registry.registerScopedHandle(
+            "user1", SAGAHandleRegistry.EntityType.AGENT, 0, "mut-dir"
+        );
+
+        // Raw resolver returns the record while the directory is active.
+        (SAGAHandleRegistry.EntityType et,,) =
+            registry.resolveScopedHandle("user1", "mut-dir");
+        assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
+
+        // Mutate status to revoked.
+        mut.setStatus("revoked");
+
+        // Raw resolver still returns the record (forensic indexers).
+        (SAGAHandleRegistry.EntityType et2,,) =
+            registry.resolveScopedHandle("user1", "mut-dir");
+        assertEq(uint256(et2), uint256(SAGAHandleRegistry.EntityType.AGENT));
+
+        // Active-only view rejects.
+        vm.expectRevert(bytes("SAGAHandleRegistry: directory not active"));
+        registry.resolveActiveScopedHandle("user1", "mut-dir");
+    }
+
+    function test_g5_resolveActiveScopedHandle_revertsWhenDirectoryNotFound() public {
+        vm.expectRevert(bytes("SAGAHandleRegistry: directory not found"));
+        registry.resolveActiveScopedHandle("alice", "ghost-dir");
     }
 }

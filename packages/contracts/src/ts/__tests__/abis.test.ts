@@ -53,4 +53,86 @@ describe('ABI exports', () => {
     )
     expect(fn).toBeDefined()
   })
+
+  // Phase 9 (G-16): ABI freshness pin. The generator
+  // (scripts/generate-abis.mjs) reads from out/<Contract>.sol/<Contract>.json
+  // and writes the TS exports below. If a future Solidity change adds a
+  // function but the generator isn't re-run, these explicit fingerprint
+  // checks fail loudly instead of letting stale ABIs ship to consumers.
+  // Touch this list whenever you remove or rename a public function.
+  const fns = (abi: readonly { type: string; name?: string }[]) =>
+    new Set(abi.filter(e => e.type === 'function').map(e => e.name))
+
+  it('SAGAHandleRegistry ABI is fresh against post-Phase-9 surface', () => {
+    const names = fns(SAGAHandleRegistryAbi)
+    for (const expected of [
+      'acceptOwnership',
+      'pendingOwner',
+      'transferOwnership',
+      'renounceOwnership',
+      'registerHandle',
+      'registerScopedHandle',
+      'resolveHandle',
+      'resolveScopedHandle',
+      'resolveActiveScopedHandle',
+      'setAuthorizedContract',
+      'setTrustedDirectoryContract',
+      'trustedDirectoryContracts',
+    ]) {
+      expect(names, `missing ${expected}`).toContain(expected)
+    }
+  })
+
+  it('SAGAAgentIdentity ABI is fresh against post-Phase-9 surface', () => {
+    const names = fns(SAGAAgentIdentityAbi)
+    for (const expected of [
+      'acceptOwnership',
+      'pendingOwner',
+      'registerAgent',
+      'registerAgentInDirectory',
+      'setBaseURI',
+      'applyBaseURI',
+      'pendingBaseURI',
+      'pendingBaseURIReadyAt',
+      'BASE_URI_TIMELOCK',
+    ]) {
+      expect(names, `missing ${expected}`).toContain(expected)
+    }
+  })
+
+  it('SAGAOrgIdentity ABI is fresh against post-Phase-9 surface', () => {
+    const names = fns(SAGAOrgIdentityAbi)
+    for (const expected of [
+      'acceptOwnership',
+      'pendingOwner',
+      'registerOrganization',
+      'registerOrgInDirectory',
+      'setBaseURI',
+      'applyBaseURI',
+      'pendingBaseURI',
+      'pendingBaseURIReadyAt',
+      'BASE_URI_TIMELOCK',
+    ]) {
+      expect(names, `missing ${expected}`).toContain(expected)
+    }
+  })
+
+  it('SAGADirectoryIdentity ABI is fresh against post-Phase-9 surface', () => {
+    const names = fns(SAGADirectoryIdentityAbi)
+    for (const expected of [
+      'acceptOwnership',
+      'pendingOwner',
+      'registerDirectory',
+      'updateDirectoryStatus',
+      'updateDirectoryUrl',
+      'directoryStatus',
+      'setBaseURI',
+      'applyBaseURI',
+      'pendingBaseURI',
+      'pendingBaseURIReadyAt',
+      'BASE_URI_TIMELOCK',
+    ]) {
+      expect(names, `missing ${expected}`).toContain(expected)
+    }
+  })
 })

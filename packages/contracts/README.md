@@ -168,10 +168,10 @@ git submodule update --init --recursive
 
 **Pinned dependency versions:**
 
-| Submodule | Version | Pinned commit |
-| --------- | ------- | ------------- |
-| `lib/openzeppelin-contracts` | v5.6.1 | `5fd1781b1454fd1ef8e722282f86f9293cacf256` |
-| `lib/forge-std`              | v1.9.6 | `0844d7e1fc5e60d77b68e469bff60265f236c398` |
+| Submodule                    | Version | Pinned commit                              |
+| ---------------------------- | ------- | ------------------------------------------ |
+| `lib/openzeppelin-contracts` | v5.6.1  | `5fd1781b1454fd1ef8e722282f86f9293cacf256` |
+| `lib/forge-std`              | v1.9.6  | `0844d7e1fc5e60d77b68e469bff60265f236c398` |
 
 Verify after submodule init:
 
@@ -206,11 +206,11 @@ forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 
 ### Required env for Deploy.s.sol
 
-| Variable | Notes |
-| -------- | ----- |
-| `DEPLOYER_PRIVATE_KEY` | Deployer EOA — initial owner of all four Ownable2Step contracts |
-| `ERC6551_REGISTRY`     | Optional. Defaults to canonical `0x0000...775758` |
-| `TBA_IMPLEMENTATION`   | **Required.** Phase 8 (F-5) — must be a deployed contract; deploy reverts on zero/EOA |
+| Variable               | Notes                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOYER_PRIVATE_KEY` | Deployer EOA — initial owner of all four Ownable2Step contracts                                                                                                                                                                                                                                                                                               |
+| `ERC6551_REGISTRY`     | Optional. Defaults to canonical `0x0000...775758`                                                                                                                                                                                                                                                                                                             |
+| `TBA_IMPLEMENTATION`   | **Required.** Phase 8 (F-5) — must be a deployed contract; deploy reverts on zero/EOA. Phase 9 (G-6) — on Base mainnet (chainId 8453) and Base Sepolia (chainId 84532), MUST equal the canonical Tokenbound V3 address `0x55266d75D1a14E4572138116aF39863Ed6596E7F`; any other contract reverts the deploy. Other chains may supply their own implementation. |
 
 ### Ownership transfer to Safe
 
@@ -251,6 +251,47 @@ been transferred to the Safe, the deployer EOA can no longer call
 
 `DeployOrg.s.sol` also requires `TBA_HELPER` in env (Phase 8 F-4: identity
 constructors take `(registry, tbaHelper)`).
+
+## Security Notes
+
+### Known limitation: self-TBA transfer guard scope
+
+The Phase 8 F-4 self-TBA transfer guard prevents transferring an
+identity NFT into the Token Bound Account computed by `SAGATBAHelper`
+with `salt = bytes32(0)` and the immutable `accountImplementation`
+configured at `SAGATBAHelper` deploy time.
+
+ERC-6551 permits multiple distinct accounts per `(chain, NFT)` tuple
+using different `salt` values OR different account implementations. The
+on-chain guard does **NOT** block transfers to:
+
+- TBAs computed with a non-zero salt
+- TBAs derived from a different (non-canonical) Tokenbound implementation
+- TBAs deployed via the canonical ERC-6551 registry directly, bypassing
+  `SAGATBAHelper`
+
+A user (or a malicious dApp tricking a user) can still transfer an
+identity NFT into a self-bound account using one of the above paths,
+creating the documented ERC-6551 ownership-loop and permanently locking
+the NFT. **On-chain enforcement of all possible self-TBA derivations is
+impractical** — the salt space is 256 bits and account implementations
+are not enumerable.
+
+Mitigation lives at the UX layer. Wallets and frontends rendering SAGA
+NFT transfers should:
+
+1. Compute the canonical TBA via `SAGATBAHelper.computeAccount` and warn
+   before any transfer to that address (the contract already blocks this
+   hard).
+2. Compute a few common salt variants (the canonical implementation
+   typically uses `bytes32(0)`, but some integrators use `keccak256(...)`
+   schemes) and warn similarly.
+3. Display a "this transfer destination is bound to the NFT you are
+   transferring" warning whenever the destination address has been
+   recently created via the ERC-6551 registry.
+
+Re-audit reference: OpenAI LOW + Gemini MEDIUM (G-12 in
+`audits/2026-05-04-post-phase8-gap-matrix.md`).
 
 ## License
 

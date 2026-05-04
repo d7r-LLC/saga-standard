@@ -17,9 +17,10 @@
     "src/ts"
   ],
   "scripts": {
-    "build": "forge build && tsup",
+    "build": "forge build && pnpm abi:gen && tsup",
     "build:sol": "forge build",
     "build:ts": "tsup",
+    "abi:gen": "node scripts/generate-abis.mjs",
     "test": "pnpm test:sol && pnpm test:ts",
     "test:ts": "vitest run",
     "test:gas": "forge test --gas-report",

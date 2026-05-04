@@ -317,17 +317,56 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
         org.transferFrom(user1, selfTba, tokenId);
     }
 
-    // F-6: setBaseURI validation + event
+    // F-6 / G-8: setBaseURI queues; applyBaseURI emits BaseURIUpdated.
     function test_setBaseURI_emitsEvent() public {
+        vm.expectEmit(false, false, false, true, address(org));
+        emit SAGAOrgIdentity.BaseURIQueued(
+            "https://x.example/", block.timestamp + 24 hours
+        );
+        org.setBaseURI("https://x.example/");
+
+        vm.warp(block.timestamp + 24 hours);
         vm.expectEmit(false, false, false, true, address(org));
         emit SAGAOrgIdentity.BaseURIUpdated(
             "https://saga-standard.dev/api/metadata/org/", "https://x.example/"
         );
-        org.setBaseURI("https://x.example/");
+        org.applyBaseURI();
     }
 
     function test_setBaseURI_revertsOnInvalidProtocol() public {
         vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
         org.setBaseURI("javascript:alert(1)");
+    }
+
+    // G-8: queue + 24h timelock + apply
+    function test_g8_setBaseURI_requiresQueueAndDelay() public {
+        org.setBaseURI("https://x.example/");
+        assertEq(org.pendingBaseURI(), "https://x.example/");
+        vm.expectRevert(bytes("SAGAOrgIdentity: base uri not yet ready"));
+        org.applyBaseURI();
+        vm.warp(block.timestamp + 24 hours);
+        org.applyBaseURI();
+        assertEq(org.pendingBaseURIReadyAt(), 0);
+
+        // Apply with no queue reverts.
+        vm.expectRevert(bytes("SAGAOrgIdentity: no pending base uri"));
+        org.applyBaseURI();
+    }
+
+    function test_g8_setBaseURI_anyoneCanApplyAfterTimelock() public {
+        org.setBaseURI("https://anyone.example/");
+        vm.warp(block.timestamp + 24 hours);
+        // Non-owner finalizes the queued URI.
+        vm.prank(makeAddr("randomCaller"));
+        org.applyBaseURI();
+        assertEq(org.pendingBaseURIReadyAt(), 0);
+    }
+
+    function test_g8_setBaseURI_overwritesPendingValue() public {
+        org.setBaseURI("https://first.example/");
+        org.setBaseURI("https://second.example/");
+        assertEq(org.pendingBaseURI(), "https://second.example/");
+        vm.warp(block.timestamp + 24 hours);
+        org.applyBaseURI();
     }
 }

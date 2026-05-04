@@ -53,6 +53,17 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     event HomeHubUpdated(uint256 indexed tokenId, string oldHubUrl, string newHubUrl);
     event BaseURIUpdated(string oldBaseURI, string newBaseURI);
+    /// @notice Phase 9 (G-8): emitted when a new base URI is queued. The
+    ///         actual update fires `BaseURIUpdated` after `applyBaseURI` is
+    ///         called past the timelock.
+    event BaseURIQueued(string newBaseURI, uint256 readyAt);
+
+    /// @notice Phase 9 (G-8): pending base URI awaiting timelock expiry.
+    string private _pendingBaseURI;
+    uint256 private _pendingBaseURIReadyAt;
+
+    /// @notice Hours until a queued base URI can be applied.
+    uint256 public constant BASE_URI_TIMELOCK = 24 hours;
 
     constructor(address registry, address _tbaHelper)
         ERC721("SAGA Agent Identity", "SAGA-AGENT")
@@ -174,14 +185,44 @@ contract SAGAAgentIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
 
     // --- Metadata ---
 
-    /// @notice Update the base URI for token metadata (owner only).
-    /// @dev Phase 8 (F-6): pipe through SAGAValidation.validateUrl (1024 byte
-    ///      cap, http(s)-only) and emit BaseURIUpdated so indexers can detect
-    ///      the change without polling storage.
+    /// @notice Read the queued (not-yet-applied) base URI.
+    function pendingBaseURI() external view returns (string memory) {
+        return _pendingBaseURI;
+    }
+
+    /// @notice Earliest timestamp at which `applyBaseURI` will accept the
+    ///         queued URI.
+    function pendingBaseURIReadyAt() external view returns (uint256) {
+        return _pendingBaseURIReadyAt;
+    }
+
+    /// @notice Queue a new base URI for later application (owner only).
+    /// @dev Phase 9 (G-8): split into queue + apply with a 24h delay. After
+    ///      the Safe handoff, a single multisig transaction could otherwise
+    ///      redirect every NFT's tokenURI in one block — instant phishing
+    ///      on metadata. Marketplaces and indexers get a 24h window to
+    ///      detect the change before it lands. Phase 8 (F-6) URL validation
+    ///      runs at queue time so a bogus URI fails fast.
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
         SAGAValidation.validateUrl(newBaseURI);
-        emit BaseURIUpdated(_baseTokenURI, newBaseURI);
-        _baseTokenURI = newBaseURI;
+        _pendingBaseURI = newBaseURI;
+        _pendingBaseURIReadyAt = block.timestamp + BASE_URI_TIMELOCK;
+        emit BaseURIQueued(newBaseURI, _pendingBaseURIReadyAt);
+    }
+
+    /// @notice Apply a previously-queued base URI. Anyone can call this
+    ///         once the timelock has elapsed; the queue is single-slot so
+    ///         the most-recently-queued value wins.
+    function applyBaseURI() external {
+        require(_pendingBaseURIReadyAt > 0, "SAGAAgentIdentity: no pending base uri");
+        require(
+            block.timestamp >= _pendingBaseURIReadyAt,
+            "SAGAAgentIdentity: base uri not yet ready"
+        );
+        emit BaseURIUpdated(_baseTokenURI, _pendingBaseURI);
+        _baseTokenURI = _pendingBaseURI;
+        delete _pendingBaseURI;
+        delete _pendingBaseURIReadyAt;
     }
 
     function _baseURI() internal view override returns (string memory) {

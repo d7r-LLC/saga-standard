@@ -214,6 +214,37 @@ contract SAGAHandleRegistry is Ownable2Step {
         return (record.entityType, record.tokenId, record.contractAddress);
     }
 
+    /// @notice Resolve a scoped handle, but only if the parent directory is
+    ///         currently in `active` status. Phase 9 (G-5).
+    /// @dev `resolveScopedHandle` (above) is preserved as the raw historical
+    ///      resolver for callers that explicitly want revoked-namespace data
+    ///      (forensic indexers, audit trails). Off-chain compute gates that
+    ///      key on registry resolution alone should prefer this view so
+    ///      identities under a revoked directory are filtered out.
+    function resolveActiveScopedHandle(string calldata handle, string calldata directoryId)
+        external
+        view
+        returns (EntityType entityType, uint256 tokenId, address contractAddress)
+    {
+        bytes32 dirGlobalKey = _handleKey(directoryId);
+        HandleRecord memory dirRecord = _handles[dirGlobalKey];
+        require(
+            dirRecord.entityType == EntityType.DIRECTORY,
+            "SAGAHandleRegistry: directory not found"
+        );
+        require(
+            keccak256(
+                bytes(IDirectoryStatus(dirRecord.contractAddress).directoryStatus(dirRecord.tokenId))
+            ) == keccak256("active"),
+            "SAGAHandleRegistry: directory not active"
+        );
+
+        bytes32 key = _scopedHandleKey(handle, directoryId);
+        HandleRecord memory record = _scopedHandles[key];
+        require(record.entityType != EntityType.NONE, "SAGAHandleRegistry: not found in directory");
+        return (record.entityType, record.tokenId, record.contractAddress);
+    }
+
     /// @notice Check if a handle exists within a specific directory
     function scopedHandleExists(string calldata handle, string calldata directoryId)
         external

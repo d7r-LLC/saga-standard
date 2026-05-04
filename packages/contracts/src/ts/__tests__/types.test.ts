@@ -50,7 +50,7 @@ describe('DirectoryIdentity type', () => {
       directoryId: 'epic-hub',
       url: 'https://hub.epic.com',
       operatorWallet: '0x1234567890abcdef1234567890abcdef12345678',
-      conformanceLevel: 'full',
+      claimedConformanceLevel: 'full',
       status: 'active',
       registeredAt: 1700000000n,
     }

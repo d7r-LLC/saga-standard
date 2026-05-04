@@ -7,3 +7,6 @@
 # False positives — encryption algorithm identifiers in spec and vault implementation
 packages/cli/src/commands/vault.ts:generic-api-key:356
 spec/SAGA-v1.0.md:generic-api-key:575
+# False positive — Tokenbound V3 canonical implementation address (public, documented
+# at docs/identity-nfts.md:114). Hard-pinned in Deploy.s.sol per Phase 9 G-6.
+packages/contracts/script/Deploy.s.sol:generic-api-key:39

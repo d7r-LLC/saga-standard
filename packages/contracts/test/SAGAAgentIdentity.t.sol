@@ -220,13 +220,17 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
 
     // --- Test 14: setBaseURI owner only ---
     function test_setBaseURI_ownerOnly() public {
+        // Phase 9 (G-8): setBaseURI now queues; applyBaseURI fires after
+        // the timelock. The base URI does not change immediately.
         agent.setBaseURI("https://new-base.com/");
+        vm.warp(block.timestamp + 24 hours);
+        agent.applyBaseURI();
 
         vm.prank(user1);
         uint256 tokenId = agent.registerAgent("new-uri", "https://hub.example.com");
         assertEq(agent.tokenURI(tokenId), "https://new-base.com/0");
 
-        // Non-owner cannot set
+        // Non-owner cannot queue
         vm.prank(user1);
         vm.expectRevert();
         agent.setBaseURI("https://hacked.com/");
@@ -421,18 +425,70 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         agent.transferFrom(user1, selfTba, tokenId);
     }
 
-    // F-6: setBaseURI validation + event
+    // F-6 / G-8: setBaseURI queues; applyBaseURI emits BaseURIUpdated.
     function test_setBaseURI_emitsEvent() public {
+        // Queueing emits BaseURIQueued, not BaseURIUpdated.
+        vm.expectEmit(false, false, false, true, address(agent));
+        emit SAGAAgentIdentity.BaseURIQueued(
+            "https://x.example/", block.timestamp + 24 hours
+        );
+        agent.setBaseURI("https://x.example/");
+
+        // After the timelock, applyBaseURI emits BaseURIUpdated.
+        vm.warp(block.timestamp + 24 hours);
         vm.expectEmit(false, false, false, true, address(agent));
         emit SAGAAgentIdentity.BaseURIUpdated(
             "https://saga-standard.dev/api/metadata/agent/", "https://x.example/"
         );
-        agent.setBaseURI("https://x.example/");
+        agent.applyBaseURI();
     }
 
     function test_setBaseURI_revertsOnInvalidProtocol() public {
+        // URL validation runs at queue time so a bogus URI fails fast.
         vm.expectRevert(SAGAValidation.InvalidUrlProtocol.selector);
         agent.setBaseURI("javascript:alert(1)");
+    }
+
+    // G-8: queue + 24h timelock + apply
+    function test_g8_setBaseURI_requiresQueueAndDelay() public {
+        string memory newUri = "https://x.example/";
+
+        agent.setBaseURI(newUri);
+        assertEq(agent.pendingBaseURI(), newUri);
+        assertEq(agent.pendingBaseURIReadyAt(), block.timestamp + 24 hours);
+
+        // Apply too early reverts.
+        vm.expectRevert(bytes("SAGAAgentIdentity: base uri not yet ready"));
+        agent.applyBaseURI();
+
+        vm.warp(block.timestamp + 24 hours - 1);
+        vm.expectRevert(bytes("SAGAAgentIdentity: base uri not yet ready"));
+        agent.applyBaseURI();
+
+        vm.warp(block.timestamp + 1);
+        agent.applyBaseURI();
+        assertEq(agent.pendingBaseURI(), "");
+        assertEq(agent.pendingBaseURIReadyAt(), 0);
+
+        // Subsequent apply with no queue reverts.
+        vm.expectRevert(bytes("SAGAAgentIdentity: no pending base uri"));
+        agent.applyBaseURI();
+    }
+
+    function test_g8_setBaseURI_anyoneCanApplyAfterTimelock() public {
+        agent.setBaseURI("https://anyone.example/");
+        vm.warp(block.timestamp + 24 hours);
+        // Non-owner finalizes the queued URI.
+        vm.prank(user1);
+        agent.applyBaseURI();
+    }
+
+    function test_g8_setBaseURI_overwritesPendingValue() public {
+        agent.setBaseURI("https://first.example/");
+        agent.setBaseURI("https://second.example/");
+        assertEq(agent.pendingBaseURI(), "https://second.example/");
+        vm.warp(block.timestamp + 24 hours);
+        agent.applyBaseURI();
     }
 
     // F-2: CEI ordering — onERC721Received observes a fully-initialized agent.
