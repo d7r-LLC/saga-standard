@@ -349,6 +349,50 @@ without backfill.
 Re-audit reference: G-15 in
 `audits/2026-05-04-post-phase8-gap-matrix.md`.
 
+### Scoped registration trust chain
+
+`SAGAAgentIdentity.registerAgentInDirectory` and
+`SAGAOrgIdentity.registerOrgInDirectory` write
+`_directoryIds[tokenId]` BEFORE calling
+`SAGAHandleRegistry.registerScopedHandle`. The registry validates that
+the directory exists, is on a trusted contract, and is currently
+`active` — but the identity contract itself does NOT independently
+re-validate. The trust chain is:
+
+```
+identity contract → handleRegistry.registerScopedHandle
+                  → trustedDirectoryContracts[directory] gate
+                  → IDirectoryStatus(directory).directoryStatus(...)
+                  → contract owner of trustedDirectoryContracts mapping
+```
+
+Three hops. The mitigation is the Phase 9 (G-11) trust-mapping
+combined with the Phase 10 (M-1) post-handoff timelock on
+`setTrustedDirectoryContract`, both gated by the Safe multisig's
+threshold. A defense-in-depth secondary check at the identity-contract
+level is not currently implemented; the cost (an extra `STATICCALL`
+per scoped registration) outweighs the marginal benefit given the
+current trust model. Re-audit reference: M-6 in
+`audits/2026-05-04-post-phase9-gap-matrix.md`.
+
+### `ERC721Enumerable` gas overhead
+
+All three identity contracts inherit `ERC721Enumerable`, which adds
+~50K gas per transfer to maintain the index arrays. For agent/org
+NFTs that mint once and rarely transfer, this cost is paid once at
+mint. For directory NFTs in the governance-rescue flow (Phase 9 G-1
+
+- Phase 10 H-1), it applies to each transfer.
+
+Off-chain enumeration via `Transfer` events is functionally equivalent
+for indexers; if a future major version drops `ERC721Enumerable`, mint
+costs decrease ~30%. This is left as a future-version decision rather
+than a current-phase change because it would invalidate cached
+on-chain views (`tokenByIndex`, `tokenOfOwnerByIndex`,
+`totalSupply` is via the Enumerable extension, not the base ERC-721).
+Re-audit reference: I-3 in
+`audits/2026-05-04-post-phase9-gap-matrix.md`.
+
 ## License
 
 Apache-2.0

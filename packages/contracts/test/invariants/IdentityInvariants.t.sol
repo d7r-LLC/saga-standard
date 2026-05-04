@@ -36,6 +36,7 @@ contract MockTBAHelper {
 ///             registration; the invariant guarantees no code path lets
 ///             empty / non-http URLs through.
 contract IdentityInvariantsTest is Test, IERC721Receiver {
+    SAGAHandleRegistry public registry;
     SAGAAgentIdentity public agent;
     SAGAOrgIdentity public org;
     MockTBAHelper public tba;
@@ -51,7 +52,7 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
     }
 
     function setUp() public {
-        SAGAHandleRegistry registry = new SAGAHandleRegistry();
+        registry = new SAGAHandleRegistry();
         tba = new MockTBAHelper();
         agent = new SAGAAgentIdentity(address(registry), address(tba));
         org = new SAGAOrgIdentity(address(registry), address(tba));
@@ -76,7 +77,16 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
         for (uint256 i = 0; i < agentSupply; i++) {
             uint256 tokenId = agent.tokenByIndex(i);
             address owner = agent.ownerOf(tokenId);
+            // Phase 10 (M-5): cross-check the helper's computation against
+            // an independent off-chain derivation matching MockTBAHelper's
+            // formula. If a future refactor disconnects the production
+            // _update guard from the helper, the previously-tautological
+            // invariant would have silently passed; the cross-check
+            // catches drift.
             address selfTba = tba.computeAccount(address(agent), tokenId);
+            address independent =
+                address(uint160(uint256(keccak256(abi.encode(address(agent), tokenId)))));
+            assertEq(selfTba, independent, "agent helper drift vs independent compute");
             assertTrue(owner != selfTba, "agent token owner equals self-TBA");
         }
 
@@ -85,6 +95,9 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
             uint256 tokenId = org.tokenByIndex(i);
             address owner = org.ownerOf(tokenId);
             address selfTba = tba.computeAccount(address(org), tokenId);
+            address independent =
+                address(uint160(uint256(keccak256(abi.encode(address(org), tokenId)))));
+            assertEq(selfTba, independent, "org helper drift vs independent compute");
             assertTrue(owner != selfTba, "org token owner equals self-TBA");
         }
     }
@@ -108,6 +121,43 @@ contract IdentityInvariantsTest is Test, IERC721Receiver {
                 _hasHttpPrefix(b),
                 "agent hub url not http(s)://"
             );
+        }
+    }
+
+    /// @notice (c) Roundtrip handle resolution. Phase 10 (I-1).
+    ///         For every minted agent and org token, the handle stored on
+    ///         the NFT must resolve back through the registry to the
+    ///         exact (entityType, tokenId, contractAddress) triple. If a
+    ///         registration code path silently fails to register a handle
+    ///         while still minting, the supply-counter invariant misses
+    ///         it; this property catches it.
+    function invariant_handleRoundtripResolves() public view {
+        uint256 agentSupply = agent.totalSupply();
+        for (uint256 i = 0; i < agentSupply; i++) {
+            uint256 tokenId = agent.tokenByIndex(i);
+            string memory handle = agent.agentHandle(tokenId);
+            (
+                SAGAHandleRegistry.EntityType et,
+                uint256 resolvedTid,
+                address resolvedAddr
+            ) = registry.resolveHandle(handle);
+            assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.AGENT));
+            assertEq(resolvedTid, tokenId);
+            assertEq(resolvedAddr, address(agent));
+        }
+
+        uint256 orgSupply = org.totalSupply();
+        for (uint256 i = 0; i < orgSupply; i++) {
+            uint256 tokenId = org.tokenByIndex(i);
+            string memory handle = org.orgHandle(tokenId);
+            (
+                SAGAHandleRegistry.EntityType et,
+                uint256 resolvedTid,
+                address resolvedAddr
+            ) = registry.resolveHandle(handle);
+            assertEq(uint256(et), uint256(SAGAHandleRegistry.EntityType.ORG));
+            assertEq(resolvedTid, tokenId);
+            assertEq(resolvedAddr, address(org));
         }
     }
 

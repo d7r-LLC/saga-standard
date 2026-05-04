@@ -84,9 +84,12 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         nonReentrant
         returns (uint256)
     {
-        require(
-            bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
-        );
+        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
+        // doesn't allocate, but reading `.length` twice still costs an
+        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
+        // contract's conformance-level check.
+        uint256 nameLen = bytes(name).length;
+        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
 
         uint256 tokenId = _nextTokenId++;
 
@@ -114,9 +117,12 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         string calldata name,
         string calldata directoryId
     ) external nonReentrant returns (uint256) {
-        require(
-            bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
-        );
+        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
+        // doesn't allocate, but reading `.length` twice still costs an
+        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
+        // contract's conformance-level check.
+        uint256 nameLen = bytes(name).length;
+        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
 
         uint256 tokenId = _nextTokenId++;
 
@@ -152,9 +158,12 @@ contract SAGAOrgIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
             _isAuthorized(tokenOwner, msg.sender, tokenId),
             "SAGAOrgIdentity: not authorized"
         );
-        require(
-            bytes(name).length > 0 && bytes(name).length <= 128, "SAGAOrgIdentity: invalid name"
-        );
+        // Phase 10 (L-3): cache the length once. `bytes(stringCalldata)`
+        // doesn't allocate, but reading `.length` twice still costs an
+        // extra MLOAD; matches the Phase 8 F-9 pattern in the directory
+        // contract's conformance-level check.
+        uint256 nameLen = bytes(name).length;
+        require(nameLen > 0 && nameLen <= 128, "SAGAOrgIdentity: invalid name");
         string memory oldName = _orgNames[tokenId];
         _orgNames[tokenId] = name;
         emit OrgNameUpdated(tokenId, oldName, name);

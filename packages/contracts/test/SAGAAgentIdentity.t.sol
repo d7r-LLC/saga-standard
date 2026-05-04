@@ -653,4 +653,29 @@ contract SAGAAgentIdentityTest is Test, IERC721Receiver {
         vm.expectRevert(bytes("SAGAAgentIdentity: not authorized"));
         agent.updateHomeHub(tokenId, "https://hijack.example/");
     }
+
+    // === Phase 10C regression tests ===
+
+    // I-2: the 4-arg safeTransferFrom(from, to, tokenId, data) overload
+    // routes through _safeTransfer → _update; the F-4 self-TBA guard MUST
+    // fire on this path too. Existing tests only cover the 3-arg form.
+    function test_i2_safeTransferFrom4Arg_blocksSelfTBA() public {
+        vm.prank(user1);
+        uint256 tokenId = agent.registerAgent("xfer4", "https://h.example/");
+        address selfTba = tbaHelper.computeAccount(address(agent), tokenId);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGAAgentIdentity: cannot transfer to own TBA"));
+        agent.safeTransferFrom(user1, selfTba, tokenId, "");
+    }
+
+    // Phase 10B Copilot review: updateHomeHub on a nonexistent tokenId
+    // reverts with the canonical ERC-721 ERC721NonexistentToken error
+    // (via _requireOwned), not with the custom "not authorized" message.
+    function test_updateHomeHub_revertsWithErc721NonexistentForUnminted() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 9999)
+        );
+        agent.updateHomeHub(9999, "https://x.example/");
+    }
 }

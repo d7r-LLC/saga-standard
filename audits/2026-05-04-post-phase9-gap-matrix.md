@@ -217,3 +217,49 @@ Five pre-existing issues finally surfaced because the auditor's scrutiny floor r
 **Mainnet readiness: Conditional NO.** Fix H-1 and H-2 immediately (over-scoped governance + spoofable resolver) — those are regressions the prior gap matrix promised would be closed. H-5 (deploy pipeline) is a non-contracts blocker but blocks the operational path. H-3 / H-4 / H-6 / H-7 are mainnet blockers per the providers' stated severity. **Phase 10A is roughly the same shape as Phase 9A — 1 PR, ~80 LOC including tests.**
 
 **Recommendation:** open a Phase 10 milestone with 7 fix tasks for Phase 10A, plus the 5 Phase 10B medium items. Estimated 2 PRs. The Sepolia + Safe handoff manual checklist from the previous matrix still applies, with the addition of H-5's `DEPLOY_DIRECT=true` mode flag.
+
+---
+
+## Phase 10 closure (2026-05-04)
+
+All 21 actionable findings closed across three PRs against `dev`. I-4
+was already accepted (front-running documented as off-chain UX concern).
+
+| ID  | Severity | Closed by    | Notes                                                                                                                                                                                                                                               |
+| --- | -------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H-1 | HIGH     | PR #53 (10A) | `_isAuthorized` governance bypass scoped to rank ≥ 2 only. Active/suspended directories now require normal owner-or-approved auth.                                                                                                                  |
+| H-2 | HIGH     | PR #53 (10A) | `resolveActiveScopedHandle` now checks `trustedDirectoryContracts` before consulting `directoryStatus()`. Closes the Phase 9 G-5 regression.                                                                                                        |
+| H-3 | HIGH     | PR #53 (10A) | `_validateHandle` docstring rewritten to honestly describe what the consecutive-separator rule actually does (anti-spam, not anti-homoglyph).                                                                                                       |
+| H-4 | HIGH     | PR #53 (10A) | `validateUrl` rejects control bytes, raw whitespace, backslash, and HTML metacharacters. Multi-byte UTF-8 still permitted for IDN.                                                                                                                  |
+| H-5 | HIGH     | PR #53 (10A) | `deploy-entrypoint.sh` accepts `DEPLOY_DIRECT=true` to bypass Safe-multisend routing for the initial CREATE.                                                                                                                                        |
+| H-6 | HIGH     | PR #53 (10A) | All four `renounceOwnership` overrides drop `view` and `onlyOwner`; disabled-message wins for every caller.                                                                                                                                         |
+| H-7 | HIGH     | PR #53 (10A) | `Deploy.s.sol` hard-pins `ERC6551_REGISTRY` on Base mainnet/Sepolia.                                                                                                                                                                                |
+| M-1 | MEDIUM   | PR #54 (10B) | 24h timelock on `setAuthorizedContract` and `setTrustedDirectoryContract` post-handoff. Bootstrap exception via `_initialOwner` for Deploy.s.sol; deauthorization always immediate. Apply functions re-check `code.length` (Copilot review).        |
+| M-2 | MEDIUM   | PR #54 (10B) | `applyBaseURI` re-validates the queued URL at apply time across all three identity contracts. `validateUrl` signature changed to `string memory`.                                                                                                   |
+| M-3 | MEDIUM   | PR #54 (10B) | Metadata setters (`updateHomeHub`, `updateOrgName`, `updateDirectoryUrl`, `updateDirectoryStatus` NFT-owner branch) now use OZ's `_isAuthorized` after `_requireOwned`. Smart-wallet delegates work; ERC-721 nonexistent-token semantics preserved. |
+| M-4 | MEDIUM   | PR #54 (10B) | `setAuthorizedContract(addr, true)` requires `addr.code.length > 0`. Detrust path stays open for safety.                                                                                                                                            |
+| M-5 | MEDIUM   | PR #55 (10C) | `IdentityInvariantsTest.invariant_selfTBA_universality` now cross-checks the helper's computation against an independent off-chain derivation. Catches future drift.                                                                                |
+| M-6 | MEDIUM   | PR #55 (10C) | README "Scoped registration trust chain" section documents the three-hop trust model. Defense-in-depth secondary check deferred to a future major version.                                                                                          |
+| M-7 | MEDIUM   | PR #55 (10C) | `_statusRank` treats empty string as rank 0 (active) instead of reverting. Hardens against future migration paths that hit `_update` with uninitialized status.                                                                                     |
+| M-8 | MEDIUM   | PR #54 (10B) | `SAGATBAHelper` exported from TS bindings: ABI generator, `index.ts`, `clients.ts.getTBAHelperConfig`, ABI freshness pin.                                                                                                                           |
+| L-1 | LOW      | DEFERRED     | `setTrustedDirectoryContract` ABI probe stays deferred per Phase 9 G-13 decision; an on-chain probe is unreliable across Solidity versions and the misconfiguration is caught at the next `registerScopedHandle` call.                              |
+| L-2 | LOW      | PR #55 (10C) | `Deploy.s.sol` logs expected vs got `TBA_IMPLEMENTATION` on Base mainnet/Sepolia before the require.                                                                                                                                                |
+| L-3 | LOW      | PR #55 (10C) | `SAGAOrgIdentity.registerOrganization` caches `bytes(name).length`.                                                                                                                                                                                 |
+| I-1 | INFO     | PR #55 (10C) | `IdentityInvariantsTest.invariant_handleRoundtripResolves` pins that every minted agent/org token's handle resolves back through the registry to the same triple.                                                                                   |
+| I-2 | INFO     | PR #55 (10C) | 4-arg `safeTransferFrom(from, to, tokenId, data)` regression tests added for Agent and Directory. F-4 self-TBA guard verified on the routed path.                                                                                                   |
+| I-3 | INFO     | PR #55 (10C) | README documents the `ERC721Enumerable` gas overhead; future-version decision.                                                                                                                                                                      |
+| I-4 | N/A      | ACCEPTED     | Front-running of handle registration accepted as off-chain UX concern. Commit-reveal deferred.                                                                                                                                                      |
+
+**Test counts after Phase 10 closure:** 235 forge tests passing
+(was 218 pre-Phase-10), 35 vitest TS tests passing (was 33 pre-Phase-10).
+`forge build` clean. `pnpm typecheck` clean.
+
+**Mainnet readiness:** all HIGH and MEDIUM findings closed. The Sepolia
+
+- Safe handoff manual checklist from the post-Phase-8 matrix still
+  applies, with the addition of:
+
+1. Set `DEPLOY_DIRECT=true` for the initial `Deploy.s.sol` broadcast (H-5).
+2. Verify `ERC6551_REGISTRY=0x000000006551c19487814612e58FE06813775758` (H-7 will reject any other value on Base mainnet/Sepolia).
+3. Confirm `TBA_IMPLEMENTATION=0x55266d75D1a14E4572138116aF39863Ed6596E7F` (G-6 + L-2 will log expected/got on launch).
+4. After deploy and `TransferOwnership.s.sol`, the initial deployer is no longer `_initialOwner`-grade for `setAuthorizedContract` purposes; from then on all new authorizations require the 24h timelock through `queue*` + `apply*` (M-1). De-authorizations stay immediate.

@@ -244,10 +244,20 @@ contract SAGADirectoryIdentity is ERC721Enumerable, Ownable2Step, ReentrancyGuar
 
     /// @dev Status rank used to enforce the downgrade-only rule for token owners.
     ///      active=0 (best) → suspended=1 → flagged=2 → revoked=3 (worst).
-    ///      Reverts on any unknown status, but callers should always run
-    ///      _isValidStatus first.
+    ///      Phase 10 (M-7): treat empty string as rank 0 (== active).
+    ///      Every minted token has its status initialized to "active" in
+    ///      registerDirectory before _safeMint, so the empty case is
+    ///      structurally unreachable today; but the prior version reverted
+    ///      with "unknown status rank", which is brittle against any future
+    ///      migration path that calls _update on a token with uninitialized
+    ///      status. The "default-to-active" semantics are safer because
+    ///      they preserve the F-10 transfer-block invariant (rank>=2 blocks
+    ///      transfer) — an uninitialized token cannot be silently treated
+    ///      as flagged/revoked.
     function _statusRank(string memory status) internal pure returns (uint8) {
-        bytes32 h = keccak256(bytes(status));
+        bytes memory b = bytes(status);
+        if (b.length == 0) return 0;
+        bytes32 h = keccak256(b);
         if (h == keccak256("active")) return 0;
         if (h == keccak256("suspended")) return 1;
         if (h == keccak256("flagged")) return 2;

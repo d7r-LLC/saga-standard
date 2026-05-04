@@ -37,6 +37,13 @@ contract Deploy is Script {
         //   docs/identity-nfts.md:114
         //   docs/superpowers/plans/2026-03-27-phase3-on-chain-identity.md:271
         address tokenboundV3 = 0x55266d75D1a14E4572138116aF39863Ed6596E7F;
+        if (block.chainid == 8453 || block.chainid == 84532) {
+            // Phase 10 (L-2): log expected vs got so a deploy operator
+            // who hits the require below sees the diff immediately
+            // instead of grepping the script for the constant.
+            console.log("Expected TBA_IMPLEMENTATION (canonical V3):", tokenboundV3);
+            console.log("Got TBA_IMPLEMENTATION (env):", tbaImplementation);
+        }
         if (block.chainid == 8453) {
             // Base mainnet
             require(

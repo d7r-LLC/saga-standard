@@ -19,6 +19,22 @@ contract MockTBAHelper {
     }
 }
 
+/// @dev Phase 10 (M-7): exposes the internal _statusRank pure function as
+///      a public probe so tests can pin the empty-string-as-rank-0
+///      behavior without storage-slot manipulation.
+contract StatusRankHarness is SAGADirectoryIdentity {
+    constructor()
+        SAGADirectoryIdentity(
+            address(new SAGAHandleRegistry()),
+            address(new MockTBAHelper())
+        )
+    {}
+
+    function exposed_statusRank(string memory status) external pure returns (uint8) {
+        return _statusRank(status);
+    }
+}
+
 contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
     /// @dev Phase 8 (F-2): test contract receives directory NFTs via _safeMint,
     ///      which now invokes onERC721Received.
@@ -700,5 +716,75 @@ contract SAGADirectoryIdentityTest is Test, IERC721Receiver {
         vm.prank(operator);
         directory.updateDirectoryStatus(tokenId, "suspended");
         assertEq(directory.directoryStatus(tokenId), "suspended");
+    }
+
+    // === Phase 10C regression tests ===
+
+    // Phase 10B Copilot review: governance can no longer pre-set
+    // _statuses[tokenId] for unminted tokens. updateDirectoryStatus now
+    // calls _requireOwned first. The pre-set vector would have let a
+    // future mint inherit a non-default status.
+    function test_updateDirectoryStatus_revertsForUnmintedToken() public {
+        // address(this) is the contract owner. Even with full governance
+        // authority, the unminted-token check fires first.
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 9999)
+        );
+        directory.updateDirectoryStatus(9999, "flagged");
+    }
+
+    // M-7: empty status string is treated as rank 0 (active) instead of
+    // reverting. Today _statuses[tokenId] is always initialized in
+    // registerDirectory before _safeMint, so the empty case is
+    // structurally unreachable through normal entry points; M-7 hardens
+    // against any future migration path that calls _update on a token
+    // with uninitialized status. The "default to active" semantics
+    // preserve the F-10 transfer-block invariant — an uninitialized
+    // token cannot be silently treated as flagged/revoked.
+    //
+    // Exercised via a test-only harness that exposes the internal
+    // _statusRank function publicly. vm.store against the public
+    // directoryStatus mapping accessor is unreliable because the
+    // accessor calls _requireOwned (which the stdstore probe can't
+    // round-trip cleanly).
+    function test_m7_statusRank_emptyStringIsRank0() public {
+        StatusRankHarness h = new StatusRankHarness();
+        assertEq(h.exposed_statusRank(""), 0);
+        // Spot-check the canonical statuses behave as before.
+        assertEq(h.exposed_statusRank("active"), 0);
+        assertEq(h.exposed_statusRank("suspended"), 1);
+        assertEq(h.exposed_statusRank("flagged"), 2);
+        assertEq(h.exposed_statusRank("revoked"), 3);
+    }
+
+    function test_m7_statusRank_unknownStillReverts() public {
+        StatusRankHarness h = new StatusRankHarness();
+        vm.expectRevert(bytes("SAGADirectoryIdentity: unknown status rank"));
+        h.exposed_statusRank("limbo");
+    }
+
+    function test_m7_freshlyRegisteredDirectoryStartsActive() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "m7-fresh", "https://x.example/", makeAddr("op"), "basic"
+        );
+        assertEq(directory.directoryStatus(tokenId), "active");
+        vm.prank(user1);
+        directory.transferFrom(user1, user2, tokenId);
+        assertEq(directory.ownerOf(tokenId), user2);
+    }
+
+    // I-2: the 4-arg safeTransferFrom overload also hits the self-TBA
+    // guard.
+    function test_i2_safeTransferFrom4Arg_blocksSelfTBA() public {
+        vm.prank(user1);
+        uint256 tokenId = directory.registerDirectory(
+            "xfer4-dir", "https://x.example/", makeAddr("op"), "basic"
+        );
+        address selfTba = tbaHelper.computeAccount(address(directory), tokenId);
+
+        vm.prank(user1);
+        vm.expectRevert(bytes("SAGADirectoryIdentity: cannot transfer to own TBA"));
+        directory.safeTransferFrom(user1, selfTba, tokenId, "");
     }
 }
