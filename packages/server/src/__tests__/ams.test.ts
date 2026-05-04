@@ -2,10 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createAmsClient,
-  type AmsClient,
-} from '../services/ams'
+import { type AmsClient, createAmsClient } from '../services/ams'
 
 let client: AmsClient
 
@@ -20,9 +17,7 @@ afterEach(() => {
 describe('AmsClient', () => {
   describe('healthCheck', () => {
     it('returns true when service is healthy', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response('OK', { status: 200 })
-      )
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('OK', { status: 200 }))
       expect(await client.healthCheck()).toBe(true)
     })
 
@@ -78,7 +73,9 @@ describe('AmsClient', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response('Bad Request', { status: 400 })
       )
-      await expect(client.initSession('conv_abc', 'ns')).rejects.toThrow('AMS initSession failed: 400')
+      await expect(client.initSession('conv_abc', 'ns')).rejects.toThrow(
+        'AMS initSession failed: 400'
+      )
     })
   })
 
@@ -101,7 +98,9 @@ describe('AmsClient', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response('Not Found', { status: 404 })
       )
-      await expect(client.addMessage('conv_abc', 'user', 'Hi')).rejects.toThrow('AMS addMessage failed: 404')
+      await expect(client.addMessage('conv_abc', 'user', 'Hi')).rejects.toThrow(
+        'AMS addMessage failed: 404'
+      )
     })
   })
 
@@ -140,10 +139,10 @@ describe('AmsClient', () => {
     })
 
     it('throws on failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response('Error', { status: 500 })
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('Error', { status: 500 }))
+      await expect(client.getContextMessages('conv_abc')).rejects.toThrow(
+        'AMS getContextMessages failed: 500'
       )
-      await expect(client.getContextMessages('conv_abc')).rejects.toThrow('AMS getContextMessages failed: 500')
     })
   })
 
@@ -168,18 +167,16 @@ describe('AmsClient', () => {
     })
 
     it('throws on server error', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response('Error', { status: 500 })
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('Error', { status: 500 }))
+      await expect(client.removeSession('conv_abc')).rejects.toThrow(
+        'AMS removeSession failed: 500'
       )
-      await expect(client.removeSession('conv_abc')).rejects.toThrow('AMS removeSession failed: 500')
     })
   })
 
   describe('auth header', () => {
     it('includes Authorization header on all requests', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response('OK', { status: 200 })
-      )
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('OK', { status: 200 }))
 
       await client.healthCheck()
 

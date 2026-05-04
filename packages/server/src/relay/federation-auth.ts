@@ -26,12 +26,16 @@ export function generateFederationChallenge(): { challenge: string; expiresAt: s
 /**
  * Verify federation authentication from a remote directory.
  *
- * Checks:
- * 1. Challenge is not expired and has correct format
- * 2. Signature is present (full verification is a TODO)
- * 3. Directory exists in D1 with matching operator wallet
- * 4. Directory has a valid NFT (tokenId not null)
- * 5. Directory status is 'active'
+ * Checks (all required, evaluated in order; first failure short-circuits):
+ * 1. Challenge is not expired and has the `saga-federation:` prefix.
+ * 2. Signature is present, well-formed (`0x...`), and verifies under EIP-191
+ *    via `viem.verifyMessage(...)`. Wrapped in try/catch so any thrown
+ *    error becomes a `false` result — fail-closed, never accept on error.
+ *    See `packages/server/SECURITY.md` for the cross-channel signature
+ *    verification contract.
+ * 3. Directory exists in D1 with matching operator wallet.
+ * 4. Directory has a valid NFT (tokenId not null).
+ * 5. Directory status is 'active'.
  */
 export async function verifyFederationAuth(
   directoryId: string,

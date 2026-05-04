@@ -25,11 +25,15 @@ export function generateWsChallenge(): { challenge: string; expiresAt: string } 
 /**
  * Verify WebSocket authentication.
  *
- * Checks:
- * 1. Challenge is not expired and has correct format
- * 2. Signature is present (full EIP-191 verification is a TODO — same as HTTP auth)
- * 3. Entity (agent or org) exists in D1 with matching wallet address
- * 4. Entity has a valid NFT (tokenId is not null)
+ * Checks (all required, evaluated in order; first failure short-circuits):
+ * 1. Challenge is not expired and has the `saga-relay:` prefix.
+ * 2. Signature is present, well-formed (`0x...`), and verifies under EIP-191
+ *    via `viem.verifyMessage(...)`. Wrapped in try/catch so any thrown
+ *    error becomes a `false` result — fail-closed, never accept on error.
+ *    See `packages/server/SECURITY.md` for the cross-channel signature
+ *    verification contract.
+ * 3. Entity (agent or org) exists in D1 with matching wallet address.
+ * 4. Entity has a valid NFT (tokenId is not null).
  */
 export async function verifyWsAuth(
   walletAddress: string,

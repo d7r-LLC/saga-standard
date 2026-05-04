@@ -572,7 +572,10 @@ export class RelayRoom {
       // Check challenge format to distinguish federation vs agent
       return attachment.challenge.startsWith('saga-federation:')
     }
-    return 'federation' in attachment && (attachment as any).federation === true
+    // Phase 7 (G-Low#4): the `'federation' in attachment` discriminant
+    // already narrows the union to the federation member, so we can read
+    // `.federation` directly without an `as any` escape hatch.
+    return 'federation' in attachment && attachment.federation === true
   }
 
   private async handleFederationWebSocketMessage(
@@ -609,7 +612,12 @@ export class RelayRoom {
       return
     }
 
-    if (msg.challenge !== (attachment as any).challenge) {
+    // Phase 7 (G-Low#4): the early-return above means `attachment.authenticated`
+    // is `false` from here down, so attachment is the unauthenticated union
+    // member with `challenge` and `expiresAt`. Narrow once and reuse.
+    const pending = attachment as Extract<WebSocketAttachment, { authenticated: false }>
+
+    if (msg.challenge !== pending.challenge) {
       this.sendJson(ws, { type: 'federation:error', error: 'Challenge mismatch' })
       return
     }
@@ -618,8 +626,8 @@ export class RelayRoom {
       msg.directoryId,
       msg.operatorWallet,
       msg.signature,
-      (attachment as any).challenge,
-      (attachment as any).expiresAt,
+      pending.challenge,
+      pending.expiresAt,
       this.env.DB
     )
 

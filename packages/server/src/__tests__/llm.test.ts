@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { describe, it, expect } from 'vitest'
-import { resolveApiKey, getProviderEnvKey, buildGatewayBaseUrl, estimateCost } from '../services/llm'
+import { describe, expect, it } from 'vitest'
+import {
+  buildGatewayBaseUrl,
+  estimateCost,
+  getProviderEnvKey,
+  resolveApiKey,
+} from '../services/llm'
 import type { Env } from '../bindings'
 
 describe('resolveApiKey', () => {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { drizzle } from 'drizzle-orm/d1'
 import { agents, groupMembers } from '../db/schema'
@@ -29,6 +29,14 @@ describe('RelayRoom', () => {
   let ctx: ReturnType<typeof createMockDurableObjectState>
   let env: Env
   let room: RelayRoom
+
+  // Phase 7 (G-Low#6): suite-level guarantee that any vi.useFakeTimers()
+  // call inside an `it` is restored even if the test throws BEFORE its
+  // local `try/finally` runs. Idempotent — no-op when real timers are
+  // already in use.
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   beforeEach(async () => {
     ctx = createMockDurableObjectState()

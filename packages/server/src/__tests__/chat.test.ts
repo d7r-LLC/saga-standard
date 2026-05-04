@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { vi, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { streamText } from 'ai'
 
 vi.mock('ai', () => ({
@@ -81,10 +81,7 @@ function authHeader(token: string): Record<string, string> {
 }
 
 /** Create a mock streamText return value (matches ai v6 LanguageModelUsage shape) */
-function createMockStreamResult(
-  chunks: string[],
-  usage = { inputTokens: 10, outputTokens: 20 }
-) {
+function createMockStreamResult(chunks: string[], usage = { inputTokens: 10, outputTokens: 20 }) {
   return {
     textStream: (async function* () {
       for (const chunk of chunks) {
@@ -123,6 +120,20 @@ describe('Chat API', () => {
     vi.mocked(streamText).mockReturnValue(
       createMockStreamResult(['OK']) as ReturnType<typeof streamText>
     )
+  })
+
+  // Phase 7 (G-Low#5): explicit afterEach so module-level vi.mock(...)
+  // state can't leak across tests if a test throws after a mock has been
+  // configured but before the next beforeEach resets it.
+  //
+  // resetAllMocks (not clearAllMocks): clears call history AND restores
+  // each vi.fn() to an empty implementation. clearAllMocks would leave
+  // any `.mockReturnValueOnce` queue or `.mockImplementation` behavior in
+  // place, which is the exact leakage we're trying to prevent. The
+  // beforeEach above re-configures `streamText.mockReturnValue(...)` from
+  // scratch, so a fresh reset between tests is safe and stronger.
+  afterEach(() => {
+    vi.resetAllMocks()
   })
 
   describe('POST /v1/chat/conversations', () => {
@@ -705,6 +716,7 @@ describe('Chat API', () => {
       textRej.catch(() => {})
 
       vi.mocked(streamText).mockReturnValue({
+        // eslint-disable-next-line require-yield -- intentional: simulates a stream that errors before producing data
         textStream: (async function* () {
           throw new Error('Authentication failed: invalid API key')
         })(),
@@ -746,6 +758,7 @@ describe('Chat API', () => {
       textRej.catch(() => {})
 
       vi.mocked(streamText).mockReturnValue({
+        // eslint-disable-next-line require-yield -- intentional: simulates a stream that errors before producing data
         textStream: (async function* () {
           throw new Error('Provider unavailable')
         })(),
@@ -844,11 +857,7 @@ describe('Chat API', () => {
       await res.text()
 
       // AMS addMessage should have been called for the user message
-      expect(mockAms.addMessage).toHaveBeenCalledWith(
-        expect.any(String),
-        'user',
-        'Latest question'
-      )
+      expect(mockAms.addMessage).toHaveBeenCalledWith(expect.any(String), 'user', 'Latest question')
 
       // streamText should receive the AMS-managed context, not raw D1 messages
       const calls = vi.mocked(streamText).mock.calls
@@ -890,7 +899,8 @@ describe('Chat API', () => {
       // Should still call streamText with D1 messages as fallback
       const calls = vi.mocked(streamText).mock.calls
       expect(calls).toHaveLength(1)
-      const passedMessages = (calls[0][0] as { messages: Array<{ role: string; content: string }> }).messages
+      const passedMessages = (calls[0][0] as { messages: Array<{ role: string; content: string }> })
+        .messages
       expect(passedMessages.some(m => m.content === 'Hello from fallback')).toBe(true)
     })
 
@@ -899,9 +909,7 @@ describe('Chat API', () => {
         healthCheck: vi.fn().mockResolvedValue(true),
         initSession: vi.fn().mockResolvedValue({ sessionId: 'conv_mock', created: true }),
         addMessage: vi.fn().mockResolvedValue(undefined),
-        getContextMessages: vi.fn().mockResolvedValue([
-          { role: 'user', content: 'Hello' },
-        ]),
+        getContextMessages: vi.fn().mockResolvedValue([{ role: 'user', content: 'Hello' }]),
         removeSession: vi.fn().mockResolvedValue(undefined),
       }
       vi.mocked(createAmsClient).mockReturnValue(mockAms)
