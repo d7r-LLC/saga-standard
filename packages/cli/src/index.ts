@@ -14,6 +14,7 @@ import { registerOrgCommand } from './commands/register-org'
 import { registerDirectoryCommand } from './commands/register-directory'
 import { deployCommand } from './commands/deploy'
 import { fundCommand } from './commands/fund'
+import { smokeTestCommand } from './commands/smoke-test'
 
 const program = new Command()
 
@@ -35,5 +36,6 @@ program.addCommand(verifyCommand)
 program.addCommand(vaultCommand)
 program.addCommand(deployCommand)
 program.addCommand(fundCommand)
+program.addCommand(smokeTestCommand)
 
 program.parse()
