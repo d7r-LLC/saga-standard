@@ -21,10 +21,18 @@ chains:
     safeTransactionService: https://safe-transaction-base-sepolia.safe.global
     external:
       erc6551Registry: '0x000000006551c19487814612e58FE06813775758'
-      tbaImplementation: '' # TODO: populate with Tokenbound V3 implementation address
+      # Canonical Tokenbound V3 (chain-pinned in Deploy.s.sol via Phase 9 G-6 / Phase 11 J-9)
+      tbaImplementation: '0x55266d75D1a14E4572138116aF39863Ed6596E7F'
     op:
       vault: saga-prod
-      signerItem: base-sepolia-signer
+      signerItem: base-signer
+      # Signer credential lives in a custom CONCEALED field
+      # (`private_key`) on base-signer, not the standard /password
+      # field. The deploy entrypoint's signerField support reads from
+      # any configurable field name; the credential format detector
+      # (word-count) handles either a hex private key or a BIP-39
+      # mnemonic transparently.
+      signerField: private_key
       addressesItem: base-sepolia-addresses
       explorerKeyItem: basescan-api-key
 
@@ -38,7 +46,8 @@ chains:
     production: true
     external:
       erc6551Registry: '0x000000006551c19487814612e58FE06813775758'
-      tbaImplementation: '' # TODO: populate with Tokenbound V3 implementation address
+      # Canonical Tokenbound V3 (chain-pinned in Deploy.s.sol via Phase 9 G-6 / Phase 11 J-9)
+      tbaImplementation: '0x55266d75D1a14E4572138116aF39863Ed6596E7F'
     op:
       vault: saga-prod
       signerItem: base-mainnet-signer
