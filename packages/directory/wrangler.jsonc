@@ -43,6 +43,12 @@
           "binding": "NEXT_INC_CACHE_R2_BUCKET",
           "bucket_name": "saga-directory-opennext-cache-staging"
         }
+      ],
+      "services": [
+        {
+          "binding": "SAGA_SERVER",
+          "service": "saga-server-staging"
+        }
       ]
     }
   }
