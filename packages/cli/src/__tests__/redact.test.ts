@@ -1,5 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
+//
+// SECRET-SCANNER FALSE POSITIVES IN THIS FILE:
+//
+// The fixtures below are SYNTHETIC values constructed to exercise
+// `scrubSecrets()`'s regexes. They look like real secrets BY DESIGN —
+// that's the only way to verify the regexes engage at all. None of
+// them authenticate to anything:
+//
+//   - `ops_eyJzaWduSW5BZGRyZXNzIjoiaHR0cHM6Ly9teS4xcGFzc3dvcmQuY29tIn0_abc123def456ghi789`
+//     The base64 portion decodes to the PUBLIC 1Password sign-in URL
+//     (`{"signInAddress":"https://my.1password.com"}`); the trailing
+//     suffix is too short for a real 1P service-account token.
+//   - `0x1234567890abcdef…` (64 hex)
+//     All-low-bits hex; trivially identifiable as a placeholder.
+//   - `zero one two three four five six seven eight nine alpha bravo`
+//     Twelve made-up English words; not a valid BIP-39 wordlist entry.
+//
+// Allowlisted in `.gitleaksignore` (file:rule:line) for the local
+// pre-commit scan. ALSO allowlist these fingerprints in the GitGuardian
+// dashboard with the "False positive — synthetic redactor test fixture"
+// rationale so CI alerts don't re-fire on every push.
 
 import { describe, expect, it } from 'vitest'
 import { scrubSecrets } from '../redact'
