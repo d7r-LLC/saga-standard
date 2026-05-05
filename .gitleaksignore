@@ -16,3 +16,13 @@ packages/contracts/script/DeployOrg.s.sol:generic-api-key:45
 # Same canonical Tokenbound V3 address in the Phase 12 K-4 post-bootstrap
 # companion script.
 packages/contracts/script/QueueAuthorizeOrg.s.sol:generic-api-key:38
+# False positives — synthetic high-entropy fixtures in the secret-redactor's
+# OWN test file. The redactor tests verify that scrubSecrets() correctly
+# masks `ops_*` tokens, hex private keys, and BIP-39 phrases; the inputs
+# are deliberately shaped like real secrets so the regexes have something
+# to match. None of these strings authenticate to anything.
+packages/cli/src/__tests__/redact.test.ts:generic-api-key:9
+packages/cli/src/__tests__/redact.test.ts:generic-api-key:16
+packages/cli/src/__tests__/redact.test.ts:generic-api-key:23
+packages/cli/src/__tests__/redact.test.ts:generic-api-key:82
+packages/cli/src/__tests__/redact.test.ts:generic-api-key:83
