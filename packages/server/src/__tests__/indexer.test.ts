@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
 import { createMockD1, runMigrations } from './test-helpers'
-import { processDecodedLog } from '../indexer/chain-indexer'
+import { decideCursorAdvance, processDecodedLog } from '../indexer/chain-indexer'
 import type { DecodedEventLog } from '../indexer/chain-indexer'
 import {
   handleAgentRegistered,
@@ -304,5 +304,80 @@ describe('processDecodedLog', () => {
 
     const rows = await db.select().from(agents).where(eq(agents.handle, 'wrong.contract'))
     expect(rows).toHaveLength(0)
+  })
+})
+
+// ── decideCursorAdvance ─────────────────────────────────────────────
+//
+// Pure-function tests for the cursor-advance semantics. Pinned tightly
+// because a regression here drops events silently. The smoke-test
+// scenario this commit fixes:
+//
+//   Block B = 41124962 contains 4 mint transactions. Each tx emits
+//   Transfer (mint, early-return success in processDecodedLog) followed
+//   by AgentRegistered/OrgRegistered (which threw with broken D1
+//   schema). The PRIOR `lastSuccessBlock` approach advanced the
+//   tracker to B on the successful Transfer-mint, then the subsequent
+//   Registered event failed — but cursor still committed at B,
+//   silently dropping the failed Registered events. The new approach
+//   commits cursor at (B - 1) so block B is re-scanned next poll.
+
+describe('decideCursorAdvance', () => {
+  it('advances to toBlock on full success (no failure recorded)', () => {
+    expect(decideCursorAdvance(null, 100n, 200n)).toBe(200n)
+  })
+
+  it('handles equal fromBlock and toBlock (single-block scan, all success)', () => {
+    expect(decideCursorAdvance(null, 100n, 100n)).toBe(100n)
+  })
+
+  it('rolls back to (firstFailureBlock - 1) when failure is mid-range', () => {
+    // Failure at block 150 in a (100..200] scan → next cursor = 149,
+    // so blocks 150..200 are re-scanned on the next poll.
+    expect(decideCursorAdvance(150n, 100n, 200n)).toBe(149n)
+  })
+
+  it('rolls back even when failure is at toBlock (last block in range)', () => {
+    // Failure at block 200 in (100..200] → cursor = 199, retry 200 next.
+    expect(decideCursorAdvance(200n, 100n, 200n)).toBe(199n)
+  })
+
+  it('rolls back to (failure - 1) one block past fromBlock', () => {
+    // Smallest non-trivial advance: fromBlock=100, fail at 101 → cursor = 100.
+    // The from-block itself processed cleanly (or had no events); next
+    // poll re-attempts from 101.
+    expect(decideCursorAdvance(101n, 100n, 200n)).toBe(100n)
+  })
+
+  it('returns null (no advance) when failure is at fromBlock itself', () => {
+    // Loud-stuck: every event in the first scanned block failed.
+    // Cursor unmoved → next poll re-attempts the SAME range, surfacing
+    // a "not progressing" signal in metrics.
+    expect(decideCursorAdvance(100n, 100n, 200n)).toBeNull()
+  })
+
+  it('returns null when failure is BEFORE fromBlock (defensive: should not happen in practice)', () => {
+    // Caller-side invariant violated; the loop should never record a
+    // failure block outside the scan range. Treat as stuck rather than
+    // letting a bogus value silently advance the cursor.
+    expect(decideCursorAdvance(99n, 100n, 200n)).toBeNull()
+  })
+
+  it('does NOT advance into a block that had any failure (regression-pin for smoke-test scenario)', () => {
+    // Block 41124962 had: 4 successful Transfer-mint early-returns
+    // followed by 4 failing AgentRegistered/OrgRegistered events.
+    // Old behavior: cursor = 41124962 (drops the failed events).
+    // New behavior: cursor = 41124961 (re-scans block 41124962).
+    const cursor = decideCursorAdvance(41124962n, 41124901n, 41125282n)
+    expect(cursor).toBe(41124961n)
+    // Critical property: cursor must be STRICTLY less than firstFailureBlock.
+    expect(cursor!).toBeLessThan(41124962n)
+  })
+
+  it('handles realistic block magnitudes without bigint overflow', () => {
+    // Sanity: bigint math doesn't truncate on real-world Base block heights.
+    const huge = 41_125_282n
+    expect(decideCursorAdvance(null, 100n, huge)).toBe(huge)
+    expect(decideCursorAdvance(huge - 1n, 100n, huge)).toBe(huge - 2n)
   })
 })

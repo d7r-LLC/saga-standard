@@ -1,0 +1,16 @@
+# D1 backup files produced by `pnpm run db:backup:staging` /
+# `db:backup:production`. Contents are full database snapshots and
+# can include any data the server stored (sessions, agent metadata,
+# document blobs in indexed form). Treat as sensitive.
+#
+# Per the production-deploy runbook (scripts/deploy-production.md),
+# operators archive these out-of-band — they should NEVER land in git.
+backups/*.sql
+
+# Per-environment .env files written by `saga secrets generate`. Rules
+# inherited from the workspace-level .gitignore; repeated here for
+# clarity since this package is the canonical place where they're
+# generated.
+.env.staging
+.env.production
+.env.preview
