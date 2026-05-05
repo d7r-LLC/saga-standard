@@ -7,6 +7,15 @@ import yaml from 'js-yaml'
 export interface OpConfig {
   vault: string
   signerItem: string
+  /**
+   * 1Password field name on the signer item that holds the credential
+   * (mnemonic or hex private key). Defaults to "password" when unset so
+   * existing items using the standard PASSWORD-purpose field continue to
+   * work. Set this when the credential lives in a custom field — e.g.
+   * `signerField: mnemonic` for items that distinguish mnemonic storage
+   * from a separate password field.
+   */
+  signerField?: string
   addressesItem: string
   explorerKeyItem: string
 }

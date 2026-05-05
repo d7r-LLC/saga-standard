@@ -153,6 +153,28 @@ describe('deploy-config', () => {
       const resolved = resolveChainConfig(config, 'base', {})
       expect(resolved.production).toBe(true)
     })
+
+    it('passes through optional signerField when configured', () => {
+      const configPath = join(TEST_DIR, 'deploy.config.yaml')
+      const yamlWithField = VALID_CONFIG_YAML.replace(
+        'signerItem: base-sepolia-signer\n      addressesItem',
+        'signerItem: base-sepolia-signer\n      signerField: mnemonic\n      addressesItem'
+      )
+      writeFileSync(configPath, yamlWithField)
+      const config = loadDeployConfig(configPath)
+
+      const resolved = resolveChainConfig(config, 'base-sepolia', {})
+      expect(resolved.op.signerField).toBe('mnemonic')
+    })
+
+    it('leaves signerField undefined when omitted (script defaults to password)', () => {
+      const configPath = join(TEST_DIR, 'deploy.config.yaml')
+      writeFileSync(configPath, VALID_CONFIG_YAML)
+      const config = loadDeployConfig(configPath)
+
+      const resolved = resolveChainConfig(config, 'base-sepolia', {})
+      expect(resolved.op.signerField).toBeUndefined()
+    })
   })
 
   describe('deriveNetworkAllowlist', () => {
