@@ -60,7 +60,7 @@ The threshold (60/min/handle) is generous for normal use and tight enough to cat
 
 ## Acceptance criteria
 
-- `pnpm --filter @epicdm/saga-server test` green (existing 317 + new tests for 3.3, 3.5)
+- `pnpm --filter @d7r/saga-server test` green (existing 317 + new tests for 3.3, 3.5)
 - New tests shipped (3 total):
   - `directory-indexer`: writes `fed:rotated:<directoryId>` sentinel when KV is provided
   - `directory-indexer`: omits sentinel when KV is not provided (back-compat)
@@ -80,5 +80,5 @@ Single commit:
 ```
 feat(server): Phase 3 (scoped) — federation link drop on rotation + memory-sync rate limit
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```

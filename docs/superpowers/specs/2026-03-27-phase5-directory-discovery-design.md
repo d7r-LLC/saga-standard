@@ -3,7 +3,7 @@
 # Phase 5: Directory + Discovery — Design
 
 **Date:** 2026-03-27
-**Package:** `@epicdm/saga-app`
+**Package:** `@d7r/saga-app`
 **Depends on:** Phase 4 (Wallet Signing)
 
 ## Goal
@@ -77,7 +77,7 @@ async function getOrg(handle: string): Promise<OrgDetail>
 async function getDirectories(page: number): Promise<DirectoriesResult>
 ```
 
-The API client reads the server URL from a config constant. For now, this is hardcoded to the development hub URL (`https://saga-hub.d7r-LLC.workers.dev` or whatever is configured). A settings screen for custom hub URLs is out of scope.
+The API client reads the server URL from a config constant. For now, this is hardcoded to the development hub URL (`https://saga-hub.d7r.workers.dev` or whatever is configured). A settings screen for custom hub URLs is out of scope.
 
 ## Screens
 
@@ -256,7 +256,7 @@ A pressable card displaying an entity search result:
 The API client uses a hardcoded constant for the hub URL. This aligns with the current ChainProvider pattern where chain config is constants-based. A configurable hub URL setting is out of scope for Phase 5.
 
 ```typescript
-export const HUB_URL = 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = 'https://saga-hub.d7r.workers.dev'
 ```
 
 ## Testing Strategy

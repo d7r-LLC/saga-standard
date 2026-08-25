@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "projectName": "@epicdm/saga-server",
+  "projectName": "@d7r/saga-server",
   "projectType": "worker",
   "projectId": "proj_8-lcqnAwYO",
   "codebaseId": "code_u2uLspkjqe",

@@ -7,10 +7,10 @@ import ora from 'ora'
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { decryptVaultItem, deriveVaultMasterKey, encryptVaultItem } from '@epicdm/saga-sdk'
+import { decryptVaultItem, deriveVaultMasterKey, encryptVaultItem } from '@d7r/saga-sdk'
 import { getSagaDir } from '../config'
 import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
-import type { VaultDecryptedFields, VaultItem, VaultItemType, VaultLayer } from '@epicdm/saga-sdk'
+import type { VaultDecryptedFields, VaultItem, VaultItemType, VaultLayer } from '@d7r/saga-sdk'
 
 /**
  * Vault management commands: encrypted credential store for agents.

@@ -17,7 +17,7 @@ export interface SagaConfigAgent {
 
 /** SAGA hub connection configuration */
 export interface SagaConfigHub {
-  /** Hub URL (e.g. "https://agents.epicflowstate.ai") */
+  /** Hub URL (e.g. "https://agents.d7r.io") */
   url: string
   /** Unique system identifier for this DERP */
   systemId: string

@@ -139,7 +139,7 @@ The Safe queues AND applies; the queue is the slow gate, not the
 apply. Regression tests pin the access-control change; existing M-1
 tests already prank as the safe and continue to pass.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -296,7 +296,7 @@ path, not just liveness. Cancel paths also clear the codehash slot.
 Residual (proxy with constant extcodehash + mutable implementation())
 documented in README; Safe diligence MUST refuse to queue proxies.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -434,7 +434,7 @@ it closes the standard-conforming case but NOT the adversarial-
 implementation case where token() lies about its binding. UX-layer
 warnings remain valid for that residual.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -595,7 +595,7 @@ QueueAuthorizeOrg.s.sol script. The new script deploys + queues the
 authorization (24h timelock), then prints Safe calldata for the
 post-timelock apply transaction.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -635,7 +635,7 @@ Phase 12A — closes 4 findings from the post-Phase-11 three-provider re-audit.
 - [x] `pnpm typecheck` clean
 - [ ] Copilot review
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -753,7 +753,7 @@ Add cancelPendingBaseURI() to all three identity contracts. Reverts
 when nothing queued (no misleading no-op events). Emits
 BaseURICancelled(oldPending). ABI freshness pin extended.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -914,7 +914,7 @@ the README addresses. Defer Option 2 to a future major version.
 MockDirectoryIdentity test fixture got an ownerOf stub so
 seed-directory test paths continue to work.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1131,7 +1131,7 @@ in _update gets a transient _inGovernanceRescue flag instead of an
 auth-based carve-out. Emits a distinct GovernanceRescue event for
 audit-trail clarity.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1221,7 +1221,7 @@ Apply _validateHandle to every read path (matches write-side
 validation). Stricter than the audit's length-only recommendation
 because it keeps read+write semantics aligned.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1301,7 +1301,7 @@ if Safe already owns; skip if pendingOwner already Safe; transfer if
 deployer still owns; revert with a per-contract unexpected-owner
 error otherwise.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1421,7 +1421,7 @@ Add updateOperatorWallet(tokenId, newOperator). Authorization via
 ERC-721 _isAuthorized (allows approved operators, consistent with
 M-3). Rejects zero address. Emits DirectoryOperatorUpdated.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1541,7 +1541,7 @@ Align directory _update with agent/org. The F-10 rank block now
 nests inside an explicit 'from != 0' check so it stays scoped to
 non-mint transfers.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1619,7 +1619,7 @@ blacklist; J-6 validateBaseUri tests only covered hand-picked
 samples. Mirror the J-12 closure so any divergence between
 validateUrl and validateBaseUri byte handling is caught.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1668,7 +1668,7 @@ canonical addresses (J-9). Deploy.s.sol skipped this verification.
 Mirror the pattern for consistency — catches a constructor-argument
 swap or stale ABI before the helper becomes immutably wired.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1716,7 +1716,7 @@ share the canonical address).
 
 Cosmetic. No behavior change.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1821,7 +1821,7 @@ Move finalizeBootstrap to its own script run AFTER verification +
 smoke test. Cleaner audit log; recoverable if Deploy.s.sol
 partial-fails. README runbook updated to sequence the steps.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1888,7 +1888,7 @@ Add an early-exit when to.code.length == 0. Same pattern across all
 three identity contracts. Existing F-4 / J-13 tests still pass
 because they target contract destinations.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---

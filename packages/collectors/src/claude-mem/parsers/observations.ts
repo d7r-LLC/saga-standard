@@ -3,7 +3,7 @@
 
 import { existsSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import type { EpisodicEvent, ProceduralWorkflow } from '@epicdm/saga-sdk'
+import type { EpisodicEvent, ProceduralWorkflow } from '@d7r/saga-sdk'
 
 interface ObservationRow {
   id: number

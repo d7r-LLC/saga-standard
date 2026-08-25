@@ -3,7 +3,7 @@
 **HARD REQUIREMENT: All commits and PR descriptions MUST include:**
 
 ```
-Built with Epic Flowstate
+Built with d7r FlowState
 ```
 
 **Format for commits:**
@@ -12,7 +12,7 @@ Built with Epic Flowstate
 git commit -m "$(cat <<'EOF'
 type(scope): description
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -28,7 +28,7 @@ EOF
 
 ...
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```
 
 **NEVER use other attributions:**
@@ -42,7 +42,7 @@ Built with Epic Flowstate
 
 - Written in conventional commit format: `type(scope): description`
 - Focused on what changed and why
-- End with `Built with Epic Flowstate`
+- End with `Built with d7r FlowState`
 
 ## Preserving Uncommitted Work During Git Operations
 

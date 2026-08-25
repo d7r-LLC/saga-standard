@@ -36,7 +36,7 @@ pnpm run build
 The SAGA CLI stores encrypted wallets locally. Create one for your directory operator:
 
 ```bash
-pnpm --filter @epicdm/saga-cli exec saga wallet create --name operator
+pnpm --filter @d7r/saga-cli exec saga wallet create --name operator
 ```
 
 Note the wallet address. You'll need it for contract deployment and NFT minting.
@@ -45,7 +45,7 @@ Fund it with testnet ETH if deploying to Base Sepolia:
 
 ```bash
 # Get your wallet address
-pnpm --filter @epicdm/saga-cli exec saga wallet list
+pnpm --filter @d7r/saga-cli exec saga wallet list
 ```
 
 ## 3. Deploy Smart Contracts
@@ -65,13 +65,13 @@ Edit `packages/contracts/deploy.config.yaml` with your settings:
 For testnet (Base Sepolia):
 
 ```bash
-pnpm --filter @epicdm/saga-cli exec saga deploy --chain base-sepolia --broadcast
+pnpm --filter @d7r/saga-cli exec saga deploy --chain base-sepolia --broadcast
 ```
 
 For mainnet (requires `--production` flag):
 
 ```bash
-pnpm --filter @epicdm/saga-cli exec saga deploy --chain base --broadcast --production
+pnpm --filter @d7r/saga-cli exec saga deploy --chain base --broadcast --production
 ```
 
 The deploy command:
@@ -161,7 +161,7 @@ Your directory needs an on-chain identity. This mints an ERC-721 NFT on the SAGA
 Choose a `directoryId` that's unique and descriptive (e.g. `my-org-hub`, `acme-ai-dir`). This becomes your directory's permanent on-chain identity.
 
 ```bash
-pnpm --filter @epicdm/saga-cli exec saga register-directory \
+pnpm --filter @d7r/saga-cli exec saga register-directory \
   --directory-id "my-hub" \
   --url "https://my-hub.example.com" \
   --wallet operator \
@@ -245,7 +245,7 @@ curl -X POST https://other-directory.example.com/admin/reindex \
 Register an agent on your directory:
 
 ```bash
-pnpm --filter @epicdm/saga-cli exec saga register my-agent \
+pnpm --filter @d7r/saga-cli exec saga register my-agent \
   --on-chain \
   --wallet operator \
   --server https://saga-my-directory-dev.<your-subdomain>.workers.dev \

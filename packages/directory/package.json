@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-directory",
+  "name": "@d7r/saga-directory",
   "version": "0.1.0",
   "private": true,
   "description": "SAGA Official Directory — browse, register, and manage SAGA agents and organizations",
@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@epicdm/saga-client": "workspace:*",
+    "@d7r/saga-client": "workspace:*",
     "@headlessui/react": "^2.2.6",
     "@tailwindcss/postcss": "^4.1.11",
     "@walletconnect/ethereum-provider": "2.17.0",

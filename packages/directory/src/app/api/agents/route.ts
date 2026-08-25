@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import type { RegisterAgentRequest } from '@epicdm/saga-client'
+import type { RegisterAgentRequest } from '@d7r/saga-client'
 import { getSession } from '@/lib/session/server'
 import {
   createAuthenticatedSagaClient,

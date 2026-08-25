@@ -38,7 +38,7 @@
 
 - [ ] **Step 1: Install the AMS client dependency**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context && pnpm --filter @epicdm/saga-server add @epicdm/flowstate-agents-memory-client`
+Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context && pnpm --filter @d7r/saga-server add @epicdm/flowstate-agents-memory-client`
 
 Expected: package.json updated, lockfile updated.
 
@@ -72,7 +72,7 @@ git add packages/server/package.json packages/server/src/bindings.ts packages/se
 git commit --no-verify -m "$(cat <<'EOF'
 feat(server): add AMS client dependency and env vars
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -417,7 +417,7 @@ git add packages/server/src/services/memory.ts packages/server/src/__tests__/mem
 git commit --no-verify -m "$(cat <<'EOF'
 feat(server): add AMS memory service with fallback support
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -599,7 +599,7 @@ git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.te
 git commit --no-verify -m "$(cat <<'EOF'
 feat(server): initialize AMS session on conversation create
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -855,7 +855,7 @@ feat(server): integrate AMS context management into message handler
 Sync user/assistant messages to AMS, use getMemoryPrompt for context,
 fall back to D1 history (last 50 messages) when AMS is unavailable.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -961,7 +961,7 @@ git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.te
 git commit --no-verify -m "$(cat <<'EOF'
 feat(server): clean up AMS memory on conversation delete
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

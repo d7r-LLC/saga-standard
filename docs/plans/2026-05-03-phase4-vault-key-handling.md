@@ -63,9 +63,9 @@ Callers that hold the key for longer than a single sign should switch to `loadWa
 
 ## Acceptance criteria
 
-- `pnpm --filter @epicdm/saga-server test` green
-- `pnpm --filter @epicdm/saga-cli test` green
-- `pnpm --filter @epicdm/saga-sdk test` green
+- `pnpm --filter @d7r/saga-server test` green
+- `pnpm --filter @d7r/saga-cli test` green
+- `pnpm --filter @d7r/saga-sdk test` green
 - New vault-crypto tests:
   - Without AAD: encrypt/decrypt round-trip works (unchanged).
   - With AAD: same context decrypts; tampered context fails AES-GCM auth.
@@ -86,5 +86,5 @@ Callers that hold the key for longer than a single sign should switch to `loadWa
 ```
 feat(security): Phase 4 (scoped) — vault AAD binding + scrypt N=65536 + clearable wallet key
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```

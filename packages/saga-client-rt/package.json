@@ -27,7 +27,7 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-crypto": "workspace:*"
+    "@d7r/saga-crypto": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

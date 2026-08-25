@@ -59,7 +59,7 @@ async function seedNFTAgent(handle: string, tokenId: number, wallet = WALLET): P
       '0xcontract1234567890abcdef1234567890abcdef',
       '0xtxhash1234567890abcdef1234567890abcdef12',
       'agent',
-      'https://agents.epicflowstate.ai'
+      'https://agents.d7r.io'
     )
     .run()
 }
@@ -90,12 +90,12 @@ describe('resolve route', () => {
   })
 
   it('resolves an existing org', async () => {
-    await seedOrg('d7r-llc', 'd7r LLC')
-    const res = await req('GET', '/v1/resolve/d7r-llc')
+    await seedOrg('d7r', 'd7r LLC')
+    const res = await req('GET', '/v1/resolve/d7r')
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
     expect(body.entityType).toBe('org')
-    expect(body.handle).toBe('d7r-llc')
+    expect(body.handle).toBe('d7r')
     expect(body.name).toBe('d7r LLC')
   })
 
@@ -117,7 +117,7 @@ describe('resolve route', () => {
 
 describe('org routes', () => {
   it('lists organizations with pagination', async () => {
-    await seedOrg('d7r-llc', 'd7r LLC')
+    await seedOrg('d7r', 'd7r LLC')
     await seedOrg('flowstate-labs', 'FlowState Labs')
 
     const res = await req('GET', '/v1/orgs')
@@ -128,12 +128,12 @@ describe('org routes', () => {
   })
 
   it('gets org by handle', async () => {
-    await seedOrg('d7r-llc', 'd7r LLC')
+    await seedOrg('d7r', 'd7r LLC')
 
-    const res = await req('GET', '/v1/orgs/d7r-llc')
+    const res = await req('GET', '/v1/orgs/d7r')
     expect(res.status).toBe(200)
     const body = (await res.json()) as { organization: Record<string, unknown> }
-    expect(body.organization.handle).toBe('d7r-llc')
+    expect(body.organization.handle).toBe('d7r')
     expect(body.organization.name).toBe('d7r LLC')
   })
 
@@ -189,7 +189,7 @@ describe('agent routes — NFT fields', () => {
     expect(body.agent.tokenId).toBe(99)
     expect(body.agent.tbaAddress).toBeTruthy()
     expect(body.agent.contractAddress).toBeTruthy()
-    expect(body.agent.homeHubUrl).toBe('https://agents.epicflowstate.ai')
+    expect(body.agent.homeHubUrl).toBe('https://agents.d7r.io')
   })
 
   it('includes NFT fields in list response', async () => {
@@ -302,16 +302,7 @@ describe('integration — event handler → API', () => {
     await env.DB.prepare(
       'INSERT INTO organizations (id, handle, name, wallet_address, chain, tba_address, registered_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-      .bind(
-        'org_epic',
-        'd7r-llc',
-        'd7r LLC',
-        WALLET.toLowerCase(),
-        CHAIN,
-        orgTba,
-        now,
-        now
-      )
+      .bind('org_epic', 'd7r', 'd7r LLC', WALLET.toLowerCase(), CHAIN, orgTba, now, now)
       .run()
 
     await env.DB.prepare(
@@ -325,7 +316,7 @@ describe('integration — event handler → API', () => {
     const agentBody = (await agentRes.json()) as { agent: Record<string, unknown> }
     expect(agentBody.agent.walletAddress).toBe(orgTba.toLowerCase())
 
-    const orgRes = await req('GET', '/v1/orgs/d7r-llc')
+    const orgRes = await req('GET', '/v1/orgs/d7r')
     expect(orgRes.status).toBe(200)
     const orgBody = (await orgRes.json()) as { organization: Record<string, unknown> }
     expect(orgBody.organization.tbaAddress).toBe(orgTba)

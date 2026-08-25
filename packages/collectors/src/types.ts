@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { PartialSagaDocument, SagaLayerName } from '@epicdm/saga-sdk'
+import type { PartialSagaDocument, SagaLayerName } from '@d7r/saga-sdk'
 
 /** Result of detecting a collector source on disk */
 export interface CollectorDetection {

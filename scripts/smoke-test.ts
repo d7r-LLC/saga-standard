@@ -19,10 +19,10 @@
  */
 
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { SagaServerClient } from '@epicdm/saga-client'
-import type { WalletSigner } from '@epicdm/saga-client'
-import type { ChainId } from '@epicdm/saga-sdk'
-import { assembleSagaDocument, createPrivateKeySigner, validateSemantics } from '@epicdm/saga-sdk'
+import { SagaServerClient } from '@d7r/saga-client'
+import type { WalletSigner } from '@d7r/saga-client'
+import type { ChainId } from '@d7r/saga-sdk'
+import { assembleSagaDocument, createPrivateKeySigner, validateSemantics } from '@d7r/saga-sdk'
 
 const SERVER_URL = process.env.SAGA_SERVER_URL ?? 'http://localhost:8787'
 const CHAIN: ChainId = 'eip155:8453'
@@ -149,7 +149,7 @@ async function main() {
           },
           relationships: {
             organization: {
-              companySlug: 'd7r-llc',
+              companySlug: 'd7r',
               role: 'Smoke Test Runner',
               joinedAt: new Date().toISOString(),
             },

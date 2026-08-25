@@ -319,7 +319,7 @@ git add packages/client/src/chain.ts packages/client/src/__tests__/chain.test.ts
 git commit -m "$(cat <<'EOF'
 feat(client): add mintDirectoryIdentity for on-chain directory NFT minting
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -344,7 +344,7 @@ Create `packages/cli/src/commands/register-directory.ts`:
 import { Command } from 'commander'
 import chalk from 'chalk'
 import { privateKeyToAccount } from 'viem/accounts'
-import { SagaServerClient, isHandleAvailable, mintDirectoryIdentity } from '@epicdm/saga-client'
+import { SagaServerClient, isHandleAvailable, mintDirectoryIdentity } from '@d7r/saga-client'
 import { loadConfig } from '../config'
 import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
 import { chainFromCaip2, createViemClients, waitForIndexer } from '../cli-chain-helpers'
@@ -481,7 +481,7 @@ git add packages/cli/src/commands/register-directory.ts packages/cli/src/index.t
 git commit -m "$(cat <<'EOF'
 feat(cli): add register-directory command for minting Directory NFTs
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -636,7 +636,7 @@ git add docs/deploy/wrangler.template.toml
 git commit -m "$(cat <<'EOF'
 docs: add wrangler deployment template for new directories
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -955,7 +955,7 @@ git add docs/deploy/fork-and-deploy-guide.md
 git commit -m "$(cat <<'EOF'
 docs: add fork-and-deploy guide for running your own SAGA directory
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ````

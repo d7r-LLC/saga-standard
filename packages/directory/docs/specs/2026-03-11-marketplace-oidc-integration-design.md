@@ -4,7 +4,7 @@
 
 **Date:** 2026-03-11
 **Status:** Approved
-**Goal:** Replace NextAuth in the marketplace with a custom OIDC client that authenticates against the FlowState Identity Server (`id.epicflowstate.ai`).
+**Goal:** Replace NextAuth in the marketplace with a custom OIDC client that authenticates against the FlowState Identity Server (`id.d7r.io`).
 
 **Architecture:** The marketplace becomes a standard OIDC Relying Party using Arctic (OAuth2Client for PKCE flow) and oslo/jwt (ID token verification). Authentication UI and upstream providers (GitHub, Google, magic link) are handled entirely by the identity server. The marketplace maintains its own KV-backed session and local profiles table linked by the identity server's `sub` claim.
 
@@ -37,8 +37,8 @@
 - **Client type:** Public (PKCE-only, no client_secret)
 - **Scopes:** `openid profile email offline_access`
 - **Redirect URIs:**
-  - `https://marketplace.epicflowstate.ai/auth/callback` (production)
-  - `https://flowstate-marketplace-staging.epicdm.workers.dev/auth/callback` (staging)
+  - `https://marketplace.d7r.io/auth/callback` (production)
+  - `https://flowstate-marketplace-staging.d7r.workers.dev/auth/callback` (staging)
   - `http://localhost:3000/auth/callback` (local dev)
 - **First-party:** Yes (auto-consent, no consent screen)
 
@@ -159,9 +159,9 @@ interface SessionData {
 
 ### New Environment Variables (Marketplace)
 
-| Variable              | Production                    | Staging                               | Local                   |
-| --------------------- | ----------------------------- | ------------------------------------- | ----------------------- |
-| `IDENTITY_ISSUER_URL` | `https://id.epicflowstate.ai` | `https://id-staging.epicflowstate.ai` | `http://localhost:3100` |
+| Variable              | Production          | Staging                     | Local                   |
+| --------------------- | ------------------- | --------------------------- | ----------------------- |
+| `IDENTITY_ISSUER_URL` | `https://id.d7r.io` | `https://id-staging.d7r.io` | `http://localhost:3100` |
 
 ### New KV Namespaces
 

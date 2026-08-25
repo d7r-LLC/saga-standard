@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { RecentTask } from '@epicdm/saga-sdk'
+import type { RecentTask } from '@d7r/saga-sdk'
 
 /**
  * Parse Claude Code todos/ directory into in-progress task history.

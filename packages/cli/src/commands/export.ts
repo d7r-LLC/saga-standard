@@ -14,9 +14,9 @@ import {
   packSagaContainer,
   validateSagaDocument,
   validateSemantics,
-} from '@epicdm/saga-sdk'
-import type { ExportType, PartialSagaDocument } from '@epicdm/saga-sdk'
-import { SagaServerClient } from '@epicdm/saga-client'
+} from '@d7r/saga-sdk'
+import type { ExportType, PartialSagaDocument } from '@d7r/saga-sdk'
+import { SagaServerClient } from '@d7r/saga-client'
 import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
 import { getCachedSession, loadConfig } from '../config'
 

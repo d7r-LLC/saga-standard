@@ -117,7 +117,7 @@ describe('FlowstateScopeMapper', () => {
       makeFlowstateConfig({
         orgId: 'org_epic',
         workspaceId: 'work_saga',
-        projectName: '@epicdm/saga-standard',
+        projectName: '@d7r/saga-standard',
       })
     )
 
@@ -133,7 +133,7 @@ describe('FlowstateScopeMapper', () => {
 
     expect(result.projectScopes.get('saga-standard')).toBeDefined()
     expect(result.projectScopes.get('saga-standard')!.orgId).toBe('org_epic')
-    expect(result.projectScopes.get('saga-standard')!.projectName).toBe('@epicdm/saga-standard')
+    expect(result.projectScopes.get('saga-standard')!.projectName).toBe('@d7r/saga-standard')
   })
 
   it('tracks unmapped projects', () => {

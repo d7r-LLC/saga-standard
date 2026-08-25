@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { ChainId, ExportType, StorageRef } from '@epicdm/saga-sdk'
+import type { ChainId, ExportType, StorageRef } from '@d7r/saga-sdk'
 
 // ── Auth ─────────────────────────────────────────────────────────────
 

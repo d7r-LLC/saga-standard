@@ -24,7 +24,7 @@ describe('SecureKeychain', () => {
     expect(MockedKeychain.setGenericPassword).toHaveBeenCalledWith(
       'master-key',
       'secret-value',
-      expect.objectContaining({ service: 'com.epicdm.saga.master-key' })
+      expect.objectContaining({ service: 'io.d7r.saga.master-key' })
     )
   })
 
@@ -42,7 +42,7 @@ describe('SecureKeychain', () => {
   it('deletes a value from the keychain', async () => {
     await SecureKeychain.remove('master-key')
     expect(MockedKeychain.resetGenericPassword).toHaveBeenCalledWith(
-      expect.objectContaining({ service: 'com.epicdm.saga.master-key' })
+      expect.objectContaining({ service: 'io.d7r.saga.master-key' })
     )
   })
 })

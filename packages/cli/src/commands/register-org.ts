@@ -4,7 +4,7 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import { privateKeyToAccount } from 'viem/accounts'
-import { SagaServerClient, isHandleAvailable, mintOrgIdentity } from '@epicdm/saga-client'
+import { SagaServerClient, isHandleAvailable, mintOrgIdentity } from '@d7r/saga-client'
 import { loadConfig } from '../config'
 import { getWalletInfo, loadWalletPrivateKey } from '../wallet-store'
 import { chainFromCaip2, createViemClients, waitForIndexer } from '../cli-chain-helpers'

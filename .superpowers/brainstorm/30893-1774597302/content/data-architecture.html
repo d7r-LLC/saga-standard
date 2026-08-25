@@ -174,24 +174,24 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │                        APP FEATURES                              │
 │                                                                  │
-│  Messaging ──────────► @epicdm/saga-client-rt                    │
+│  Messaging ──────────► @d7r/saga-client-rt                    │
 │  feature               • SagaClient (connect, sendMessage, etc.) │
 │                         • RelayConnection (WebSocket)            │
 │                         • MessageRouter (DM, group, memory)      │
 │                         • PolicyEngine (governance)              │
 │                                                                  │
-│  Documents ──────────► @epicdm/saga-sdk                          │
+│  Documents ──────────► @d7r/saga-sdk                          │
 │  feature               • assembleSagaDocument()                  │
 │                         • validateSagaDocument()                 │
 │                         • packSagaContainer() / extract()        │
 │                         • encryptLayer() / decryptLayer()        │
 │                                                                  │
-│  Identity  ──────────► @epicdm/saga-client                       │
+│  Identity  ──────────► @d7r/saga-client                       │
 │  feature               • ChainClient (mint, register, resolve)   │
 │                         • AuthClient (challenge-response)        │
 │                         • ServerClient (REST API calls)          │
 │                                                                  │
-│  Wallet    ──────────► @epicdm/saga-crypto                       │
+│  Wallet    ──────────► @d7r/saga-crypto                       │
 │  feature               • SagaKeyRing (key management)            │
 │                         • seal() / open() (envelope encryption)  │
 │                         • deriveX25519KeyPair()                  │
@@ -203,7 +203,7 @@
 │                         • Sign with wallet (viem)                │
 │                         • Retry with settlement proof            │
 │                                                                  │
-│  Directory ──────────► @epicdm/saga-client (ServerClient)        │
+│  Directory ──────────► @d7r/saga-client (ServerClient)        │
 │  feature               • GET /v1/agents, /v1/orgs               │
 │                         • GET /v1/resolve/:handle                │
 │                         • On-chain reads via viem publicClient   │

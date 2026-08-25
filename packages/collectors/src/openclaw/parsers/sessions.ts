@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { EpisodicEvent, RecentTask, TaskHistorySummary } from '@epicdm/saga-sdk'
+import type { EpisodicEvent, RecentTask, TaskHistorySummary } from '@d7r/saga-sdk'
 
 /**
  * Parse OpenClaw session JSONL files into task history.

@@ -6,9 +6,9 @@
 
 **Goal:** Users can mint identity NFTs (Agent or Org), register handles, create TBAs (ERC-6551), and manage their on-chain identity from the app's Profile tab.
 
-**Architecture:** New `src/features/identity/` feature module following the established pattern. A `ChainProvider` wraps viem public + wallet clients for Base / Base Sepolia with network switching. Identity operations use `@epicdm/saga-client` for minting/resolving (which wraps `@saga-standard/contracts` ABIs and addresses). Minted identities persist to Realm via StorageProvider. Mint wizard is a multi-step flow inside the ProfileStack. The existing Badge component already supports `agent` / `org` / `directory` variants.
+**Architecture:** New `src/features/identity/` feature module following the established pattern. A `ChainProvider` wraps viem public + wallet clients for Base / Base Sepolia with network switching. Identity operations use `@d7r/saga-client` for minting/resolving (which wraps `@saga-standard/contracts` ABIs and addresses). Minted identities persist to Realm via StorageProvider. Mint wizard is a multi-step flow inside the ProfileStack. The existing Badge component already supports `agent` / `org` / `directory` variants.
 
-**Tech Stack:** viem (chain interaction), @epicdm/saga-client (mintAgentIdentity, mintOrgIdentity, resolveHandleOnChain, isHandleAvailable), @saga-standard/contracts (ABIs, addresses, computeTBAAddress, types)
+**Tech Stack:** viem (chain interaction), @d7r/saga-client (mintAgentIdentity, mintOrgIdentity, resolveHandleOnChain, isHandleAvailable), @saga-standard/contracts (ABIs, addresses, computeTBAAddress, types)
 
 ---
 
@@ -17,7 +17,7 @@
 ```
 packages/saga-app/src/features/identity/
 ├── types.ts                        # IdentityData, MintParams, HandleStatus types
-├── chain.ts                        # Chain helpers wrapping @epicdm/saga-client
+├── chain.ts                        # Chain helpers wrapping @d7r/saga-client
 ├── hooks/
 │   ├── useIdentity.ts              # Identity list, active identity, CRUD
 │   ├── useMint.ts                  # Mint flow state machine (check → sign → confirm)
@@ -48,8 +48,8 @@ packages/saga-app/src/core/
 - `src/core/storage/realm-schemas.ts` — No schema changes needed (IdentityRecord already exists)
 - `src/core/storage/realm-store.ts` — No changes needed (schemaVersion stays at 2)
 - `src/App.tsx` — Wrap with ChainProvider
-- `jest.config.js` — Add @saga-standard/contracts, @epicdm/saga-client to transformIgnorePatterns if needed
-- `package.json` — Add @epicdm/saga-client, @saga-standard/contracts workspace dependencies
+- `jest.config.js` — Add @saga-standard/contracts, @d7r/saga-client to transformIgnorePatterns if needed
+- `package.json` — Add @d7r/saga-client, @saga-standard/contracts workspace dependencies
 
 **Test files:**
 
@@ -71,11 +71,11 @@ packages/saga-app/src/core/
 
 - [ ] **Step 1: Add workspace dependencies**
 
-Add `@epicdm/saga-client` and `@saga-standard/contracts` to package.json:
+Add `@d7r/saga-client` and `@saga-standard/contracts` to package.json:
 
 ```bash
 cd packages/saga-app
-pnpm add @epicdm/saga-client@workspace:* @saga-standard/contracts@workspace:*
+pnpm add @d7r/saga-client@workspace:* @saga-standard/contracts@workspace:*
 ```
 
 - [ ] **Step 2: Update jest.config.js transformIgnorePatterns**
@@ -150,7 +150,7 @@ export interface HandleStatus {
 
 - [ ] **Step 4: Run tests to verify no regressions**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All 44 existing tests pass.
 
 - [ ] **Step 5: Commit**
@@ -159,7 +159,7 @@ Expected: All 44 existing tests pass.
 git add packages/saga-app/package.json packages/saga-app/jest.config.js packages/saga-app/src/features/identity/types.ts pnpm-lock.yaml
 git commit -m "feat(saga-app): add identity dependencies and type scaffold for Phase 3
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -240,7 +240,7 @@ describe('ChainProvider', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="ChainProvider"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="ChainProvider"`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Create chain config**
@@ -354,7 +354,7 @@ Add import: `import { ChainProvider } from './core/providers/ChainProvider'`
 
 - [ ] **Step 6: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass including new ChainProvider tests.
 
 - [ ] **Step 7: Commit**
@@ -363,7 +363,7 @@ Expected: All tests pass including new ChainProvider tests.
 git add src/core/chain/config.ts src/core/providers/ChainProvider.tsx src/App.tsx __tests__/core/providers/ChainProvider.test.tsx
 git commit -m "feat(saga-app): add ChainProvider with viem clients and network switching
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -375,7 +375,7 @@ Built with Epic Flowstate"
 - Create: `packages/saga-app/src/features/identity/chain.ts`
 - Create: `packages/saga-app/__tests__/features/identity/chain.test.ts`
 
-These helpers wrap `@epicdm/saga-client` functions to provide a simpler interface for the app's hooks.
+These helpers wrap `@d7r/saga-client` functions to provide a simpler interface for the app's hooks.
 
 - [ ] **Step 1: Write the chain helper tests**
 
@@ -390,7 +390,7 @@ import { checkHandleAvailability, resolveHandle } from '../../../src/features/id
 const mockIsHandleAvailable = jest.fn()
 const mockResolveHandleOnChain = jest.fn()
 
-jest.mock('@epicdm/saga-client', () => ({
+jest.mock('@d7r/saga-client', () => ({
   isHandleAvailable: (...args: unknown[]) => mockIsHandleAvailable(...args),
   resolveHandleOnChain: (...args: unknown[]) => mockResolveHandleOnChain(...args),
 }))
@@ -443,7 +443,7 @@ describe('identity chain helpers', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="identity/chain"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="identity/chain"`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Create chain helpers**
@@ -460,8 +460,8 @@ import {
   mintAgentIdentity,
   mintOrgIdentity,
   resolveHandleOnChain,
-} from '@epicdm/saga-client'
-import type { MintResult, OnChainResolveResult, SupportedChain } from '@epicdm/saga-client'
+} from '@d7r/saga-client'
+import type { MintResult, OnChainResolveResult, SupportedChain } from '@d7r/saga-client'
 import type { ChainId } from '../wallet/types'
 
 export type { MintResult, OnChainResolveResult }
@@ -525,7 +525,7 @@ export async function mintOrg(
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="identity/chain"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="identity/chain"`
 Expected: PASS — 3 tests passing.
 
 - [ ] **Step 5: Commit**
@@ -534,7 +534,7 @@ Expected: PASS — 3 tests passing.
 git add src/features/identity/chain.ts __tests__/features/identity/chain.test.ts
 git commit -m "feat(saga-app): add identity chain helpers wrapping saga-client
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -619,7 +619,7 @@ describe('useHandle', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useHandle"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useHandle"`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement useHandle**
@@ -693,7 +693,7 @@ export function useHandle(): UseHandleResult {
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useHandle"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useHandle"`
 Expected: PASS — 3 tests passing.
 
 - [ ] **Step 5: Commit**
@@ -702,7 +702,7 @@ Expected: PASS — 3 tests passing.
 git add src/features/identity/hooks/useHandle.ts __tests__/features/identity/hooks/useHandle.test.tsx
 git commit -m "feat(saga-app): add useHandle hook for handle availability checking
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -803,7 +803,7 @@ describe('useMint', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useMint"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useMint"`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement useMint**
@@ -936,7 +936,7 @@ export function useMint(): UseMintResult {
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useMint"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useMint"`
 Expected: PASS — 4 tests passing.
 
 - [ ] **Step 5: Commit**
@@ -945,7 +945,7 @@ Expected: PASS — 4 tests passing.
 git add src/features/identity/hooks/useMint.ts __tests__/features/identity/hooks/useMint.test.tsx
 git commit -m "feat(saga-app): add useMint hook for identity NFT minting flow
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1020,7 +1020,7 @@ describe('useIdentity', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useIdentity"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useIdentity"`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement useIdentity**
@@ -1062,7 +1062,7 @@ export function useIdentity(): UseIdentityResult {
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern="useIdentity"`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern="useIdentity"`
 Expected: PASS — 3 tests passing.
 
 - [ ] **Step 5: Commit**
@@ -1071,7 +1071,7 @@ Expected: PASS — 3 tests passing.
 git add src/features/identity/hooks/useIdentity.ts __tests__/features/identity/hooks/useIdentity.test.tsx
 git commit -m "feat(saga-app): add useIdentity hook for identity list management
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1178,7 +1178,7 @@ Add `deleteIdentity` to the `value` object and the `StorageContextValue` interfa
 
 - [ ] **Step 6: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass.
 
 - [ ] **Step 7: Commit**
@@ -1187,7 +1187,7 @@ Expected: All tests pass.
 git add src/core/providers/StorageProvider.tsx
 git commit -m "feat(saga-app): add Realm-backed identity persistence in StorageProvider
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1378,7 +1378,7 @@ const styles = StyleSheet.create({
 
 - [ ] **Step 3: Run tests to verify no regressions**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass.
 
 - [ ] **Step 4: Commit**
@@ -1387,7 +1387,7 @@ Expected: All tests pass.
 git add src/features/identity/components/IdentityCard.tsx src/features/identity/components/HandleChecker.tsx
 git commit -m "feat(saga-app): add IdentityCard and HandleChecker components
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2062,7 +2062,7 @@ const styles = StyleSheet.create({
 
 - [ ] **Step 7: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass.
 
 - [ ] **Step 8: Commit**
@@ -2071,7 +2071,7 @@ Expected: All tests pass.
 git add src/navigation/types.ts src/navigation/stacks/ProfileStack.tsx src/features/identity/screens/
 git commit -m "feat(saga-app): add identity screens and Profile tab navigation
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2181,7 +2181,7 @@ Also add a "Network" button in `MyProfileScreen` below the "Manage Identities" b
 
 - [ ] **Step 4: Run tests**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass.
 
 - [ ] **Step 5: Commit**
@@ -2190,7 +2190,7 @@ Expected: All tests pass.
 git add src/features/identity/screens/NetworkSettings.tsx src/navigation/types.ts src/navigation/stacks/ProfileStack.tsx
 git commit -m "feat(saga-app): add network switcher for Base / Base Sepolia
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2201,12 +2201,12 @@ Built with Epic Flowstate"
 
 - [ ] **Step 1: Run full test suite**
 
-Run: `pnpm --filter @epicdm/saga-app test`
+Run: `pnpm --filter @d7r/saga-app test`
 Expected: All tests pass.
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `pnpm --filter @epicdm/saga-app typecheck`
+Run: `pnpm --filter @d7r/saga-app typecheck`
 Expected: Clean — no type errors.
 
 - [ ] **Step 3: Verify SPDX headers**
@@ -2231,5 +2231,5 @@ If there are lockfile changes or other incidental files:
 git add pnpm-lock.yaml
 git commit -m "chore(saga-app): update lockfile for Phase 3 dependencies
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```

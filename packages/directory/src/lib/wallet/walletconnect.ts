@@ -42,8 +42,8 @@ async function createProvider(): Promise<EthereumProvider> {
       url:
         typeof window !== 'undefined'
           ? window.location.origin
-          : 'https://directory.saga.epicdm.com',
-      icons: ['https://saga.epicdm.com/favicon.ico'],
+          : 'https://directory.saga.d7r.io',
+      icons: ['https://saga.d7r.io/favicon.ico'],
     },
   })
 }

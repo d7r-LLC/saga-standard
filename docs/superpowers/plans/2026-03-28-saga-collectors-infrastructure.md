@@ -6,7 +6,7 @@
 
 **Goal:** Build three new SAGA collectors (claude-mem, flowstate-memory, project-claude), a .saga/config.json schema, and register them in the collector pipeline so `saga collect` extracts memory from all local sources inside a DERP.
 
-**Architecture:** Each collector follows the established detect/scan/extract pattern in `@epicdm/saga-collectors`. New collectors are registered in the package index alongside existing claude-code and openclaw collectors. The .saga/config.json schema lives in `@epicdm/saga-sdk` for cross-package use.
+**Architecture:** Each collector follows the established detect/scan/extract pattern in `@d7r/saga-collectors`. New collectors are registered in the package index alongside existing claude-code and openclaw collectors. The .saga/config.json schema lives in `@d7r/saga-sdk` for cross-package use.
 
 **Tech Stack:** TypeScript, vitest, better-sqlite3 (claude-mem), node:fs (project-claude), native fetch (flowstate-memory), tsup build
 
@@ -103,7 +103,7 @@ describe('detectClaudeMem', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
 Expected: FAIL with "Cannot find module '../detector'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -140,7 +140,7 @@ export function detectClaudeMem(homeDir?: string): CollectorDetection {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -153,7 +153,7 @@ feat(collectors): add claude-mem detector
 Detects ~/.claude-mem/claude-mem.db on disk. Follows the same
 detect pattern as the existing claude-code and openclaw collectors.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -311,7 +311,7 @@ describe('parseObservations', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/observations'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -323,7 +323,7 @@ Expected: FAIL with "Cannot find module '../../parsers/observations'"
 
 import { existsSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import type { EpisodicEvent, ProceduralWorkflow } from '@epicdm/saga-sdk'
+import type { EpisodicEvent, ProceduralWorkflow } from '@d7r/saga-sdk'
 
 /** Observation row from claude-mem.db */
 interface ObservationRow {
@@ -462,7 +462,7 @@ function tryParseArray(json: string): string[] | undefined {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
 Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
@@ -476,7 +476,7 @@ Reads observations table from claude-mem.db and categorizes into
 SAGA episodic events (discovery, bugfix, feature, decision) and
 procedural workflows (pattern). Extracts concepts for semantic layer.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -591,7 +591,7 @@ describe('parseSessions', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/sessions'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -603,7 +603,7 @@ Expected: FAIL with "Cannot find module '../../parsers/sessions'"
 
 import { existsSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import type { RecentTask, TaskHistorySummary } from '@epicdm/saga-sdk'
+import type { RecentTask, TaskHistorySummary } from '@d7r/saga-sdk'
 
 interface SessionRow {
   session_id: string
@@ -696,7 +696,7 @@ export function parseSessions(dbPath: string): ParsedSessions {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
 Expected: PASS (5 tests)
 
 - [ ] **Step 5: Commit**
@@ -709,7 +709,7 @@ feat(collectors): add claude-mem session parser
 Maps sdk_sessions and session_summaries from claude-mem.db into
 SAGA task history entries with completion status tracking.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -764,7 +764,7 @@ describe('aggregateKnowledge', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/knowledge'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -774,7 +774,7 @@ Expected: FAIL with "Cannot find module '../../parsers/knowledge'"
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { ExpertiseLevel, SemanticMemory } from '@epicdm/saga-sdk'
+import type { ExpertiseLevel, SemanticMemory } from '@d7r/saga-sdk'
 
 /**
  * Aggregate concept strings from claude-mem observations into
@@ -816,7 +816,7 @@ function frequencyToLevel(count: number): ExpertiseLevel {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -829,7 +829,7 @@ feat(collectors): add claude-mem knowledge aggregator
 Aggregates observation concepts into SAGA semantic memory with
 frequency-weighted expertise levels (familiar/intermediate/proficient).
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -853,7 +853,7 @@ import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import Database from 'better-sqlite3'
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 
 /**
@@ -924,7 +924,7 @@ feat(collectors): add claude-mem scanner
 Queries observation and session counts from claude-mem.db for
 the scan report.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1083,7 +1083,7 @@ describe('ClaudeMemCollector', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
 Expected: FAIL with "Cannot find module '../extractor'"
 
 - [ ] **Step 3: Write the extractor**
@@ -1095,7 +1095,7 @@ Expected: FAIL with "Cannot find module '../extractor'"
 
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { PartialSagaDocument } from '@epicdm/saga-sdk'
+import type { PartialSagaDocument } from '@d7r/saga-sdk'
 import type { CollectorDetection, CollectorScan, ExtractOptions, SagaCollector } from '../types'
 import { detectClaudeMem } from './detector'
 import { scanClaudeMem } from './scanner'
@@ -1218,12 +1218,12 @@ registerCollector('claude-mem', () => new ClaudeMemCollector())
 
 - [ ] **Step 6: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
 Expected: PASS (7 tests)
 
 - [ ] **Step 7: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All existing + new tests pass
 
 - [ ] **Step 8: Commit**
@@ -1239,7 +1239,7 @@ and maps to SAGA memory + taskHistory layers.
 
 Registered as 'claude-mem' in the collector registry.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1367,7 +1367,7 @@ describe('FlowstateMemoryClient', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
 Expected: FAIL with "Cannot find module '../client'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1469,7 +1469,7 @@ export class FlowstateMemoryClient {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -1482,7 +1482,7 @@ feat(collectors): add flowstate-memory HTTP client
 HTTP client for the flowstate-agent-memory API with health check,
 search, get, and timeline methods.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1541,7 +1541,7 @@ describe('detectFlowstateMemory', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
 Expected: FAIL with "Cannot find module '../detector'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1584,7 +1584,7 @@ export async function detectFlowstateMemory(url?: string): Promise<CollectorDete
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -1597,7 +1597,7 @@ feat(collectors): add flowstate-memory detector
 Detects flowstate-agent-memory service via HTTP health check at
 localhost:7090.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1716,7 +1716,7 @@ describe('FlowstateMemoryCollector', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
 Expected: FAIL with "Cannot find module '../extractor'"
 
 - [ ] **Step 3: Write the scanner**
@@ -1726,7 +1726,7 @@ Expected: FAIL with "Cannot find module '../extractor'"
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 import { FlowstateMemoryClient } from './client'
 
@@ -1768,7 +1768,7 @@ export async function scanFlowstateMemory(url?: string): Promise<CollectorScan> 
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { EpisodicEvent, PartialSagaDocument, ProceduralWorkflow } from '@epicdm/saga-sdk'
+import type { EpisodicEvent, PartialSagaDocument, ProceduralWorkflow } from '@d7r/saga-sdk'
 import type { CollectorDetection, CollectorScan, ExtractOptions, SagaCollector } from '../types'
 import { detectFlowstateMemory } from './detector'
 import { scanFlowstateMemory } from './scanner'
@@ -1928,12 +1928,12 @@ registerCollector('flowstate-memory', () => new FlowstateMemoryCollector())
 
 - [ ] **Step 7: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 8: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 9: Commit**
@@ -1949,7 +1949,7 @@ to SAGA memory layers. Reuses aggregateKnowledge from claude-mem.
 
 Registered as 'flowstate-memory' in the collector registry.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -2069,7 +2069,7 @@ describe('parseAgentProfiles', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/agents'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2081,7 +2081,7 @@ Expected: FAIL with "Cannot find module '../../parsers/agents'"
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { PersonaLayer, RelationshipsLayer } from '@epicdm/saga-sdk'
+import type { PersonaLayer, RelationshipsLayer } from '@d7r/saga-sdk'
 
 export interface AgentProfileResult {
   persona?: Partial<PersonaLayer>
@@ -2153,7 +2153,7 @@ function parseAgentMarkdown(content: string): AgentProfileResult {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -2166,7 +2166,7 @@ feat(collectors): add project-claude agent profile parser
 Parses .claude/agents/*.md files into SAGA persona and
 relationships layers. Extracts name, role, bio, and team member ID.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -2240,7 +2240,7 @@ describe('parseRules', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/rules'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2299,7 +2299,7 @@ export function parseRules(claudeDir: string, projectRoot?: string): string | nu
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -2312,7 +2312,7 @@ feat(collectors): add project-claude rules parser
 Combines .claude/rules/*.md files and project CLAUDE.md into a
 single system prompt string for the SAGA cognitive layer.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -2335,7 +2335,7 @@ EOF
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { CognitiveLayer } from '@epicdm/saga-sdk'
+import type { CognitiveLayer } from '@d7r/saga-sdk'
 
 /**
  * Parse .claude/settings.json into cognitive parameters.
@@ -2381,7 +2381,7 @@ export function parseProjectSettings(claudeDir: string): Partial<CognitiveLayer>
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, basename } from 'node:path'
-import type { SelfReportedSkill } from '@epicdm/saga-sdk'
+import type { SelfReportedSkill } from '@d7r/saga-sdk'
 
 /**
  * Parse .claude/commands/ directory into SAGA skills.
@@ -2414,7 +2414,7 @@ feat(collectors): add project-claude settings and commands parsers
 Settings parser extracts allowed/denied tools as cognitive capabilities.
 Commands parser maps .claude/commands/*.md to SAGA self-reported skills.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -2625,7 +2625,7 @@ describe('ProjectClaudeCollector', () => {
 
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 
 /**
@@ -2682,7 +2682,7 @@ export function scanProjectClaude(paths: string[]): CollectorScan {
 
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { PartialSagaDocument } from '@epicdm/saga-sdk'
+import type { PartialSagaDocument } from '@d7r/saga-sdk'
 import type { CollectorDetection, CollectorScan, ExtractOptions, SagaCollector } from '../types'
 import { detectProjectClaude } from './detector'
 import { scanProjectClaude } from './scanner'
@@ -2829,17 +2829,17 @@ registerCollector('project-claude', () => new ProjectClaudeCollector())
 
 - [ ] **Step 8: Run detector tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/detector.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 9: Run extractor tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/project-claude/__tests__/extractor.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/extractor.test.ts`
 Expected: PASS (6 tests)
 
 - [ ] **Step 10: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 11: Commit**
@@ -2855,7 +2855,7 @@ commands. Maps to SAGA persona, cognitive, relationships, and skills.
 
 Registered as 'project-claude' in the collector registry.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -2864,7 +2864,7 @@ EOF
 
 ## Phase 4: .saga/config.json Schema
 
-Define the config schema in `@epicdm/saga-sdk` for cross-package use.
+Define the config schema in `@d7r/saga-sdk` for cross-package use.
 
 ### File Structure
 
@@ -2911,7 +2911,7 @@ export interface SagaConfigAgent {
 
 /** SAGA hub connection configuration */
 export interface SagaConfigHub {
-  /** Hub URL (e.g. "https://agents.epicflowstate.ai") */
+  /** Hub URL (e.g. "https://agents.d7r.io") */
   url: string
   /** Unique system identifier for this DERP */
   systemId: string
@@ -2985,7 +2985,7 @@ export type {
 
 - [ ] **Step 4: Verify typecheck**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk typecheck`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk typecheck`
 Expected: No type errors
 
 - [ ] **Step 5: Commit**
@@ -2998,7 +2998,7 @@ feat(sdk): add SagaConfig type for .saga/config.json
 Defines the schema for agent identity, hub connection, sync settings,
 FlowState identity bridge, and per-collector configuration.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -3047,10 +3047,10 @@ describe('loadSagaConfig', () => {
           sagaHandle: 'marcus-chen',
           sagaWallet: '0xabc123',
           chain: 'eip155:8453',
-          orgHandle: 'd7r-LLC',
+          orgHandle: 'd7r',
         },
         hub: {
-          url: 'https://agents.epicflowstate.ai',
+          url: 'https://agents.d7r.io',
           systemId: 'flowstate-derp-marcus-01',
         },
       })
@@ -3059,7 +3059,7 @@ describe('loadSagaConfig', () => {
     const config = loadSagaConfig(tempDir)
     expect(config).not.toBeNull()
     expect(config!.agent.sagaHandle).toBe('marcus-chen')
-    expect(config!.hub?.url).toBe('https://agents.epicflowstate.ai')
+    expect(config!.hub?.url).toBe('https://agents.d7r.io')
   })
 
   it('returns null when config missing', () => {
@@ -3089,7 +3089,7 @@ describe('loadSagaConfig', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/__tests__/config.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
 Expected: FAIL with "Cannot find module '../config'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -3101,7 +3101,7 @@ Expected: FAIL with "Cannot find module '../config'"
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SagaConfig } from '@epicdm/saga-sdk'
+import type { SagaConfig } from '@d7r/saga-sdk'
 
 /**
  * Load .saga/config.json from a workspace directory.
@@ -3138,17 +3138,17 @@ export { loadSagaConfig } from './config'
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/__tests__/config.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 6: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 7: Typecheck**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors typecheck`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors typecheck`
 Expected: No type errors
 
 - [ ] **Step 8: Commit**
@@ -3161,7 +3161,7 @@ feat(collectors): add .saga/config.json loader
 Loads and validates SagaConfig from workspace .saga/config.json.
 Validates required agent section with sagaHandle, sagaWallet, and chain.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -3305,17 +3305,17 @@ describe('project-claude full pipeline', () => {
 
 - [ ] **Step 2: Run integration tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test -- src/__tests__/all-collectors.test.ts`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/all-collectors.test.ts`
 Expected: PASS
 
 - [ ] **Step 3: Run complete test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors test`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass (existing + new)
 
 - [ ] **Step 4: Build check**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-collectors build`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors build`
 Expected: Build succeeds
 
 - [ ] **Step 5: Commit**
@@ -3329,7 +3329,7 @@ Verifies registry registration, detection, scanning, and extraction
 for claude-mem and project-claude collectors end-to-end.
 flowstate-memory tested via mocked HTTP in its own test suite.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

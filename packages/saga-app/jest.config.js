@@ -21,6 +21,6 @@ module.exports = {
     'react-native-qrcode-svg': '<rootDir>/__mocks__/react-native-qrcode-svg.js',
     'react-native-sse': '<rootDir>/__mocks__/react-native-sse.js',
     '@react-native-clipboard/clipboard': '<rootDir>/__mocks__/@react-native-clipboard/clipboard.js',
-    '^@epicdm/saga-client$': '<rootDir>/node_modules/@epicdm/saga-client/src/index.ts',
+    '^@d7r/saga-client$': '<rootDir>/node_modules/@d7r/saga-client/src/index.ts',
   },
 }

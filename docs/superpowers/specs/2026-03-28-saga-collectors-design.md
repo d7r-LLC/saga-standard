@@ -29,7 +29,7 @@ SAGA Standard                  -- format: how agents are represented
 
 ### FlowState as SAGA-Compliant Org
 
-FlowState (d7r LLC) is a registered SAGA organization and directory. It operates a SAGA hub at `agents.epicflowstate.ai` backed by D1 + rxdb-d1 replication. Marcus Chen (`team_UfL4H7z2R6`) is a registered SAGA agent with handle `marcus-chen`, operating inside a DERP (OpenClaw container) within the FlowState org.
+FlowState (d7r LLC) is a registered SAGA organization and directory. It operates a SAGA hub at `agents.d7r.io` backed by D1 + rxdb-d1 replication. Marcus Chen (`team_UfL4H7z2R6`) is a registered SAGA agent with handle `marcus-chen`, operating inside a DERP (OpenClaw container) within the FlowState org.
 
 ### The DERP Runtime
 
@@ -62,7 +62,7 @@ Built in Phases 1-2 of SAGA sync (see `saga-sync-status.md`):
 
 ### Collector 1: Claude Code Native
 
-**Already implemented** in `@epicdm/saga-collectors` as `ClaudeCodeCollector`.
+**Already implemented** in `@d7r/saga-collectors` as `ClaudeCodeCollector`.
 
 Reads `~/.claude/` directory: CLAUDE.md files, settings.json, history.jsonl, project memory, plans, todos.
 
@@ -139,9 +139,9 @@ Attached to every observation and SAGA sync document:
 
 ```typescript
 interface SagaScope {
-  originSystemUrl: string // "https://spoke.epicflowstate.ai"
+  originSystemUrl: string // "https://spoke.d7r.io"
   originSystemId: string // "flowstate-derp-marcus-01"
-  originOrgId: string // "d7r-LLC"
+  originOrgId: string // "d7r"
   syncPolicy: SagaSyncPolicy // "agent-portable" | "org-internal" | "org-confidential" | "public"
   lastSyncedAt?: string // ISO 8601
 }
@@ -164,7 +164,7 @@ Org-internal and org-confidential memory stays in the DERP's local storage, encr
 
 ```
                                   SAGA Hub
-                            (agents.epicflowstate.ai)
+                            (agents.d7r.io)
                                 D1 + rxdb-d1
                            ┌──────────────────┐
                            │  saga_memories    │
@@ -352,12 +352,12 @@ Lives in the agent's workspace inside the DERP:
     "sagaHandle": "marcus-chen",
     "sagaWallet": "0x...",
     "chain": "eip155:8453",
-    "orgHandle": "d7r-LLC"
+    "orgHandle": "d7r"
   },
   "hub": {
-    "url": "https://agents.epicflowstate.ai",
+    "url": "https://agents.d7r.io",
     "systemId": "flowstate-derp-marcus-01",
-    "systemUrl": "https://spoke.epicflowstate.ai"
+    "systemUrl": "https://spoke.d7r.io"
   },
   "sync": {
     "pushDebounceMs": 2000,
@@ -446,14 +446,14 @@ Add to `docker/Dockerfile.openclaw`:
 
 ```dockerfile
 # Install SAGA tools
-RUN npm install -g @epicdm/saga-cli @epicdm/saga-collectors
+RUN npm install -g @d7r/saga-cli @d7r/saga-collectors
 ```
 
 The sync service runs as a background process started by the DERP's activation script, not as a separate container. It lives in the same process space as the agent for direct filesystem and API access.
 
 ## Collector Implementation
 
-All collectors live in `@epicdm/saga-collectors` (saga-standard/packages/collectors/).
+All collectors live in `@d7r/saga-collectors` (saga-standard/packages/collectors/).
 
 ### New Directory Structure
 
@@ -584,8 +584,8 @@ Multiple collectors may capture overlapping data (e.g., claude-mem and flowstate
 
 ### saga-standard packages
 
-- `@epicdm/saga-collectors`: Add three new collectors. No new npm deps (better-sqlite3 exists, fetch is built-in).
-- `@epicdm/saga-cli`: Already has `saga collect` command. Add `saga sync-service` subcommand.
+- `@d7r/saga-collectors`: Add three new collectors. No new npm deps (better-sqlite3 exists, fetch is built-in).
+- `@d7r/saga-cli`: Already has `saga collect` command. Add `saga sync-service` subcommand.
 
 ### epic-flowstate packages (already built)
 
@@ -597,7 +597,7 @@ Multiple collectors may capture overlapping data (e.g., claude-mem and flowstate
 
 - OpenClaw Dockerfile gets `saga-cli` and `saga-collectors` installed globally
 - Sync service runs as background process in the DERP
-- Network access to flowstate-agent-memory (localhost:7090) and SAGA hub (agents.epicflowstate.ai)
+- Network access to flowstate-agent-memory (localhost:7090) and SAGA hub (agents.d7r.io)
 
 ## What's New vs. What Exists
 

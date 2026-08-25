@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { EpisodicEvent, SemanticMemory } from '@epicdm/saga-sdk'
+import type { EpisodicEvent, SemanticMemory } from '@d7r/saga-sdk'
 
 /**
  * Parse Claude Code project memory files into semantic memory.

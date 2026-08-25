@@ -124,7 +124,7 @@ Re-audit: 2/3 providers flagged independently
 (audits/2026-05-04T15-44-30/response.md OpenAI MEDIUM,
 audits/2026-05-04T15-49-34/response.md Gemini CRITICAL).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -246,7 +246,7 @@ remain blocked; governance can rescue.
 Re-audit: Anthropic CRITICAL (audits/2026-05-04T15-41-11/response.md
 F-1 'Critical: scoped lockout').
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -442,7 +442,7 @@ Re-audit: Gemini HIGH (audits/2026-05-04T15-49-34/response.md HIGH-1
 'Strict singleton-pinning bricks all existing directory NFTs on
 protocol upgrade').
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -580,7 +580,7 @@ Updated the Phase 8D fuzz predicate to mirror the new contract rule.
 
 Re-audit: Anthropic HIGH (audits/2026-05-04T15-41-11/response.md F-2).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -631,7 +631,7 @@ One-line fix mirroring Deploy.s.sol:25.
 
 Re-audit: Anthropic HIGH (audits/2026-05-04T15-41-11/response.md F-3).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -687,7 +687,7 @@ Phase 9 part A — closes the 5 mainnet-blocking findings surfaced in the
 - \`docs/plans/2026-05-04-phase9-post-audit-remediation.md\` (Tasks 1-6)
 - \`audits/2026-05-04-post-phase8-gap-matrix.md\`
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -770,7 +770,7 @@ Base + Base Sepolia match the team's deploy.config.yaml before merge.
 
 Re-audit: OpenAI MEDIUM (audits/2026-05-04T15-44-30/response.md F-3).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -914,7 +914,7 @@ silently break callers that intentionally want revoked-namespace data.
 
 Re-audit: OpenAI MEDIUM (audits/2026-05-04T15-44-30/response.md F-2).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1139,7 +1139,7 @@ get a 24h window to detect and surface the change before it lands.
 
 Re-audit: Anthropic MEDIUM (audits/2026-05-04T15-41-11/response.md F-5).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1206,7 +1206,7 @@ the contract semantics to package consumers.
 
 Re-audit: Anthropic MEDIUM (audits/2026-05-04T15-41-11/response.md F-4).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1276,7 +1276,7 @@ space). Mitigation lives at the wallet/frontend UX layer.
 Document the limitation explicitly in the contracts README so wallet
 implementers know what additional client-side warnings to surface.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1345,7 +1345,7 @@ Regenerate from out/*.json and pin via the existing test:ts contract
 shape assertions. Re-audit: OpenAI LOW
 (audits/2026-05-04T15-44-30/response.md F-5).
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1384,7 +1384,7 @@ Phase 9 part B — closes the recommended hardening findings from the
 | **G-12** | MEDIUM | Document self-TBA guard limitation (UX-layer mitigation) |
 | **G-16** | LOW | Regenerate stale TS ABIs |
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

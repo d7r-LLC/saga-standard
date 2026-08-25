@@ -1,7 +1,7 @@
 // Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AgentRecord, DocumentRecord } from '@epicdm/saga-client'
+import type { AgentRecord, DocumentRecord } from '@d7r/saga-client'
 
 export function ProfileDetails({
   agent,

@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-sdk",
+  "name": "@d7r/saga-sdk",
   "version": "0.1.0",
   "description": "SAGA SDK — validate, assemble, sign, encrypt, and package SAGA documents",
   "type": "module",

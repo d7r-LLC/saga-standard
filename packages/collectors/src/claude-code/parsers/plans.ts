@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { ProceduralWorkflow } from '@epicdm/saga-sdk'
+import type { ProceduralWorkflow } from '@d7r/saga-sdk'
 
 /**
  * Parse Claude Code plans/ directory into procedural workflows.

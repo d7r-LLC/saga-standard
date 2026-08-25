@@ -30,7 +30,7 @@ The focused brief:
 
 ```bash
 cd /Users/sthornock/code/epic/saga-standard
-pnpm --filter @epicdm/saga-cli build      # ensure CLI is fresh
+pnpm --filter @d7r/saga-cli build      # ensure CLI is fresh
 
 node packages/cli/dist/index.js audit \
   --target packages/contracts \

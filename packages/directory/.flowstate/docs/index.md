@@ -1,10 +1,10 @@
 ---
 title: 'Documentation Site'
 order: 1
-description: 'Next.js documentation site for Epic FlowState with Markdoc content, FlexSearch indexing, and AI agent endpoints'
+description: 'Next.js documentation site for d7r FlowState with Markdoc content, FlexSearch indexing, and AI agent endpoints'
 ---
 
-The `@epicdm/flowstate-docs` package is the documentation site for the Epic FlowState platform. It is a Next.js 15 application that uses Markdoc for content rendering, FlexSearch for client-side search, and deploys to Cloudflare Workers via OpenNext. The site aggregates documentation from across the entire monorepo through an automated sync pipeline.
+The `@epicdm/flowstate-docs` package is the documentation site for the d7r FlowState platform. It is a Next.js 15 application that uses Markdoc for content rendering, FlexSearch for client-side search, and deploys to Cloudflare Workers via OpenNext. The site aggregates documentation from across the entire monorepo through an automated sync pipeline.
 
 ## Architecture
 

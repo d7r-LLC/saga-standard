@@ -37,13 +37,13 @@ describe('CORS origin allowlist', () => {
   }
 
   it('allows an origin listed in CORS_ALLOWED_ORIGINS', async () => {
-    env.CORS_ALLOWED_ORIGINS = 'https://directory.epicflowstate.ai,https://other.example'
-    const r = await preflight('https://directory.epicflowstate.ai')
-    expect(r.headers.get('Access-Control-Allow-Origin')).toBe('https://directory.epicflowstate.ai')
+    env.CORS_ALLOWED_ORIGINS = 'https://directory.d7r.io,https://other.example'
+    const r = await preflight('https://directory.d7r.io')
+    expect(r.headers.get('Access-Control-Allow-Origin')).toBe('https://directory.d7r.io')
   })
 
   it('rejects an unlisted origin (no ACAO header echoed)', async () => {
-    env.CORS_ALLOWED_ORIGINS = 'https://directory.epicflowstate.ai'
+    env.CORS_ALLOWED_ORIGINS = 'https://directory.d7r.io'
     const r = await preflight('https://evil.example.com')
     // Hono's cors() either omits the header or returns the empty string when
     // origin() returns null. Either way, the browser treats this as denied.
@@ -58,10 +58,8 @@ describe('CORS origin allowlist', () => {
 
   it('rejects all origins when CORS_ALLOWED_ORIGINS is unset', async () => {
     // env.CORS_ALLOWED_ORIGINS intentionally not set
-    const r = await preflight('https://directory.epicflowstate.ai')
-    expect(r.headers.get('Access-Control-Allow-Origin')).not.toBe(
-      'https://directory.epicflowstate.ai'
-    )
+    const r = await preflight('https://directory.d7r.io')
+    expect(r.headers.get('Access-Control-Allow-Origin')).not.toBe('https://directory.d7r.io')
   })
 
   it('trims whitespace in CORS_ALLOWED_ORIGINS entries', async () => {

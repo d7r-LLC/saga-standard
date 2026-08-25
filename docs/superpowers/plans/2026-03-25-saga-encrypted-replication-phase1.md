@@ -4,7 +4,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `@epicdm/saga-crypto` — the cryptographic primitives and local encrypted storage that all subsequent SAGA replication phases depend on.
+**Goal:** Build `@d7r/saga-crypto` — the cryptographic primitives and local encrypted storage that all subsequent SAGA replication phases depend on.
 
 **Architecture:** New package `packages/saga-crypto` in the saga-standard monorepo. Depends on `@epicdm/flowstate-crypto` (AES-256-GCM, HKDF, base64 encoding) and `tweetnacl` (NaCl box/x25519). Provides a `SagaKeyRing` opaque crypto oracle, `SagaEncryptedEnvelope` seal/open, and an `EncryptedStore` with pluggable storage backends. Web Crypto API only — edge-runtime compatible.
 
@@ -78,7 +78,7 @@ Each file has one clear responsibility. Tests live alongside source files (match
 
 ```json
 {
-  "name": "@epicdm/saga-crypto",
+  "name": "@d7r/saga-crypto",
   "version": "0.1.0",
   "description": "SAGA cryptographic primitives — KeyRing, NaCl encryption, encrypted store",
   "type": "module",

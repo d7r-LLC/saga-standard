@@ -3,7 +3,7 @@
 
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { PartialSagaDocument } from '@epicdm/saga-sdk'
+import type { PartialSagaDocument } from '@d7r/saga-sdk'
 import type { CollectorDetection, CollectorScan, ExtractOptions, SagaCollector } from '../types'
 import { detectClaudeMem } from './detector'
 import { scanClaudeMem } from './scanner'

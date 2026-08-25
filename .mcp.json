@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["chrome-devtools-mcp@latest"]
     },
-    "epic-flowstate": {
+    "d7r-flowstate": {
       "type": "http",
       "url": "http://localhost:7080/mcp/mcp",
       "oauth": {

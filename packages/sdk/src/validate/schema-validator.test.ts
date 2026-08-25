@@ -248,7 +248,7 @@ describe('validateSchema — NFT identity fields', () => {
           chain: 'eip155:8453',
           createdAt: '2026-03-23T10:00:00Z',
           organization: {
-            handle: 'd7r-llc',
+            handle: 'd7r',
             name: 'd7r LLC',
             contractAddress: '0x2222222222222222222222222222222222222222',
             tokenId: 7,

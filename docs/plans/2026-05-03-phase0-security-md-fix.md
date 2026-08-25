@@ -21,7 +21,7 @@ From the parent task `task_TVKRI2V9QA`:
 
 ## Acceptance criteria
 
-- `pnpm test --filter @epicdm/saga-server -- server.test` green
+- `pnpm test --filter @d7r/saga-server -- server.test` green
 - `SECURITY.md` matches `auth.ts` behavior verbatim
 - Regression test fails when `verifyMessage` is replaced with `() => true`
 
@@ -77,7 +77,7 @@ Above the `verifySignature` function definition:
 
 ## Test strategy
 
-- Run `pnpm test --filter @epicdm/saga-server` after changes; expect all existing tests + 1 new passing.
+- Run `pnpm test --filter @d7r/saga-server` after changes; expect all existing tests + 1 new passing.
 - Mutation check: temporarily replace `verifyMessage` with `async () => true` in `auth.ts` and confirm the new test fails. Revert before commit.
 
 ## Commit plan
@@ -95,7 +95,7 @@ linking back to the doc and test.
 Resolves the Critical-flagged "auth stub" finding from the 2026-05-03
 five-way LLM security audit (A-Crit#2 / O-Crit#1 / G-Crit#1).
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```
 
 ## Out of scope

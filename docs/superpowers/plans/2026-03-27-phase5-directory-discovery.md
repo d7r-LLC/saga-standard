@@ -331,7 +331,7 @@ import type {
   SearchResult,
 } from '../types'
 
-export const HUB_URL = 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = 'https://saga-hub.d7r.workers.dev'
 export const PAGE_SIZE = 20
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -423,7 +423,7 @@ Expected: PASS (10 tests)
 git add src/features/directory/types.ts src/features/directory/api/directory.ts __tests__/features/directory/api/directory.test.ts
 git commit -m "feat(saga-app): add directory types and API client
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -564,7 +564,7 @@ Expected: PASS (4 tests)
 git add src/features/directory/hooks/useEntityDetail.ts __tests__/features/directory/hooks/useEntityDetail.test.tsx
 git commit -m "feat(saga-app): add useEntityDetail hook
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -748,7 +748,7 @@ Expected: PASS (5 tests)
 git add src/features/directory/hooks/useDirectories.ts __tests__/features/directory/hooks/useDirectories.test.tsx
 git commit -m "feat(saga-app): add useDirectories hook
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1002,7 +1002,7 @@ Expected: PASS (7 tests)
 git add src/features/directory/hooks/useDirectorySearch.ts __tests__/features/directory/hooks/useDirectorySearch.test.tsx
 git commit -m "feat(saga-app): add useDirectorySearch hook with debounce
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
 git add src/features/directory/components/EntityCard.tsx
 git commit -m "feat(saga-app): add EntityCard component
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1302,7 +1302,7 @@ Note: This step will have TypeScript errors until Task 7 and Task 8 create the E
 git add src/navigation/types.ts src/features/directory/screens/DirectoryHome.tsx src/navigation/stacks/DirectoryStack.tsx
 git commit -m "feat(saga-app): add DirectoryHome screen and update navigation
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1464,7 +1464,7 @@ Expected: No errors (or only pre-existing ones unrelated to directory feature)
 git add src/features/directory/screens/EntityDetail.tsx
 git commit -m "feat(saga-app): add EntityDetail screen
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1623,7 +1623,7 @@ Expected: No errors
 git add src/features/directory/screens/DirectoryList.tsx
 git commit -m "feat(saga-app): add DirectoryList screen
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---

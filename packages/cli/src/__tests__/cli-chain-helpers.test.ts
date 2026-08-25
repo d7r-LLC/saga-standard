@@ -3,8 +3,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { chainFromCaip2, getRpcUrl, waitForIndexer } from '../cli-chain-helpers'
-import { SagaAuthError, SagaServerClient } from '@epicdm/saga-client'
-import type { ResolveResponse } from '@epicdm/saga-client'
+import { SagaAuthError, SagaServerClient } from '@d7r/saga-client'
+import type { ResolveResponse } from '@d7r/saga-client'
 
 // ── getRpcUrl ────────────────────────────────────────────────────────
 

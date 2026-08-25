@@ -392,9 +392,7 @@ The `send` function:
 ```typescript
 import EventSource from 'react-native-sse'
 
-export const HUB_URL = __DEV__
-  ? 'http://localhost:8787'
-  : 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = __DEV__ ? 'http://localhost:8787' : 'https://saga-hub.d7r.workers.dev'
 
 export async function createConversation(
   token: string,
@@ -460,7 +458,7 @@ The chat feature needs the wallet auth token. The existing `AuthProvider` manage
 
 ### Smoke Test
 
-- Run saga-hub locally (`pnpm --filter @epicdm/saga-server dev`)
+- Run saga-hub locally (`pnpm --filter @d7r/saga-server dev`)
 - Run SAGA app on iOS simulator
 - Create conversation, send message, verify streaming response renders
 - Test with mock LLM endpoint if AI Gateway not configured

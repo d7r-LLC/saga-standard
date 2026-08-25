@@ -3,8 +3,8 @@
 
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { SagaAuthError, SagaServerClient, resolveHandleOnChain } from '@epicdm/saga-client'
-import type { ResolveResponse } from '@epicdm/saga-client'
+import { SagaAuthError, SagaServerClient, resolveHandleOnChain } from '@d7r/saga-client'
+import type { ResolveResponse } from '@d7r/saga-client'
 import { loadConfig } from '../config'
 import { chainFromCaip2, createViemClients } from '../cli-chain-helpers'
 

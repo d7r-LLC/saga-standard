@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-cli",
+  "name": "@d7r/saga-cli",
   "version": "0.1.0",
   "description": "SAGA CLI — collect, export, import, and manage agent state",
   "type": "module",
@@ -16,9 +16,9 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-client": "workspace:*",
-    "@epicdm/saga-collectors": "workspace:*",
-    "@epicdm/saga-sdk": "workspace:*",
+    "@d7r/saga-client": "workspace:*",
+    "@d7r/saga-collectors": "workspace:*",
+    "@d7r/saga-sdk": "workspace:*",
     "chalk": "^5.4.0",
     "commander": "^13.1.0",
     "js-yaml": "^4.1.1",

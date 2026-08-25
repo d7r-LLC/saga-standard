@@ -8,7 +8,7 @@
 
 **Architecture:** Phase 6 adds a client-side Policy Engine that intercepts every `storeMemory()` call, classifying memories against a `CompanyReplicationPolicy`. Classification determines the encryption scope (org-internal uses company key, mutual uses NaCl box with both keys, agent-portable uses agent key) and sync behavior (org-internal stays local, others sync to hub). A Retention Engine runs hourly to enforce TTL and portable limits. The server stores policies per-org via a REST endpoint. A Policy Audit Trail logs every classification decision.
 
-**Tech Stack:** Cloudflare Workers (D1, KV), Hono router, Drizzle ORM, Vitest, `@epicdm/saga-crypto` (SagaKeyRing, seal/open, EncryptedStore, MemoryBackend)
+**Tech Stack:** Cloudflare Workers (D1, KV), Hono router, Drizzle ORM, Vitest, `@d7r/saga-crypto` (SagaKeyRing, seal/open, EncryptedStore, MemoryBackend)
 
 **Depends on:** Phase 5 (PR #18) merged to `dev` — this plan uses migration `0005` and builds on the Phase 5 types.
 
@@ -745,7 +745,7 @@ describe('governance — storeMemory', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 
@@ -1230,7 +1230,7 @@ Create `packages/saga-client-rt/src/retention-engine.ts`:
 // Copyright 2026 d7r LLC
 
 import type { CompanyReplicationPolicy, PolicyAuditEntry, SagaMemory } from './types'
-import type { EncryptedStore } from '@epicdm/saga-crypto'
+import type { EncryptedStore } from '@d7r/saga-crypto'
 
 export interface RetentionResult {
   mutualDowngraded: number
@@ -1515,7 +1515,7 @@ describe('governance integration', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 

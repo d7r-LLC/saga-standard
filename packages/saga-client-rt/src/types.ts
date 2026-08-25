@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { SagaEncryptedEnvelope, SagaKeyRing, StorageBackend } from '@epicdm/saga-crypto'
+import type { SagaEncryptedEnvelope, SagaKeyRing, StorageBackend } from '@d7r/saga-crypto'
 
 // ── Re-exports from saga-crypto ──────────────────────────────────
 

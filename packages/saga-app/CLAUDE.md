@@ -1,14 +1,14 @@
-# @epicdm/saga-app
+# @d7r/saga-app
 
 React Native CLI app for SAGA identity management, encrypted messaging, and smart contract interaction.
 
 ## Build & Run
 
-pnpm --filter @epicdm/saga-app start # Metro bundler
-pnpm --filter @epicdm/saga-app ios # Run on iOS simulator
-pnpm --filter @epicdm/saga-app android # Run on Android emulator
-pnpm --filter @epicdm/saga-app test # Run tests
-pnpm --filter @epicdm/saga-app typecheck # TypeScript check
+pnpm --filter @d7r/saga-app start # Metro bundler
+pnpm --filter @d7r/saga-app ios # Run on iOS simulator
+pnpm --filter @d7r/saga-app android # Run on Android emulator
+pnpm --filter @d7r/saga-app test # Run tests
+pnpm --filter @d7r/saga-app typecheck # TypeScript check
 
 ## Architecture
 

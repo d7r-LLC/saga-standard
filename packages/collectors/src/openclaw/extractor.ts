@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { PartialSagaDocument } from '@epicdm/saga-sdk'
+import type { PartialSagaDocument } from '@d7r/saga-sdk'
 import type { CollectorDetection, CollectorScan, ExtractOptions, SagaCollector } from '../types'
 import { detectOpenClaw, resolveOpenClawStateDir, resolveOpenClawWorkspaceDir } from './detector'
 import { scanOpenClaw } from './scanner'

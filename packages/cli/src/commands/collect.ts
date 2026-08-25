@@ -4,7 +4,7 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import ora from 'ora'
-import { createCollector, detectCollectors } from '@epicdm/saga-collectors'
+import { createCollector, detectCollectors } from '@d7r/saga-collectors'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 

@@ -74,7 +74,7 @@ A new OPTIONAL `organization` object:
   "chain": "eip155:84532",
   "createdAt": "2026-01-15T08:00:00Z",
   "organization": {
-    "handle": "d7r-llc",
+    "handle": "d7r",
     "name": "d7r LLC",
     "contractAddress": "0x2222...2222",
     "tokenId": 7,

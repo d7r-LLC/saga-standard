@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-client",
+  "name": "@d7r/saga-client",
   "version": "0.1.0",
   "description": "SAGA API client — talk to any SAGA-compatible server with wallet auth",
   "type": "module",
@@ -27,7 +27,7 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-sdk": "workspace:*",
+    "@d7r/saga-sdk": "workspace:*",
     "@saga-standard/contracts": "workspace:*",
     "viem": "^2.47.6"
   },

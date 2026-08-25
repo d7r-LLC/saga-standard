@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { PersonaLayer, RelationshipsLayer } from '@epicdm/saga-sdk'
+import type { PersonaLayer, RelationshipsLayer } from '@d7r/saga-sdk'
 
 export interface AgentProfileResult {
   persona?: Partial<PersonaLayer>

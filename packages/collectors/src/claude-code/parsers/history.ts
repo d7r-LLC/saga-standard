@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import { existsSync, readFileSync } from 'node:fs'
-import type { RecentTask, TaskHistorySummary } from '@epicdm/saga-sdk'
+import type { RecentTask, TaskHistorySummary } from '@d7r/saga-sdk'
 
 interface HistoryEntry {
   sessionId?: string

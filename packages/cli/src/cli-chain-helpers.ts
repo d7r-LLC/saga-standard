@@ -6,8 +6,8 @@ import { base, baseSepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { PublicClient, WalletClient } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
-import type { ResolveResponse, SupportedChain } from '@epicdm/saga-client'
-import { SagaAuthError, SagaServerClient } from '@epicdm/saga-client'
+import type { ResolveResponse, SupportedChain } from '@d7r/saga-client'
+import { SagaAuthError, SagaServerClient } from '@d7r/saga-client'
 
 const RPC_URLS: Record<SupportedChain, string> = {
   'base-sepolia': 'https://sepolia.base.org',

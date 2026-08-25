@@ -3,7 +3,7 @@
 
 import { existsSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import type { RecentTask, TaskHistorySummary } from '@epicdm/saga-sdk'
+import type { RecentTask, TaskHistorySummary } from '@d7r/saga-sdk'
 
 interface SessionRow {
   memory_session_id: string

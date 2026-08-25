@@ -12,7 +12,7 @@
     "logs": { "enabled": true }
   },
   "vars": {
-    "SAGA_SERVER_URL": "https://saga-server.epicdm.workers.dev"
+    "SAGA_SERVER_URL": "https://saga-server.d7r.workers.dev"
   },
   "kv_namespaces": [
     {
@@ -30,7 +30,7 @@
     "staging": {
       "name": "saga-directory-staging",
       "vars": {
-        "SAGA_SERVER_URL": "https://saga-server-staging.epicdm.workers.dev"
+        "SAGA_SERVER_URL": "https://saga-server-staging.d7r.workers.dev"
       },
       "kv_namespaces": [
         {

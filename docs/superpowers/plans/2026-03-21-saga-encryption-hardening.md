@@ -103,7 +103,7 @@ describe('deriveVaultMasterKey', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run vault-crypto`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: FAIL — `deriveVaultMasterKey` not found
 
 - [ ] **Step 3: Implement `deriveVaultMasterKey`**
@@ -133,7 +133,7 @@ export async function deriveVaultMasterKey(
 }
 ```
 
-Note: The `@noble/hashes` package is the standard lightweight HKDF implementation for JS. If the project doesn't have it, install it: `pnpm --filter @epicdm/saga-sdk add @noble/hashes`. If `@noble/hashes` is not available or too heavy, use Node.js built-in crypto HKDF instead:
+Note: The `@noble/hashes` package is the standard lightweight HKDF implementation for JS. If the project doesn't have it, install it: `pnpm --filter @d7r/saga-sdk add @noble/hashes`. If `@noble/hashes` is not available or too heavy, use Node.js built-in crypto HKDF instead:
 
 ```typescript
 import { hkdfSync } from 'node:crypto'
@@ -151,7 +151,7 @@ Pick whichever approach fits the project's dependency policy. The `@noble/hashes
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run vault-crypto`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: 3 passing
 
 - [ ] **Step 5: Write failing tests for item-level AES-256-GCM encrypt/decrypt**
@@ -212,7 +212,7 @@ describe('encryptVaultItem + decryptVaultItem', () => {
 
 - [ ] **Step 6: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run vault-crypto`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: FAIL — `encryptVaultItem`/`decryptVaultItem` not found
 
 - [ ] **Step 7: Implement `encryptVaultItem` and `decryptVaultItem`**
@@ -319,7 +319,7 @@ export async function decryptVaultItem(
 
 - [ ] **Step 8: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run vault-crypto`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: All 6 tests passing
 
 - [ ] **Step 9: Export new functions from encrypt/index.ts and sdk index.ts**
@@ -340,7 +340,7 @@ export type { EncryptedVaultItemResult } from './encrypt'
 
 - [ ] **Step 10: Run full SDK test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
 Expected: All tests pass (existing + new)
 
 - [ ] **Step 11: Commit**
@@ -352,7 +352,7 @@ feat(sdk): implement three-tier vault encryption engine
 AES-256-GCM with HKDF-SHA256 key derivation from wallet private key.
 Random per-item DEKs wrapped under master key. Matches spec Section 12.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -395,7 +395,7 @@ const recipientPublicKeys = [senderKeyPair.publicKey]
 // Determine if this is a cross-org export
 const isCrossOrg = opts.type === 'transfer' || opts.type === 'clone'
 
-// applyDefaultEncryption is already imported from @epicdm/saga-sdk at top of file
+// applyDefaultEncryption is already imported from @d7r/saga-sdk at top of file
 const encryptedDoc = applyDefaultEncryption({
   document: result.document,
   senderSecretKey: senderKeyPair.secretKey,
@@ -414,18 +414,18 @@ if (encLayers.length > 0) {
 }
 ```
 
-Add the imports at the top of the file alongside existing `@epicdm/saga-sdk` imports:
+Add the imports at the top of the file alongside existing `@d7r/saga-sdk` imports:
 
 ```typescript
 import nacl from 'tweetnacl'
-import { applyDefaultEncryption } from '@epicdm/saga-sdk'
+import { applyDefaultEncryption } from '@d7r/saga-sdk'
 ```
 
-Note: `applyDefaultEncryption` may already be importable from `@epicdm/saga-sdk` since it is exported from the SDK index. Check the existing import line and add it there if it is not already included.
+Note: `applyDefaultEncryption` may already be importable from `@d7r/saga-sdk` since it is exported from the SDK index. Check the existing import line and add it there if it is not already included.
 
 - [ ] **Step 3: Test the export pipeline manually**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli build`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 
 Verify the CLI builds without errors. If there is a collect step already run, test with:
 
@@ -445,7 +445,7 @@ Calls applyDefaultEncryption between validation and signing.
 Encrypts memory.longTerm by default, cognitive.systemPrompt on
 cross-org exports (transfer/clone). Fixes finding #1.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -467,7 +467,7 @@ In `packages/cli/src/commands/vault.ts`, replace the section in the `add` comman
 Replace the import section to add:
 
 ```typescript
-import { deriveVaultMasterKey, encryptVaultItem } from '@epicdm/saga-sdk'
+import { deriveVaultMasterKey, encryptVaultItem } from '@d7r/saga-sdk'
 import { loadWalletPrivateKey } from '../wallet-store'
 ```
 
@@ -506,7 +506,7 @@ In the `get` command, replace the decryption attempt block (lines ~245-261) wher
 ```typescript
 if (walletInfo && item.fields.__encrypted) {
   try {
-    const { decryptVaultItem, deriveVaultMasterKey } = await import('@epicdm/saga-sdk')
+    const { decryptVaultItem, deriveVaultMasterKey } = await import('@d7r/saga-sdk')
     const { loadWalletPrivateKey } = await import('../wallet-store')
 
     const vaultPassword = opts.password ?? 'saga-default-password'
@@ -543,7 +543,7 @@ if (walletInfo && item.fields.__encrypted) {
 
 - [ ] **Step 3: Build and verify**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli build`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
@@ -556,7 +556,7 @@ Vault add now derives master key from wallet via HKDF-SHA256 and
 encrypts fields with random per-item DEK. Vault get decrypts using
 the same key derivation path. Fixes finding #2.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -616,7 +616,7 @@ it('requires auth for document download', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: New tests FAIL because GET endpoints currently return 200 without auth
 
 - [ ] **Step 3: Add `requireAuth` to document GET endpoints**
@@ -661,7 +661,7 @@ const res = await req('GET', '/v1/agents/nonexistent/documents', {
 
 - [ ] **Step 5: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
@@ -674,7 +674,7 @@ GET /v1/agents/:handle/documents and
 GET /v1/agents/:handle/documents/:documentId
 now require Bearer token authentication. Fixes finding #3.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -804,7 +804,7 @@ it('accepts upload with properly encrypted vault layer', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: First new test FAILs (server returns 201, expected 400)
 
 - [ ] **Step 3: Implement validation middleware**
@@ -874,7 +874,7 @@ if (encryptionError) {
 
 - [ ] **Step 5: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
@@ -886,7 +886,7 @@ feat(server): validate encryption requirements on document upload
 Rejects uploads where vault layer items have __encrypted !== true
 or vault is not declared in privacy.encryptedLayers. Fixes finding #4.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -985,7 +985,7 @@ it('throws if vault layer has unencrypted items', () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run layer-encryptor`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
 Expected: New tests FAIL
 
 - [ ] **Step 3: Add vault handling to `applyDefaultEncryption`**
@@ -1015,7 +1015,7 @@ Also add the import for VaultLayer at the top if needed. Since the function alre
 
 - [ ] **Step 4: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run layer-encryptor`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
 Expected: All tests pass (existing + 2 new)
 
 - [ ] **Step 5: Commit**
@@ -1028,7 +1028,7 @@ Checks that all vault items have __encrypted: true before export.
 Throws if unencrypted vault items are found. Adds 'vault' to
 privacy.encryptedLayers when vault is present. Fixes finding #5.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1117,7 +1117,7 @@ it('rejects import with missing identity layer', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: New tests FAIL (import is a stub)
 
 - [ ] **Step 3: Implement real transfer import**
@@ -1276,7 +1276,7 @@ import { agents, documents, transfers } from '../db/schema'
 
 - [ ] **Step 4: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 5: Commit**
@@ -1289,7 +1289,7 @@ Replaces stub import endpoint with real agent creation, document
 storage, and encryption validation. Validates identity layer is
 present and vault encryption requirements are met. Fixes finding #6.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1304,22 +1304,22 @@ EOF
 
 - [ ] **Step 1: Run full SDK test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 2: Run full server test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-server test -- --run`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 3: Build CLI to verify compilation**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli build`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Build SDK to verify compilation**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-sdk build`
+Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk build`
 Expected: Build succeeds
 
 - [ ] **Step 5: Run lint**
@@ -1349,7 +1349,7 @@ cd /Users/sthornock/code/epic/saga-standard && git status
 git add -A && git commit -m "$(cat <<'EOF'
 chore: lint and format fixes for encryption hardening
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

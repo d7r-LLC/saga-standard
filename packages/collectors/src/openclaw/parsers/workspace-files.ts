@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { CognitiveLayer, EnvironmentLayer, MemoryLayer, PersonaLayer } from '@epicdm/saga-sdk'
+import type { CognitiveLayer, EnvironmentLayer, MemoryLayer, PersonaLayer } from '@d7r/saga-sdk'
 
 /**
  * Parse IDENTITY.md into a PersonaLayer.

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { formatResolveResult } from '../commands/resolve'
-import type { ResolveResponse } from '@epicdm/saga-client'
+import type { ResolveResponse } from '@d7r/saga-client'
 
 describe('formatResolveResult', () => {
   it('formats agent resolve result with all fields', () => {
@@ -35,7 +35,7 @@ describe('formatResolveResult', () => {
   it('formats org resolve result with name', () => {
     const result: ResolveResponse = {
       entityType: 'org',
-      handle: 'd7r-llc',
+      handle: 'd7r',
       walletAddress: '0xaabb',
       chain: 'eip155:84532',
       name: 'd7r LLC',

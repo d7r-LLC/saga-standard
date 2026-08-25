@@ -67,14 +67,14 @@ Add to top-level `vars` (create if not exists, sibling to `env`):
 ```jsonc
 "vars": {
   "NODE_ENV": "production",
-  "IDENTITY_ISSUER_URL": "https://id.epicflowstate.ai"
+  "IDENTITY_ISSUER_URL": "https://id.d7r.io"
 }
 ```
 
 Add to `env.staging.vars`:
 
 ```jsonc
-"IDENTITY_ISSUER_URL": "https://id-staging.epicflowstate.ai"
+"IDENTITY_ISSUER_URL": "https://id-staging.d7r.io"
 ```
 
 - [ ] **Step 3b: Add local dev identity URL**
@@ -1330,8 +1330,8 @@ In the identity server's `scripts/seed-clients.ts`, update the marketplace clien
   name: 'FlowState Marketplace',
   type: 'public',
   redirectUris: [
-    'https://marketplace.epicflowstate.ai/auth/callback',
-    'https://flowstate-marketplace-staging.epicdm.workers.dev/auth/callback',
+    'https://marketplace.d7r.io/auth/callback',
+    'https://flowstate-marketplace-staging.d7r.workers.dev/auth/callback',
     'http://localhost:3000/auth/callback',
   ],
   allowedScopes: 'openid profile email offline_access',
@@ -1404,9 +1404,9 @@ npm run deploy:staging
 
 - [ ] **Step 5: Test the full OIDC flow on staging**
 
-1. Navigate to `https://flowstate-marketplace-staging.epicdm.workers.dev`
+1. Navigate to `https://flowstate-marketplace-staging.d7r.workers.dev`
 2. Click "Sign in with FlowState"
-3. Should redirect to `https://id-staging.epicflowstate.ai/authorize?...`
+3. Should redirect to `https://id-staging.d7r.io/authorize?...`
 4. Authenticate via GitHub or Google
 5. Should redirect back to staging marketplace with a session
 6. Verify `/dashboard` loads with user data
@@ -1427,7 +1427,7 @@ npm run deploy:production
 
 - [ ] **Step 8: Verify production flow**
 
-Same test as staging but on `https://marketplace.epicflowstate.ai`.
+Same test as staging but on `https://marketplace.d7r.io`.
 
 - [ ] **Step 9: Commit any remaining fixes**
 

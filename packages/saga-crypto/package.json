@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-crypto",
+  "name": "@d7r/saga-crypto",
   "version": "0.1.0",
   "description": "SAGA cryptographic primitives — KeyRing, NaCl encryption, encrypted store",
   "type": "module",

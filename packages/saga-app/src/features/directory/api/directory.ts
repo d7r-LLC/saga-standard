@@ -13,9 +13,7 @@ import type {
   SearchResult,
 } from '../types'
 
-export const HUB_URL = __DEV__
-  ? 'http://localhost:8787'
-  : 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = __DEV__ ? 'http://localhost:8787' : 'https://saga-hub.d7r.workers.dev'
 export const PAGE_SIZE = 20
 
 export class ApiError extends Error {

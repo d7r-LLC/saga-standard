@@ -8,7 +8,7 @@
 
 **Architecture:** Phase 5 adds three capabilities to the SAGA relay: (1) a public key discovery endpoint so clients can auto-fetch encryption keys instead of manual registration, (2) per-envelope TTL so direct messages expire faster than memory-sync envelopes, and (3) a group registry with fan-out routing so the hub can deliver group messages to all members. The client gains auto-key-discovery, HTTP API access for group management, and group key distribution via direct messages.
 
-**Tech Stack:** Cloudflare Workers (D1, KV, Durable Objects), Hono router, Drizzle ORM, Vitest, `@epicdm/saga-crypto` (NaCl box, AES-256-GCM, KeyRing)
+**Tech Stack:** Cloudflare Workers (D1, KV, Durable Objects), Hono router, Drizzle ORM, Vitest, `@d7r/saga-crypto` (NaCl box, AES-256-GCM, KeyRing)
 
 **Depends on:** Phase 4 (PR #16) must be merged to `dev` first — this plan uses migration `0004` and builds on the Phase 4 relay types.
 

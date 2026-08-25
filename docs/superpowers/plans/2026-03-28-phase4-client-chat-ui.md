@@ -163,7 +163,7 @@ Expected: No errors related to `features/chat/types.ts`
 git add packages/saga-app/src/features/chat/types.ts
 git commit -m "feat(saga-app): add chat feature type definitions
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -193,9 +193,7 @@ The wallet client is obtained via the existing `useWalletSigner` hook from `feat
 
 import type { SessionToken } from '../types'
 
-export const HUB_URL = __DEV__
-  ? 'http://localhost:8787'
-  : 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = __DEV__ ? 'http://localhost:8787' : 'https://saga-hub.d7r.workers.dev'
 
 export class ApiError extends Error {
   constructor(
@@ -378,7 +376,7 @@ describe('useSession', () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useSession' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useSession' --no-coverage 2>&1 | tail -20`
 Expected: FAIL - `Cannot find module '../../../../src/features/chat/hooks/useSession'`
 
 - [ ] **Step 4: Implement useSession hook**
@@ -466,7 +464,7 @@ export function useSession(): UseSessionResult {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useSession' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useSession' --no-coverage 2>&1 | tail -20`
 Expected: PASS (4 tests)
 
 - [ ] **Step 6: Commit**
@@ -481,7 +479,7 @@ Challenge-response flow using server auth endpoints. Token cached
 with auto-refresh on expiry. Uses existing useWalletSigner for
 EIP-191 message signing.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -646,7 +644,7 @@ describe('chat API client', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/api/chat' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/api/chat' --no-coverage 2>&1 | tail -20`
 Expected: FAIL - `Cannot find module '../../../../src/features/chat/api/chat'`
 
 - [ ] **Step 3: Implement the API client**
@@ -739,7 +737,7 @@ export async function sendMessage(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/api/chat' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/api/chat' --no-coverage 2>&1 | tail -20`
 Expected: PASS (6 tests)
 
 - [ ] **Step 5: Commit**
@@ -752,7 +750,7 @@ git commit -m "feat(saga-app): add authenticated chat API client
 CRUD operations for conversations plus fire-and-forget message
 sending. All functions take a session token for Bearer auth.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -917,7 +915,7 @@ describe('useConversations', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useConversations' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useConversations' --no-coverage 2>&1 | tail -20`
 Expected: FAIL - `Cannot find module '../../../../src/features/chat/hooks/useConversations'`
 
 - [ ] **Step 3: Implement the hook**
@@ -1011,7 +1009,7 @@ export function useConversations(agentHandle: string): UseConversationsResult {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useConversations' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/hooks/useConversations' --no-coverage 2>&1 | tail -20`
 Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
@@ -1025,7 +1023,7 @@ List, create, delete conversations for the active agent. Auto-fetches
 on mount and refreshes after mutations. Handles stale request
 cancellation.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1149,7 +1147,7 @@ git commit -m "feat(saga-app): update navigation for chat feature
 Replace Messages tab placeholder with ConversationList, ChatScreen,
 and NewChat screen registrations.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1213,7 +1211,7 @@ describe('MessageBubble', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/components/MessageBubble' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/components/MessageBubble' --no-coverage 2>&1 | tail -20`
 Expected: FAIL - `Cannot find module`
 
 - [ ] **Step 3: Implement MessageBubble**
@@ -1288,7 +1286,7 @@ const styles = StyleSheet.create({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/components/MessageBubble' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/components/MessageBubble' --no-coverage 2>&1 | tail -20`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -1302,7 +1300,7 @@ User messages right-aligned with primary color, assistant messages
 left-aligned with surface color. Asymmetric border radius for
 chat bubble shape.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1371,7 +1369,7 @@ describe('ChatInput', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/components/ChatInput' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/components/ChatInput' --no-coverage 2>&1 | tail -20`
 Expected: FAIL - `Cannot find module`
 
 - [ ] **Step 3: Implement ChatInput**
@@ -1488,7 +1486,7 @@ const styles = StyleSheet.create({
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat/components/ChatInput' --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat/components/ChatInput' --no-coverage 2>&1 | tail -20`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -1501,7 +1499,7 @@ git commit -m "feat(saga-app): add ChatInput component
 Multi-line TextInput with circular send button. Disabled state when
 empty or when disabled prop is set. Auto-clears after send.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1777,7 +1775,7 @@ FlatList of conversations with provider badge, relative timestamps,
 pull-to-refresh, long-press delete confirmation, and empty states
 for no identity and no conversations.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2024,7 +2022,7 @@ Provider/model selection with expandable model cards, optional
 system prompt, and conversation creation. Navigates to ChatScreen
 after creation.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2222,7 +2220,7 @@ Inverted FlatList of messages, optimistic user message on send,
 fire-and-forget POST that refreshes after completion to show
 assistant reply. Phase 5 will replace with SSE streaming.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2235,12 +2233,12 @@ Run the full test suite, TypeScript compilation, and verify the commit history i
 
 - [ ] **Step 1: Run all chat feature tests**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --testPathPattern='__tests__/features/chat' --no-coverage 2>&1 | tail -30`
+Run: `pnpm --filter @d7r/saga-app test -- --testPathPattern='__tests__/features/chat' --no-coverage 2>&1 | tail -30`
 Expected: All tests pass (useSession: 4, chat API: 6, useConversations: 7, MessageBubble: 3, ChatInput: 4 = 24 total)
 
 - [ ] **Step 2: Run full saga-app test suite**
 
-Run: `pnpm --filter @epicdm/saga-app test -- --no-coverage 2>&1 | tail -20`
+Run: `pnpm --filter @d7r/saga-app test -- --no-coverage 2>&1 | tail -20`
 Expected: All tests pass (existing + new chat tests)
 
 - [ ] **Step 3: TypeScript compilation check**

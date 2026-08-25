@@ -113,8 +113,8 @@ No constructor changes from 1.1 or 1.4 (only function bodies + new library impor
 ## Acceptance criteria
 
 - All Forge tests green (`forge test`)
-- `pnpm --filter @epicdm/saga-cli typecheck` green (deploy-docker.ts changes type-check)
-- `pnpm --filter @epicdm/saga-cli test` green (deploy-docker tests still pass)
+- `pnpm --filter @d7r/saga-cli typecheck` green (deploy-docker.ts changes type-check)
+- `pnpm --filter @d7r/saga-cli test` green (deploy-docker tests still pass)
 - New tests cover: downgrade allowed, upgrade reverts, oversized URL reverts, malformed protocol reverts, mnemonic-stdin script derives correct key for known test mnemonic
 - Manual smoke: `node packages/contracts/scripts/derive-mnemonic.mjs "m/44'/60'/0'/0/0"` with the 12-word "test test ... junk" mnemonic on stdin emits `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` (Hardhat first account)
 
@@ -131,5 +131,5 @@ Single commit:
 ```
 feat(security): Phase 1 — mainnet-blocking contract + deploy fixes
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```

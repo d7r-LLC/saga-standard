@@ -3,7 +3,7 @@
 # Phase 4: Wallet Signing + Live Minting — Design
 
 **Date:** 2026-03-27
-**Package:** `@epicdm/saga-app`
+**Package:** `@d7r/saga-app`
 **Depends on:** Phase 3 (On-Chain Identity)
 
 ## Goal
@@ -30,7 +30,7 @@ useWalletSigner(walletId)
     │  creates viem WalletClient with HDAccount
     ▼
 useMint().executeMint(walletClient)
-    │  calls mintAgent/mintOrg via @epicdm/saga-client
+    │  calls mintAgent/mintOrg via @d7r/saga-client
     │  waits for tx confirmation via publicClient
     ▼
 Success: tokenId, TBA address, txHash

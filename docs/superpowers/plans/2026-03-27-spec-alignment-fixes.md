@@ -114,7 +114,7 @@ Five tests passed hubUrl in AgentRegisteredEvent mock data but
 the type expects homeHubUrl. The handler read event.homeHubUrl
 which was undefined.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -356,7 +356,7 @@ Replaced stubbed length-check signature verification with real
 EIP-191 recovery using viem verifyMessage in ws-auth, federation-auth,
 and routes/auth. Updated all tests to use real wallet signatures.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -464,7 +464,7 @@ Replaced placeholder federation challenge signing with real EIP-191
 signatures via viem privateKeyToAccount. The operator private key is
 stored as a Wrangler secret, not a plain env var.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -599,7 +599,7 @@ RelayRoom now tracks recent message IDs (1-hour TTL) and silently
 acks duplicate envelopes without forwarding. Prevents replayed
 messages from reaching recipients.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -814,7 +814,7 @@ Added optional seq field to SagaEncryptedEnvelope for message ordering.
 Client tracks per-sender monotonic sequences and stamps outbound
 envelopes. Includes reorder utility for client-side delivery ordering.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -883,7 +883,7 @@ The design spec defines three encryption scopes: private, mutual,
 and group. Removed 'self' from the validator and updated tests to
 use 'private' which is the correct scope for self-addressed envelopes.
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
