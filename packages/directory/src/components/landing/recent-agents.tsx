@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import { AgentCard } from '@/components/cards/agent-card'
-import type { AgentRecord } from '@epicdm/saga-client'
+import type { AgentRecord } from '@d7r/saga-client'
 import Link from 'next/link'
 
 export function RecentAgents({ agents }: { agents: AgentRecord[] }) {

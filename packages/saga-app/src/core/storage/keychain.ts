@@ -3,7 +3,7 @@
 
 import * as Keychain from 'react-native-keychain'
 
-const SERVICE_PREFIX = 'com.epicdm.saga'
+const SERVICE_PREFIX = 'io.d7r.saga'
 
 export const SecureKeychain = {
   async set(key: string, value: string): Promise<void> {

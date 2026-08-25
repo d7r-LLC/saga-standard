@@ -28,7 +28,7 @@ Tier 1: Global Registry                 registry.saga-standard.dev
                ▼                              ▼
 Tier 2: SAGA Hubs              Hub A                    Hub B
 ━━━━━━━━━━━━━━━━━━         (FlowState Dir)          (Client Corp Dir)
-   Agent state,          agents.epicflowstate.ai    agents.clientcorp.com
+   Agent state,          agents.d7r.io    agents.clientcorp.com
    cross-hub repl,
    export policies       ◄────── hub-hub sync ──────►
 
@@ -141,7 +141,7 @@ The registry stores three collections:
 ```typescript
 {
   id: string                    // hub registration ID
-  hubUrl: string                // e.g., "https://agents.epicflowstate.ai"
+  hubUrl: string                // e.g., "https://agents.d7r.io"
   hubName: string               // human-readable name
   walletAddress: string         // hub's signing wallet
   chain: string                 // e.g., "eip155:8453"
@@ -249,7 +249,7 @@ When a spoke needs to authenticate an agent:
 ```
 1. Agent presents wallet signature to spoke
 2. Spoke queries registry: GET /v1/resolve/marcus.chen
-3. Registry returns: { homeHubUrl: "https://agents.epicflowstate.ai", walletAddress: "0x..." }
+3. Registry returns: { homeHubUrl: "https://agents.d7r.io", walletAddress: "0x..." }
 4. Spoke verifies wallet signature matches
 5. Spoke connects to home hub for agent data
 6. If spoke's hub is different from home hub, hub-hub federation kicks in
@@ -719,7 +719,7 @@ Enable hubs to replicate SAGA data between each other.
 
 **Setup:**
 
-- Hub A: FlowState Directory (`agents.epicflowstate.ai`) — Marcus's home hub
+- Hub A: FlowState Directory (`agents.d7r.io`) — Marcus's home hub
 - Hub B: Client Corp Directory (`agents.clientcorp.com`)
 - Registry: `registry.saga-standard.dev` — both hubs registered
 - Spoke 1: FlowState runtime (connected to Hub A)
@@ -737,7 +737,7 @@ Enable hubs to replicate SAGA data between each other.
 - Client Corp spoke authenticates Marcus via wallet
 - Spoke asks Hub B for Marcus's data
 - Hub B doesn't have Marcus — resolves handle via registry
-- Registry returns: `homeHubUrl: "agents.epicflowstate.ai"`
+- Registry returns: `homeHubUrl: "agents.d7r.io"`
 - Hub B initiates federation with Hub A (if not already federated)
 - Hub B pulls Marcus's portable data from Hub A
   - Hub A applies export policy: allows sharing with Hub B
@@ -828,7 +828,7 @@ Phases 1-3 deliver single-hub sync (Marcus syncs within FlowState ecosystem). Ph
 
 1. FlowState runtime pushes agent-portable data to the FlowState hub via rxdb-d1 replication
 2. A second spoke (on same hub) pulls Marcus's knowledge and gets cross-system context
-3. The global registry resolves `marcus.chen` to `agents.epicflowstate.ai`
+3. The global registry resolves `marcus.chen` to `agents.d7r.io`
 4. A second hub (Client Corp) federates with FlowState hub via the registry
 5. Marcus's portable data replicates from Hub A to Hub B on demand
 6. Client Corp's proprietary data does NOT flow to systems FlowState serves (export policy enforcement)

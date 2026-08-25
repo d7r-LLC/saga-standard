@@ -9,9 +9,9 @@ SAGA identity NFTs provide verifiable, on-chain proof of agent and organization 
 | Component           | Package                    | Role                                                              |
 | ------------------- | -------------------------- | ----------------------------------------------------------------- |
 | Smart contracts     | `@saga-standard/contracts` | On-chain handle registry and ERC-721 identity tokens              |
-| Server indexer      | `@epicdm/saga-server`      | Watches Base for contract events, syncs to D1 database            |
-| Client chain module | `@epicdm/saga-client`      | TypeScript functions for minting, resolving, and checking handles |
-| CLI commands        | `@epicdm/saga-cli`         | `saga register --on-chain`, `saga resolve`, `saga register-org`   |
+| Server indexer      | `@d7r/saga-server`         | Watches Base for contract events, syncs to D1 database            |
+| Client chain module | `@d7r/saga-client`         | TypeScript functions for minting, resolving, and checking handles |
+| CLI commands        | `@d7r/saga-cli`            | `saga register --on-chain`, `saga resolve`, `saga register-org`   |
 
 ## Agent Registration Flow
 

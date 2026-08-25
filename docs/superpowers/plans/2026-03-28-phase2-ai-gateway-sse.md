@@ -107,7 +107,7 @@ Expected: All existing tests still pass.
 git add packages/server/package.json packages/server/pnpm-lock.yaml packages/server/src/bindings.ts packages/server/wrangler.toml
 git commit -m "feat(server): add Vercel AI SDK deps and AI Gateway env vars
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -266,7 +266,7 @@ Expected: All 10 tests PASS
 git add packages/server/src/services/llm.ts packages/server/src/__tests__/llm.test.ts
 git commit -m "feat(server): add LLM service with API key resolution
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -450,7 +450,7 @@ Expected: All 18 tests PASS (10 from Task 2 + 8 new)
 git add packages/server/src/services/llm.ts packages/server/src/__tests__/llm.test.ts
 git commit -m "feat(server): add AI Gateway URL builder, provider factory, and cost estimation
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1069,7 +1069,7 @@ Expected: All chat tests PASS including new streaming tests.
 git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.test.ts
 git commit -m "feat(server): upgrade POST messages to SSE streaming with AI SDK
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1242,7 +1242,7 @@ If any tests fail, fix the implementation in `chat.ts` and re-run.
 git add packages/server/src/__tests__/chat.test.ts
 git commit -m "test(server): add error handling tests for streaming endpoint
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1279,5 +1279,5 @@ If any fixes were applied in this task:
 git add -u
 git commit -m "fix(server): integration fixes for Phase 2 streaming
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```

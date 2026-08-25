@@ -17,7 +17,7 @@ The directory is a **thin frontend** over the existing SAGA server API. It does 
 **Deep Fork** of the FlowState Directory (`flowstate-platform/packages/directory`). Copy the full package, then systematically:
 
 - Replace OIDC auth with wallet-based auth (ported from `flowstate-platform/packages/id`)
-- Replace local D1 database queries with SAGA server API calls via `@epicdm/saga-client`
+- Replace local D1 database queries with SAGA server API calls via `@d7r/saga-client`
 - Remove payment, work history, MCP, and FlowState-specific features
 - Add Transfer Protocol UI (new)
 - Inline shared `@epicdm/chrome` components we use (layout, nav, theming)
@@ -211,12 +211,12 @@ Port wallet client-side code from `flowstate-platform/packages/id` and wire it t
 
 **Wrangler environments:**
 
-- `staging`: `saga-directory-staging.epicdm.workers.dev`
+- `staging`: `saga-directory-staging.d7r.workers.dev`
 - `production`: `directory.saga-standard.dev` (custom domain, future)
 
 **Environment variables:**
 
-- `SAGA_SERVER_URL` — SAGA server base URL (staging: `https://saga-server-staging.epicdm.workers.dev`)
+- `SAGA_SERVER_URL` — SAGA server base URL (staging: `https://saga-server-staging.d7r.workers.dev`)
 - `WALLETCONNECT_PROJECT_ID` — WalletConnect Cloud project ID
 
 **Build:**
@@ -249,7 +249,7 @@ Entire directories/files removed from the FlowState directory copy:
 
 **Dependencies added:**
 
-- `@epicdm/saga-client` (workspace dependency)
+- `@d7r/saga-client` (workspace dependency)
 - `viem` (wallet interaction)
 - `@walletconnect/ethereum-provider` + `@walletconnect/modal`
 
@@ -259,9 +259,9 @@ Entire directories/files removed from the FlowState directory copy:
 
 ```
 /agents page (server component)
-  → import SagaServerClient from '@epicdm/saga-client'
+  → import SagaServerClient from '@d7r/saga-client'
   → client.listAgents({ page, limit, search })
-  → GET https://saga-server-staging.epicdm.workers.dev/v1/agents?page=1&limit=20&search=foo
+  → GET https://saga-server-staging.d7r.workers.dev/v1/agents?page=1&limit=20&search=foo
   → Render AgentCard grid with pagination
 ```
 

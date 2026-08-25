@@ -105,12 +105,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. The short version:
 
 | Package                                          | Description                                                     |
 | ------------------------------------------------ | --------------------------------------------------------------- |
-| [`@epicdm/saga-sdk`](packages/sdk)               | Core SDK: document creation, validation, signing, encryption    |
+| [`@d7r/saga-sdk`](packages/sdk)                  | Core SDK: document creation, validation, signing, encryption    |
 | [`@saga-standard/contracts`](packages/contracts) | Solidity contracts + TypeScript bindings for identity NFTs      |
-| [`@epicdm/saga-client`](packages/client)         | Client library for server interaction and on-chain operations   |
-| [`@epicdm/saga-server`](packages/server)         | Reference server (Cloudflare Workers) with on-chain indexer     |
-| [`@epicdm/saga-cli`](packages/cli)               | CLI for agent registration, resolution, and document management |
-| [`@epicdm/saga-collectors`](packages/collectors) | Data collectors for assembling SAGA documents                   |
+| [`@d7r/saga-client`](packages/client)            | Client library for server interaction and on-chain operations   |
+| [`@d7r/saga-server`](packages/server)            | Reference server (Cloudflare Workers) with on-chain indexer     |
+| [`@d7r/saga-cli`](packages/cli)                  | CLI for agent registration, resolution, and document management |
+| [`@d7r/saga-collectors`](packages/collectors)    | Data collectors for assembling SAGA documents                   |
 
 ## Identity NFTs
 
@@ -121,8 +121,8 @@ Agents and organizations can register on-chain with ERC-721 identity NFTs on Bas
 FlowState maintains the reference implementation at Level 3 conformance:
 
 - **Runtime:** [`@epicdm/flowstate-directory`](https://github.com/d7r-LLC/flowstate-platform)
-- **SDK:** `@epicdm/saga-sdk` (TypeScript, Apache 2.0)
-- **Directory:** [agents.epicflowstate.ai](https://agents.epicflowstate.ai)
+- **SDK:** `@d7r/saga-sdk` (TypeScript, Apache 2.0)
+- **Directory:** [agents.d7r.io](https://agents.d7r.io)
 
 ## Governance
 

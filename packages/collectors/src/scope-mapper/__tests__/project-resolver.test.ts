@@ -115,7 +115,7 @@ describe('resolveProjectScope', () => {
         orgId: 'org_9f3omFEY2H',
         workspaceId: 'work_RfO9myuOP8',
         codebaseId: 'code_abc123',
-        projectName: '@epicdm/saga-standard',
+        projectName: '@d7r/saga-standard',
       })
     )
 
@@ -126,7 +126,7 @@ describe('resolveProjectScope', () => {
     expect(result!.scope.orgId).toBe('org_9f3omFEY2H')
     expect(result!.scope.workspaceId).toBe('work_RfO9myuOP8')
     expect(result!.scope.codebaseId).toBe('code_abc123')
-    expect(result!.scope.projectName).toBe('@epicdm/saga-standard')
+    expect(result!.scope.projectName).toBe('@d7r/saga-standard')
   })
 
   it('returns null when project not in path map', () => {

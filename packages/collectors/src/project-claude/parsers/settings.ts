@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { CognitiveLayer } from '@epicdm/saga-sdk'
+import type { CognitiveLayer } from '@d7r/saga-sdk'
 
 /**
  * Parse .claude/settings.json into cognitive parameters.

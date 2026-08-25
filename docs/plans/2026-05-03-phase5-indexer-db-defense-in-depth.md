@@ -178,9 +178,9 @@ Add `extractor.test.ts` with three malicious-archive fixtures (programmatically 
 
 ## Acceptance criteria
 
-- `pnpm --filter @epicdm/saga-server test` green
-- `pnpm --filter @epicdm/saga-cli test` green
-- `pnpm --filter @epicdm/saga-sdk test` green
+- `pnpm --filter @d7r/saga-server test` green
+- `pnpm --filter @d7r/saga-cli test` green
+- `pnpm --filter @d7r/saga-sdk test` green
 - New tests:
   - `db-foreign-keys.test.ts`: cascade delete works; FK insert fails with PRAGMA on
   - `transfer-from-guard.test.ts`: stale Transfer no-ops; idempotent replay; correct from→to advances
@@ -205,4 +205,4 @@ Single PR, multi-commit:
 4. `feat(server): document upload Content-Length pre-check` (5.5)
 5. `feat(sdk): .saga container path-traversal + size caps` (5.6)
 
-Each commit ends with `Built with Epic Flowstate`.
+Each commit ends with `Built with d7r FlowState`.

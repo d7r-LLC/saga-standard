@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { SelfReportedSkill, SkillCapabilities } from '@epicdm/saga-sdk'
+import type { SelfReportedSkill, SkillCapabilities } from '@d7r/saga-sdk'
 import matter from 'gray-matter'
 
 /**

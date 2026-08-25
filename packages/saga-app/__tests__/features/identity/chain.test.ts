@@ -6,7 +6,7 @@ import { checkHandleAvailability, resolveHandle } from '../../../src/features/id
 const mockIsHandleAvailable = jest.fn()
 const mockResolveHandleOnChain = jest.fn()
 
-jest.mock('@epicdm/saga-client', () => ({
+jest.mock('@d7r/saga-client', () => ({
   isHandleAvailable: (...args: unknown[]) => mockIsHandleAvailable(...args),
   resolveHandleOnChain: (...args: unknown[]) => mockResolveHandleOnChain(...args),
 }))

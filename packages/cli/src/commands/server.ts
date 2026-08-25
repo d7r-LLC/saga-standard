@@ -3,7 +3,7 @@
 
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { SagaServerClient, type ServerInfo } from '@epicdm/saga-client'
+import { SagaServerClient, type ServerInfo } from '@d7r/saga-client'
 import { clearCachedSession, loadConfig, saveConfig } from '../config'
 
 export const serverCommand = new Command('server').description('Manage SAGA servers')

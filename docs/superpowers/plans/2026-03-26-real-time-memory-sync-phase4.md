@@ -8,7 +8,7 @@
 
 **Architecture:** The server's RelayRoom Durable Object is extended with a D1-backed canonical memory store and multi-connection support per handle. When a `memory-sync` envelope arrives, the hub stores it canonically in D1 and forwards to all other connected DERPs for the same agent. On activation, the client sends a `sync-request` with its last checkpoint; the server responds with all memory envelopes since that checkpoint. The client stores the checkpoint in its encrypted local store.
 
-**Tech Stack:** TypeScript, Cloudflare Workers (D1, Durable Objects, KV), Drizzle ORM, Vitest, `@epicdm/saga-crypto`, `@saga-standard/saga-client-rt`
+**Tech Stack:** TypeScript, Cloudflare Workers (D1, Durable Objects, KV), Drizzle ORM, Vitest, `@d7r/saga-crypto`, `@saga-standard/saga-client-rt`
 
 ---
 

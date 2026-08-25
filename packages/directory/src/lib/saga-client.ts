@@ -1,7 +1,7 @@
 // Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
 
-import { SagaServerClient } from '@epicdm/saga-client'
+import { SagaServerClient } from '@d7r/saga-client'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export async function createSagaClient(): Promise<SagaServerClient> {

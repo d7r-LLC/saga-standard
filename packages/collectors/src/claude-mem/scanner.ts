@@ -5,7 +5,7 @@ import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import Database from 'better-sqlite3'
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 
 /**

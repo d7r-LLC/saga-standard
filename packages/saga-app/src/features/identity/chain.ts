@@ -7,8 +7,8 @@ import {
   mintAgentIdentity,
   mintOrgIdentity,
   resolveHandleOnChain,
-} from '@epicdm/saga-client'
-import type { MintResult, OnChainResolveResult, SupportedChain } from '@epicdm/saga-client'
+} from '@d7r/saga-client'
+import type { MintResult, OnChainResolveResult, SupportedChain } from '@d7r/saga-client'
 import type { ChainId } from '../wallet/types'
 
 export type { MintResult, OnChainResolveResult }

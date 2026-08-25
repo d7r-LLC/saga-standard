@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-collectors",
+  "name": "@d7r/saga-collectors",
   "version": "0.1.0",
   "description": "SAGA collectors — extract agent state from Claude Code, OpenClaw, and other local sources",
   "type": "module",
@@ -27,7 +27,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@epicdm/saga-sdk": "workspace:*",
+    "@d7r/saga-sdk": "workspace:*",
     "better-sqlite3": "^11.8.0",
     "gray-matter": "^4.0.3"
   },

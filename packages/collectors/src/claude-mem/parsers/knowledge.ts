@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { ExpertiseLevel, SemanticMemory } from '@epicdm/saga-sdk'
+import type { ExpertiseLevel, SemanticMemory } from '@d7r/saga-sdk'
 
 export function aggregateKnowledge(concepts: string[]): Partial<SemanticMemory> {
   if (concepts.length === 0) {

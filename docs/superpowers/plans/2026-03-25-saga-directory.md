@@ -6,9 +6,9 @@
 
 **Goal:** Build the SAGA Official Directory — a Next.js app on Cloudflare Workers for browsing, registering, and managing SAGA agents/orgs with wallet auth and transfer protocol UI.
 
-**Architecture:** Deep fork of FlowState Directory (`/Users/sthornock/code/epic/flowstate-platform/packages/directory`), replacing OIDC auth with wallet-based auth (ported from `flowstate-platform/packages/id`), replacing local D1 queries with SAGA server API calls via `@epicdm/saga-client`, and adding transfer protocol UI. The directory is a thin frontend — all agent/org data lives on the SAGA server.
+**Architecture:** Deep fork of FlowState Directory (`/Users/sthornock/code/epic/flowstate-platform/packages/directory`), replacing OIDC auth with wallet-based auth (ported from `flowstate-platform/packages/id`), replacing local D1 queries with SAGA server API calls via `@d7r/saga-client`, and adding transfer protocol UI. The directory is a thin frontend — all agent/org data lives on the SAGA server.
 
-**Tech Stack:** Next.js 15, React 19, Tailwind CSS v4, Cloudflare Workers (OpenNextJS), KV (sessions), `@epicdm/saga-client`, viem, WalletConnect
+**Tech Stack:** Next.js 15, React 19, Tailwind CSS v4, Cloudflare Workers (OpenNextJS), KV (sessions), `@d7r/saga-client`, viem, WalletConnect
 
 **Spec:** `docs/superpowers/specs/2026-03-25-saga-directory-design.md`
 
@@ -247,7 +247,7 @@ Replace `packages/directory/package.json` with:
 
 ```json
 {
-  "name": "@epicdm/saga-directory",
+  "name": "@d7r/saga-directory",
   "version": "0.1.0",
   "private": true,
   "description": "SAGA Official Directory — browse, register, and manage SAGA agents and organizations",
@@ -262,7 +262,7 @@ Replace `packages/directory/package.json` with:
     "test": "echo 'no tests yet'"
   },
   "dependencies": {
-    "@epicdm/saga-client": "workspace:*",
+    "@d7r/saga-client": "workspace:*",
     "@headlessui/react": "^2.2.6",
     "@tailwindcss/postcss": "^4.1.11",
     "clsx": "^2.1.1",
@@ -306,7 +306,7 @@ Create `packages/directory/wrangler.jsonc`:
     "logs": { "enabled": true },
   },
   "vars": {
-    "SAGA_SERVER_URL": "https://saga-server.epicdm.workers.dev",
+    "SAGA_SERVER_URL": "https://saga-server.d7r.workers.dev",
   },
   "kv_namespaces": [
     {
@@ -324,7 +324,7 @@ Create `packages/directory/wrangler.jsonc`:
     "staging": {
       "name": "saga-directory-staging",
       "vars": {
-        "SAGA_SERVER_URL": "https://saga-server-staging.epicdm.workers.dev",
+        "SAGA_SERVER_URL": "https://saga-server-staging.d7r.workers.dev",
       },
       "kv_namespaces": [
         {
@@ -679,7 +679,7 @@ export function setSessionCookie(sessionId: string) {
 Create `packages/directory/src/lib/saga-client.ts`:
 
 ```typescript
-import { SagaServerClient } from '@epicdm/saga-client'
+import { SagaServerClient } from '@d7r/saga-client'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 /**
@@ -1225,7 +1225,7 @@ git commit -m "feat(directory): wallet connect page with MetaMask/Phantom/Wallet
 Create `packages/directory/src/lib/types.ts`:
 
 ```typescript
-import type { AgentRecord, OrgRecord } from '@epicdm/saga-client'
+import type { AgentRecord, OrgRecord } from '@d7r/saga-client'
 
 // Re-export client types for convenience
 export type { AgentRecord, OrgRecord }
@@ -1635,7 +1635,7 @@ Create `packages/directory/src/components/agent-profile/profile-hero.tsx`:
 ```typescript
 import { ChainBadge } from '@/components/badges/chain-badge'
 import { WalletAddress } from '@/components/badges/wallet-address'
-import type { AgentRecord } from '@epicdm/saga-client'
+import type { AgentRecord } from '@d7r/saga-client'
 
 export function ProfileHero({ agent }: { agent: AgentRecord }) {
   return (
@@ -1662,7 +1662,7 @@ export function ProfileHero({ agent }: { agent: AgentRecord }) {
 Create `packages/directory/src/components/agent-profile/profile-details.tsx`:
 
 ```typescript
-import type { AgentRecord, DocumentRecord } from '@epicdm/saga-client'
+import type { AgentRecord, DocumentRecord } from '@d7r/saga-client'
 
 export function ProfileDetails({
   agent,
@@ -1804,7 +1804,7 @@ Create `packages/directory/src/components/org-profile/org-hero.tsx`:
 ```typescript
 import { ChainBadge } from '@/components/badges/chain-badge'
 import { WalletAddress } from '@/components/badges/wallet-address'
-import type { OrgRecord } from '@epicdm/saga-client'
+import type { OrgRecord } from '@d7r/saga-client'
 
 export function OrgHero({ org }: { org: OrgRecord }) {
   return (
@@ -2623,7 +2623,7 @@ Create `packages/directory/src/components/landing/recent-agents.tsx`:
 
 ```typescript
 import { AgentCard } from '@/components/cards/agent-card'
-import type { AgentRecord } from '@epicdm/saga-client'
+import type { AgentRecord } from '@d7r/saga-client'
 import Link from 'next/link'
 
 export function RecentAgents({ agents }: { agents: AgentRecord[] }) {
@@ -2884,13 +2884,13 @@ pnpm deploy:staging
 - [ ] **Step 5: Verify staging is running**
 
 ```bash
-curl -s https://saga-directory-staging.epicdm.workers.dev/api/health
+curl -s https://saga-directory-staging.d7r.workers.dev/api/health
 ```
 
 Expected: `{"status":"ok","service":"saga-directory"}`
 
 ```bash
-curl -s https://saga-directory-staging.epicdm.workers.dev/
+curl -s https://saga-directory-staging.d7r.workers.dev/
 ```
 
 Expected: HTML page with SAGA Directory content.

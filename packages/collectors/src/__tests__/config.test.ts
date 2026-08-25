@@ -27,10 +27,10 @@ describe('loadSagaConfig', () => {
         sagaHandle: 'marcus-chen',
         sagaWallet: '0xabc123',
         chain: 'eip155:8453',
-        orgHandle: 'd7r-LLC',
+        orgHandle: 'd7r',
       },
       hub: {
-        url: 'https://agents.epicflowstate.ai',
+        url: 'https://agents.d7r.io',
         systemId: 'flowstate-derp-marcus-01',
       },
     }))
@@ -38,7 +38,7 @@ describe('loadSagaConfig', () => {
     const config = loadSagaConfig(tempDir)
     expect(config).not.toBeNull()
     expect(config!.agent.sagaHandle).toBe('marcus-chen')
-    expect(config!.hub?.url).toBe('https://agents.epicflowstate.ai')
+    expect(config!.hub?.url).toBe('https://agents.d7r.io')
   })
 
   it('returns null when config missing', () => {

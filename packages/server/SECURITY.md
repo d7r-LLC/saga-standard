@@ -63,7 +63,7 @@ If you change `verifySignature`, the WebSocket auth path, or the federation auth
 | `CORS_ALLOWED_ORIGINS` value                       | Behavior                                                                                        |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | unset / empty                                      | No cross-origin access. Same-origin requests still work.                                        |
-| `https://directory.epicflowstate.ai`               | Allow exactly that origin (production deploy posture).                                          |
+| `https://directory.d7r.io`                         | Allow exactly that origin (production deploy posture).                                          |
 | `https://a.example,https://b.example` (comma list) | Allow each origin verbatim. Whitespace around commas is trimmed.                                |
 | `*`                                                | Allow ANY origin. The old reference-deploy default. **Production deployers must NOT use this.** |
 

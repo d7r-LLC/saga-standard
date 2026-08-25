@@ -26,7 +26,7 @@ describe('readFlowstateConfig', () => {
       join(fsDir, 'config.json'),
       JSON.stringify({
         version: '1.0.0',
-        projectName: '@epicdm/saga-directory',
+        projectName: '@d7r/saga-directory',
         projectId: 'proj_4HUZfWRpHh',
         codebaseId: 'code_u2uLspkjqe',
         orgId: 'org_9f3omFEY2H',
@@ -37,7 +37,7 @@ describe('readFlowstateConfig', () => {
     const config = readFlowstateConfig(tempDir)
     expect(config).not.toBeNull()
     expect(config!.version).toBe('1.0.0')
-    expect(config!.projectName).toBe('@epicdm/saga-directory')
+    expect(config!.projectName).toBe('@d7r/saga-directory')
     expect(config!.orgId).toBe('org_9f3omFEY2H')
     expect(config!.workspaceId).toBe('work_RfO9myuOP8')
     expect(config!.codebaseId).toBe('code_u2uLspkjqe')
@@ -50,7 +50,7 @@ describe('readFlowstateConfig', () => {
     writeFileSync(
       join(fsDir, 'config.json'),
       JSON.stringify({
-        packageName: '@epicdm/saga-cli',
+        packageName: '@d7r/saga-cli',
         orgId: 'org_9f3omFEY2H',
         workspaceId: 'work_ojk4TWK5D2',
         projectId: 'proj_abc123',
@@ -59,7 +59,7 @@ describe('readFlowstateConfig', () => {
 
     const config = readFlowstateConfig(tempDir)
     expect(config).not.toBeNull()
-    expect(config!.packageName).toBe('@epicdm/saga-cli')
+    expect(config!.packageName).toBe('@d7r/saga-cli')
     expect(config!.orgId).toBe('org_9f3omFEY2H')
     expect(config!.workspaceId).toBe('work_ojk4TWK5D2')
     expect(config!.version).toBeUndefined()

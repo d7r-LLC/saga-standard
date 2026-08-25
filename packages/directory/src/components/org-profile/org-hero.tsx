@@ -3,7 +3,7 @@
 
 import { ChainBadge } from '@/components/badges/chain-badge'
 import { WalletAddress } from '@/components/badges/wallet-address'
-import type { OrgRecord } from '@epicdm/saga-client'
+import type { OrgRecord } from '@d7r/saga-client'
 
 export function OrgHero({ org }: { org: OrgRecord }) {
   return (

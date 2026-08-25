@@ -6,12 +6,12 @@
 
 **Goal:** Build the client library that runs inside every DERP, connecting to the hub relay and exposing the SagaClient API to agent runtimes.
 
-**Architecture:** New package `@saga-standard/saga-client-rt` ("rt" for runtime). Internally composed of three units: RelayConnection (WebSocket transport + auth + reconnect), MessageRouter (incoming envelope demux + dedup), and a SagaClient facade that wires these together with the KeyRing and EncryptedStore from `@epicdm/saga-crypto`. The client never exposes crypto details — agent runtimes call `storeMemory()`, `sendMessage()`, etc. and everything encrypts/decrypts transparently.
+**Architecture:** New package `@saga-standard/saga-client-rt` ("rt" for runtime). Internally composed of three units: RelayConnection (WebSocket transport + auth + reconnect), MessageRouter (incoming envelope demux + dedup), and a SagaClient facade that wires these together with the KeyRing and EncryptedStore from `@d7r/saga-crypto`. The client never exposes crypto details — agent runtimes call `storeMemory()`, `sendMessage()`, etc. and everything encrypts/decrypts transparently.
 
-**Tech Stack:** TypeScript, `@epicdm/saga-crypto` (KeyRing, seal/open, EncryptedStore), standard W3C WebSocket API, vitest, tsup, pnpm workspace
+**Tech Stack:** TypeScript, `@d7r/saga-crypto` (KeyRing, seal/open, EncryptedStore), standard W3C WebSocket API, vitest, tsup, pnpm workspace
 
 **Parent spec:** [SAGA Encrypted Replication Design](../specs/2026-03-25-saga-encrypted-replication-design.md) — Phase 3 section
-**Depends on:** Phase 1 (`@epicdm/saga-crypto` merged), Phase 2 (hub relay server — PR #14)
+**Depends on:** Phase 1 (`@d7r/saga-crypto` merged), Phase 2 (hub relay server — PR #14)
 
 ---
 
@@ -92,7 +92,7 @@ packages/saga-client-rt/
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-crypto": "workspace:*"
+    "@d7r/saga-crypto": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -172,7 +172,7 @@ export default defineConfig({
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { SagaKeyRing, SagaEncryptedEnvelope, StorageBackend } from '@epicdm/saga-crypto'
+import type { SagaKeyRing, SagaEncryptedEnvelope, StorageBackend } from '@d7r/saga-crypto'
 
 // ── Re-exports from saga-crypto ──────────────────────────────────
 
@@ -1653,9 +1653,9 @@ git commit -m "feat(saga-client-rt): add message router with dedup and typed dis
 - Modify: `packages/saga-client-rt/src/index.ts`
 - Test: `packages/saga-client-rt/src/__tests__/client.test.ts`
 
-**Context:** The SagaClient wires together RelayConnection + MessageRouter + EncryptedStore + KeyRing into the public API. It uses `seal()` from `@epicdm/saga-crypto` to encrypt outbound messages and `open()` to decrypt inbound messages. Peer x25519 public keys are manually registered via `registerPeerKey()` (Phase 5 adds auto-discovery). Memory operations use the EncryptedStore from saga-crypto.
+**Context:** The SagaClient wires together RelayConnection + MessageRouter + EncryptedStore + KeyRing into the public API. It uses `seal()` from `@d7r/saga-crypto` to encrypt outbound messages and `open()` to decrypt inbound messages. Peer x25519 public keys are manually registered via `registerPeerKey()` (Phase 5 adds auto-discovery). Memory operations use the EncryptedStore from saga-crypto.
 
-**Key imports from `@epicdm/saga-crypto`:**
+**Key imports from `@d7r/saga-crypto`:**
 
 - `seal(payload, keyRing)` — encrypts and builds a `SagaEncryptedEnvelope`
 - `open(envelope, keyRing, senderPublicKey?)` — decrypts an envelope
@@ -1675,8 +1675,8 @@ import type { SagaClientConfig, SagaEncryptedEnvelope, SagaMemory } from '../typ
 import { createSagaClient } from '../client'
 import { MockWebSocket, createMockSigner, simulateAuthFlow } from './test-helpers'
 
-// Mock @epicdm/saga-crypto
-vi.mock('@epicdm/saga-crypto', () => {
+// Mock @d7r/saga-crypto
+vi.mock('@d7r/saga-crypto', () => {
   const mockStore = {
     _data: new Map<string, unknown>(),
     put: vi.fn(async (key: string, value: unknown) => {
@@ -1763,7 +1763,7 @@ describe('createSagaClient', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     // Reset mock store data
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 
@@ -1784,7 +1784,7 @@ describe('createSagaClient', () => {
   it('storeMemory() stores in local encrypted store', async () => {
     const { config, getWs } = createTestConfig()
     const { client } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     const mockStore = (crypto as unknown as { _mockStore: { put: ReturnType<typeof vi.fn> } })
       ._mockStore
 
@@ -1803,7 +1803,7 @@ describe('createSagaClient', () => {
   it('storeMemory() also pushes envelope through relay', async () => {
     const { config, getWs } = createTestConfig()
     const { client, ws } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     const memory: SagaMemory = {
       id: 'mem-1',
@@ -1894,7 +1894,7 @@ describe('createSagaClient', () => {
   it('sendMessage() seals and sends through relay', async () => {
     const { config, getWs } = createTestConfig()
     const { client, ws } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     client.registerPeerKey('bob@epicflow', new Uint8Array(32))
 
@@ -2039,7 +2039,7 @@ describe('createSagaClient', () => {
   it('sendGroupMessage() seals with group scope', async () => {
     const { config, getWs } = createTestConfig()
     const { client } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     await client.sendGroupMessage('team-alpha', {
       messageType: 'coordination',
@@ -2072,7 +2072,7 @@ Create `src/client.ts`:
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { seal, open, createEncryptedStore, MemoryBackend } from '@epicdm/saga-crypto'
+import { seal, open, createEncryptedStore, MemoryBackend } from '@d7r/saga-crypto'
 import type {
   SagaClientConfig,
   SagaClient,
@@ -2346,7 +2346,7 @@ git commit -m "feat(saga-client-rt): implement SagaClient with memory, messaging
 
 - Create: `packages/saga-client-rt/src/__tests__/integration.test.ts`
 
-**Context:** Integration tests use real `@epicdm/saga-crypto` (no mocks) with MockWebSocket to test the full encrypt → seal → send → receive → open → decrypt flow. Two SagaClient instances (Alice and Bob) communicate through simulated relay delivery.
+**Context:** Integration tests use real `@d7r/saga-crypto` (no mocks) with MockWebSocket to test the full encrypt → seal → send → receive → open → decrypt flow. Two SagaClient instances (Alice and Bob) communicate through simulated relay delivery.
 
 ### Step 1: Write integration tests
 
@@ -2357,8 +2357,8 @@ Create `src/__tests__/integration.test.ts`:
 // Copyright 2026 d7r LLC
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { createSagaKeyRing, MemoryBackend } from '@epicdm/saga-crypto'
-import type { SagaEncryptedEnvelope } from '@epicdm/saga-crypto'
+import { createSagaKeyRing, MemoryBackend } from '@d7r/saga-crypto'
+import type { SagaEncryptedEnvelope } from '@d7r/saga-crypto'
 import { createSagaClient } from '../client'
 import type { SagaClientConfig, SagaMemory } from '../types'
 import { MockWebSocket, createMockSigner, simulateAuthFlow } from './test-helpers'
@@ -2653,5 +2653,5 @@ No TBD, TODO, "implement later", "fill in details", or "similar to Task N" patte
 - `MessageDedup` interface in `dedup.ts` matches usage in `message-router.ts`
 - `WalletSigner` in `types.ts` matches usage in relay-connection auth flow
 - `DecryptFn` in `message-router.ts` matches wiring in `client.ts`
-- `SagaEncryptedEnvelope` imported from `@epicdm/saga-crypto` used consistently
+- `SagaEncryptedEnvelope` imported from `@d7r/saga-crypto` used consistently
 - Server message types in `types.ts` match the hub's wire protocol from `packages/server/src/relay/types.ts`

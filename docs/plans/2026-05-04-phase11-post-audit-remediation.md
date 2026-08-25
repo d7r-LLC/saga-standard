@@ -188,7 +188,7 @@ Add cancelPendingAuthorizedContract() and cancelPendingTrustedDirectoryContract(
 (onlyOwner, immediate, emit *Cancelled events). Anyone-applies semantics
 unchanged; the queue is the privileged action and now has a clean undo.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -396,7 +396,7 @@ flag set by \`finalizeBootstrap()\` at the end of Deploy.s.sol. Once
 finalized, every authorize-true must go through queue+apply
 regardless of owner identity. Deauthorization remains immediate.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -635,7 +635,7 @@ byte blacklist as validateUrl minus SPACE (legitimate in display
 names). Apply to registerOrganization, updateOrgName, and
 registerDirectory's conformance-level field.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -799,7 +799,7 @@ Add SAGAValidation.validateBaseUri(string) requiring trailing '/'
 and rejecting '?', '#', '&'. Apply at all three setBaseURI queues
 AND at all three applyBaseURI re-validation sites.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -894,7 +894,7 @@ registry directly. ~2.4k gas per call.
 Inherit ReentrancyGuard on SAGAHandleRegistry; add nonReentrant to
 registerHandle and registerScopedHandle. Anthropic.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1078,7 +1078,7 @@ partial-closure.
 Residual risk: a non-conforming TBA that drops token() slips past;
 UX-layer warnings remain the mitigation for that edge.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1152,7 +1152,7 @@ Phase 11A — closes 6 findings from the post-Phase-10 three-provider re-audit (
 - [x] `pnpm typecheck` clean
 - [ ] Copilot review
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1288,7 +1288,7 @@ to flagged or revoked. Indexers can subscribe to this single event
 to refresh their identity caches without polling. resolveScopedHandle
 naming preserved for backward compatibility.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1355,7 +1355,7 @@ be solved on-chain without breaking ERC-721 compat.
 Document the risk + UX-layer mitigations + marketplace-adapter
 recommendation in README Security Notes.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1421,7 +1421,7 @@ slowing deauth would be worse.
 README 'Authorized contracts: residual risk' section now
 documents the asymmetry explicitly.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1496,7 +1496,7 @@ immutable refs. OpenAI.
 Add chain-pinned check on Base mainnet/Sepolia: helper.registry()
 + helper.accountImplementation() must match the canonical set.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1545,7 +1545,7 @@ no warning if their env vars are wrong. Anthropic.
 Add console.log warning in the else branch of the chain-pin block.
 No behavior change on Base; diagnostic improvement on other chains.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1690,7 +1690,7 @@ Extend RegistryConsistencyHandler with registerDirectory; assert
 directory roundtrip in invariant_handleRoundtripResolves alongside
 the agent + org assertions.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1753,7 +1753,7 @@ but did not fuzz the full byte space. Add testFuzz_j12_validateUrl_charBlacklist
 covering the entire 0x00..0xFF range; in-blacklist bytes must
 revert, others must pass. Anthropic.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1839,7 +1839,7 @@ Phase 11B — closes the remaining 7 J-findings (1 MEDIUM doc, 2 LOW script, 2 L
 - [x] `pnpm test:ts` all green
 - [ ] Copilot review
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 
 /**

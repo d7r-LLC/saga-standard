@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, basename } from 'node:path'
-import type { SelfReportedSkill } from '@epicdm/saga-sdk'
+import type { SelfReportedSkill } from '@d7r/saga-sdk'
 
 /**
  * Parse .claude/commands/ directory into SAGA skills.

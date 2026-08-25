@@ -242,7 +242,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add slide deck shell with navigation engine
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -690,7 +690,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add design system CSS and shared component styles
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -826,7 +826,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add title slide and stack diagram
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -984,7 +984,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add problem and SAGA slides
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1138,7 +1138,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add ABR and DERP slides
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1254,9 +1254,7 @@ Replace with:
         <div class="repo-dot" style="background: var(--saga-color)"></div>
         <div class="repo-text">
           <div class="repo-domain">saga-standard.dev</div>
-          <div class="repo-gh">
-            github.com/d7r-LLC/saga-standard &nbsp;·&nbsp; Apache 2.0
-          </div>
+          <div class="repo-gh">github.com/d7r-LLC/saga-standard &nbsp;·&nbsp; Apache 2.0</div>
         </div>
       </div>
       <div class="repo-item">
@@ -1289,7 +1287,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add transfer scenario and status slides
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1377,7 +1375,7 @@ git add docs/presentations/saga-stack.html
 git commit -m "$(cat <<'EOF'
 feat(presentation): add slide accent bars and complete SAGA stack deck
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

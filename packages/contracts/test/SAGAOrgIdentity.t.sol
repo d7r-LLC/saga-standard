@@ -89,15 +89,15 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     // --- Test 1: registerOrg success ---
     function test_registerOrg_success() public {
         vm.prank(user1);
-        uint256 tokenId = org.registerOrganization("d7r-llc", "d7r LLC");
+        uint256 tokenId = org.registerOrganization("d7r", "d7r LLC");
 
         assertEq(tokenId, 0);
         assertEq(org.ownerOf(tokenId), user1);
-        assertEq(org.orgHandle(tokenId), "d7r-llc");
+        assertEq(org.orgHandle(tokenId), "d7r");
         assertEq(org.orgName(tokenId), "d7r LLC");
 
         (SAGAHandleRegistry.EntityType entityType, uint256 regTokenId, address contractAddr) =
-            registry.resolveHandle("d7r-llc");
+            registry.resolveHandle("d7r");
         assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.ORG));
         assertEq(regTokenId, 0);
         assertEq(contractAddr, address(org));
@@ -245,17 +245,17 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     function test_registerOrgInDirectory_success() public {
         vm.prank(user1);
         uint256 tokenId = org.registerOrgInDirectory(
-            "d7r-llc", "d7r LLC", "epic-hub"
+            "d7r", "d7r LLC", "epic-hub"
         );
 
         assertEq(tokenId, 0);
         assertEq(org.ownerOf(tokenId), user1);
-        assertEq(org.orgHandle(tokenId), "d7r-llc");
+        assertEq(org.orgHandle(tokenId), "d7r");
         assertEq(org.orgName(tokenId), "d7r LLC");
         assertEq(org.orgDirectoryId(tokenId), "epic-hub");
 
         (SAGAHandleRegistry.EntityType entityType, uint256 regTokenId, address contractAddr) =
-            registry.resolveScopedHandle("d7r-llc", "epic-hub");
+            registry.resolveScopedHandle("d7r", "epic-hub");
         assertEq(uint256(entityType), uint256(SAGAHandleRegistry.EntityType.ORG));
         assertEq(regTokenId, 0);
         assertEq(contractAddr, address(org));
@@ -264,13 +264,13 @@ contract SAGAOrgIdentityTest is Test, IERC721Receiver {
     // --- Test 17: same org handle in different directories ---
     function test_registerOrgInDirectory_sameHandleDifferentDirs() public {
         vm.prank(user1);
-        org.registerOrgInDirectory("d7r-llc", "Epic A", "dir-a");
+        org.registerOrgInDirectory("d7r", "Epic A", "dir-a");
 
         vm.prank(user2);
-        org.registerOrgInDirectory("d7r-llc", "Epic B", "dir-b");
+        org.registerOrgInDirectory("d7r", "Epic B", "dir-b");
 
-        (, uint256 tidA,) = registry.resolveScopedHandle("d7r-llc", "dir-a");
-        (, uint256 tidB,) = registry.resolveScopedHandle("d7r-llc", "dir-b");
+        (, uint256 tidA,) = registry.resolveScopedHandle("d7r", "dir-a");
+        (, uint256 tidB,) = registry.resolveScopedHandle("d7r", "dir-b");
 
         assertEq(tidA, 0);
         assertEq(tidB, 1);

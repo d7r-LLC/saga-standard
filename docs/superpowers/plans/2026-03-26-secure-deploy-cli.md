@@ -39,7 +39,7 @@
 - [ ] **Step 1: Install js-yaml dependency**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli add js-yaml && pnpm --filter @epicdm/saga-cli add -D @types/js-yaml
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli add js-yaml && pnpm --filter @d7r/saga-cli add -D @types/js-yaml
 ```
 
 - [ ] **Step 2: Write failing tests for config loader**
@@ -220,7 +220,7 @@ describe('deploy-config', () => {
 - [ ] **Step 3: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-config.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
 ```
 
 Expected: FAIL — module `../deploy-config` does not exist.
@@ -350,7 +350,7 @@ export function deriveNetworkAllowlist(
 - [ ] **Step 5: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-config.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
 ```
 
 Expected: all tests PASS.
@@ -542,7 +542,7 @@ describe('deploy-docker', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-docker.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
 ```
 
 Expected: FAIL — module `../deploy-docker` does not exist.
@@ -636,7 +636,7 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-docker.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
 ```
 
 Expected: all tests PASS.
@@ -815,7 +815,7 @@ describe('deploy-post', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-post.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
 ```
 
 Expected: FAIL — module `../deploy-post` does not exist.
@@ -918,7 +918,7 @@ export function clearPendingDeploy(deploysDir: string, chain: string): void {
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test -- src/__tests__/deploy-post.test.ts
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
 ```
 
 Expected: all tests PASS.
@@ -1283,7 +1283,7 @@ program.addCommand(deployCommand)
 - [ ] **Step 3: Verify the CLI builds**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli build
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
 ```
 
 Expected: build succeeds with no TypeScript errors.
@@ -1700,7 +1700,7 @@ cd /Users/sthornock/code/epic/saga-standard && git add .gitignore && git commit 
 - [ ] **Step 1: Run all CLI tests**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli test
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test
 ```
 
 Expected: all tests pass (existing + new deploy-config, deploy-docker, deploy-post).
@@ -1708,7 +1708,7 @@ Expected: all tests pass (existing + new deploy-config, deploy-docker, deploy-po
 - [ ] **Step 2: Verify CLI builds cleanly**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @epicdm/saga-cli build
+cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
 ```
 
 Expected: build succeeds.

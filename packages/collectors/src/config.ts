@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SagaConfig } from '@epicdm/saga-sdk'
+import type { SagaConfig } from '@d7r/saga-sdk'
 
 /**
  * Load .saga/config.json from a workspace directory.

@@ -3,7 +3,7 @@
 
 import { ChainBadge } from '@/components/badges/chain-badge'
 import { WalletAddress } from '@/components/badges/wallet-address'
-import type { AgentRecord } from '@epicdm/saga-client'
+import type { AgentRecord } from '@d7r/saga-client'
 
 export function ProfileHero({ agent }: { agent: AgentRecord }) {
   return (

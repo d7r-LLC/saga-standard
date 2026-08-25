@@ -22,7 +22,7 @@
 | #                                       | Severity | Why deferred                                                                                                                                                 |
 | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | EIP-6963-only WalletConnect alternative | Low      | Replacing WalletConnect entirely is an architectural change (different injected-provider discovery path, different UX). Pin + audit is sufficient near-term. |
-| HSTS preload submission                 | Info     | Submit `directory.epicflowstate.ai` to chromium HSTS preload list once production rollout stabilizes.                                                        |
+| HSTS preload submission                 | Info     | Submit `directory.d7r.io` to chromium HSTS preload list once production rollout stabilizes.                                                                  |
 
 ## Implementation
 
@@ -149,9 +149,9 @@ Wire into `semantic-validator.ts` for the document fields that hold user markdow
 
 ## Acceptance criteria
 
-- `pnpm --filter @epicdm/saga-server test` green
-- `pnpm --filter @epicdm/saga-sdk test` green (new markdown-safety.test.ts)
-- `pnpm --filter @epicdm/saga-directory test` green (new middleware-csp.test.ts, callback-url-validation.test.ts)
+- `pnpm --filter @d7r/saga-server test` green
+- `pnpm --filter @d7r/saga-sdk test` green (new markdown-safety.test.ts)
+- `pnpm --filter @d7r/saga-directory test` green (new middleware-csp.test.ts, callback-url-validation.test.ts)
 - `pnpm lint` clean (no-console upgrade)
 - New tests:
   - CSP header present on every middleware-handled request
@@ -179,4 +179,4 @@ Multi-commit single PR:
 6. `chore: pin husky to exact 9.1.7` (6.6)
 7. `feat(sdk): reject HTML tags + javascript:/data:text/html URIs in markdown fields` (6.7)
 
-Each commit ends with `Built with Epic Flowstate`.
+Each commit ends with `Built with d7r FlowState`.

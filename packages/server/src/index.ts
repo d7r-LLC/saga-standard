@@ -31,7 +31,7 @@ const app = new Hono<{ Bindings: Env }>()
  *
  * New posture:
  *   - Production deployers MUST set `CORS_ALLOWED_ORIGINS` (comma-separated
- *     list of allowed origins, e.g. `https://directory.epicflowstate.ai`).
+ *     list of allowed origins, e.g. `https://directory.d7r.io`).
  *   - When the env var is unset OR empty, we still emit no-CORS headers
  *     (i.e. the response is single-origin only). Same-origin requests
  *     work fine because the browser doesn't enforce CORS on those.

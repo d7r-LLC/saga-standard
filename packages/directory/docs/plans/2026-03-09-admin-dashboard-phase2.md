@@ -274,7 +274,7 @@ Expected: PASS (both test files)
 git add src/components/ui/stat-card.tsx src/components/ui/status-badge.tsx src/__tests__/components/
 git commit -m "feat(ui): add StatCard and StatusBadge shared components
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -447,7 +447,7 @@ Expected: PASS
 git add src/components/ui/data-table.tsx src/__tests__/components/data-table.test.tsx
 git commit -m "feat(ui): add DataTable shared component
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -630,7 +630,7 @@ Expected: No new errors (only the pre-existing `listings.test.ts` error)
 git add src/app/\(admin\)/admin/page.tsx
 git commit -m "feat(admin): replace dashboard placeholder with analytics overview
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1089,7 +1089,7 @@ Expected: All pass
 git add src/db/listing-queries.ts src/__tests__/db/listing-queries.test.ts src/app/\(admin\)/admin/listings/page.tsx
 git commit -m "feat(admin): add listings page with filters and pagination
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1481,7 +1481,7 @@ Expected: No new errors
 git add src/lib/actions/listing-actions.ts src/app/\(admin\)/admin/listings/\[id\]/page.tsx
 git commit -m "feat(admin): add listing detail page with edit form and delete
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1871,7 +1871,7 @@ Expected: PASS
 git add src/db/user-queries.ts src/__tests__/db/user-queries.test.ts src/app/\(admin\)/admin/users/page.tsx
 git commit -m "feat(admin): add user management page with role filters
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2193,7 +2193,7 @@ Expected: No new errors
 git add src/lib/actions/user-actions.ts src/app/\(admin\)/admin/users/\[id\]/page.tsx
 git commit -m "feat(admin): add user detail page with role and status management
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -2641,7 +2641,7 @@ Expected: No new errors
 git add src/db/review-queries.ts src/__tests__/db/review-queries.test.ts src/lib/actions/review-actions.ts src/app/\(admin\)/admin/reviews/page.tsx
 git commit -m "feat(admin): add review moderation page with status management
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---

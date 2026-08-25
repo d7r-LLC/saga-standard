@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import type { SagaLayerName } from '@epicdm/saga-sdk'
+import type { SagaLayerName } from '@d7r/saga-sdk'
 import type { CollectorScan } from '../types'
 import { FlowstateMemoryClient } from './client'
 

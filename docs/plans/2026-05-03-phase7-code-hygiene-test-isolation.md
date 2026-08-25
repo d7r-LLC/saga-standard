@@ -57,19 +57,19 @@ Replace the inline `try { ... } finally { vi.useRealTimers() }` pattern with the
 
 ### 7.5 Lint baseline
 
-After the above changes, run `pnpm --filter @epicdm/saga-server lint`, `pnpm --filter @epicdm/saga-sdk lint`, `pnpm --filter @epicdm/saga-cli lint`, and `pnpm --filter @epicdm/saga-directory lint`. Fix any new errors. Pre-existing `packages/collectors` errors (sort-imports, unused-vars in collector parsers) are documented as out of scope above.
+After the above changes, run `pnpm --filter @d7r/saga-server lint`, `pnpm --filter @d7r/saga-sdk lint`, `pnpm --filter @d7r/saga-cli lint`, and `pnpm --filter @d7r/saga-directory lint`. Fix any new errors. Pre-existing `packages/collectors` errors (sort-imports, unused-vars in collector parsers) are documented as out of scope above.
 
 ## Acceptance criteria
 
 - All 4 TODO/cast/afterEach edits applied
-- `pnpm --filter @epicdm/saga-server test` green (340+ tests)
-- `pnpm --filter @epicdm/saga-sdk test` green (135+ tests)
-- `pnpm --filter @epicdm/saga-cli test` green (52 tests)
-- `pnpm --filter @epicdm/saga-directory test` green (8 tests)
-- `pnpm --filter @epicdm/saga-server lint` clean (no errors; warnings unchanged from Phase 6)
-- `pnpm --filter @epicdm/saga-sdk lint` clean
-- `pnpm --filter @epicdm/saga-cli lint` clean
-- `pnpm --filter @epicdm/saga-directory lint` clean
+- `pnpm --filter @d7r/saga-server test` green (340+ tests)
+- `pnpm --filter @d7r/saga-sdk test` green (135+ tests)
+- `pnpm --filter @d7r/saga-cli test` green (52 tests)
+- `pnpm --filter @d7r/saga-directory test` green (8 tests)
+- `pnpm --filter @d7r/saga-server lint` clean (no errors; warnings unchanged from Phase 6)
+- `pnpm --filter @d7r/saga-sdk lint` clean
+- `pnpm --filter @d7r/saga-cli lint` clean
+- `pnpm --filter @d7r/saga-directory lint` clean
 
 ## Out of scope
 
@@ -86,4 +86,4 @@ Single PR, multi-commit:
 3. `chore(server): standardize test timer + mock cleanup` (7.3 + 7.4)
 4. `chore: final lint sweep for Phase 7` (7.5, only if needed)
 
-Each commit ends with `Built with Epic Flowstate`.
+Each commit ends with `Built with d7r FlowState`.

@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-export const HUB_URL = __DEV__
-  ? 'http://localhost:8787'
-  : 'https://saga-hub.d7r-LLC.workers.dev'
+export const HUB_URL = __DEV__ ? 'http://localhost:8787' : 'https://saga-hub.d7r.workers.dev'
 
 export class ApiError extends Error {
   constructor(

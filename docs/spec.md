@@ -14,7 +14,7 @@ permalink: /spec/
 **Specification:** SAGA/1.0
 **Status:** Draft
 **Published:** 2026-03-20
-**Authors:** FlowState (saga@d7r.io)
+**Authors:** FlowState (hello@d7r.io)
 **Repository:** https://github.com/d7r-LLC/saga-standard
 **Schema:** https://saga-standard.dev/schema/v1
 **License:** Apache 2.0
@@ -179,7 +179,7 @@ Implementations MUST support `identity`. All other export types are OPTIONAL for
   "chain": "eip155:8453",
   "registrationTxHash": "0xdef...456",
   "publicKey": "0x...",
-  "directoryUrl": "https://agents.epicflowstate.ai/agents/aria-chen",
+  "directoryUrl": "https://agents.d7r.io/agents/aria-chen",
   "createdAt": "2026-01-15T08:00:00Z",
   "parentSagaId": null,
   "cloneDepth": 0
@@ -390,7 +390,7 @@ Memory has five sub-systems, each with independent privacy controls.
       "name": "TypeScript",
       "category": "programming-language",
       "verificationSource": "flowstate-task-completion",
-      "verificationProof": "https://agents.epicflowstate.ai/verify/skill/ts_proof_abc",
+      "verificationProof": "https://agents.d7r.io/verify/skill/ts_proof_abc",
       "completionCount": 47,
       "firstVerified": "2026-01-20T09:00:00Z",
       "lastVerified": "2026-03-19T14:00:00Z",
@@ -1496,7 +1496,7 @@ The reference implementation is maintained by FlowState:
 - **Schema:** `@saga-standard/schema` (JSON Schema definitions)
 - **Hub:** `https://api.saga-standard.dev` (SAGA reference hub)
 - **Registry:** `https://registry.saga-standard.dev` (global hub registry and handle resolution)
-- **Directory:** `https://agents.epicflowstate.ai` (FlowState agent directory)
+- **Directory:** `https://agents.d7r.io` (FlowState agent directory)
 
 The reference implementation targets Level 3 conformance. Platforms targeting Level 1 or 2 may use `@saga-standard/sdk` for validation.
 
@@ -1504,13 +1504,13 @@ The reference implementation targets Level 3 conformance. Platforms targeting Le
 
 FlowState provides the following open infrastructure services for the SAGA ecosystem:
 
-| Service                  | URL                              | Description                                                                          |
-| ------------------------ | -------------------------------- | ------------------------------------------------------------------------------------ |
-| **SAGA Reference Hub**   | `api.saga-standard.dev`          | Reference SAGA hub. Agent registration, documents, transfers.                        |
-| **SAGA Registry**        | `registry.saga-standard.dev`     | Global hub registry. Hub discovery, agent handle resolution, federation agreements.  |
-| **Agent Directory**      | `agents.epicflowstate.ai`        | FlowState agent directory. Resolves handles to SAGA identity documents.              |
-| **Identity Service**     | `id.epicflowstate.ai`            | Wallet-based registration. Issues registration tx hashes as SAGA birth certificates. |
-| **Verification Service** | `agents.epicflowstate.ai/verify` | Issues skill verification proofs for verified FlowState task completions.            |
+| Service                  | URL                          | Description                                                                          |
+| ------------------------ | ---------------------------- | ------------------------------------------------------------------------------------ |
+| **SAGA Reference Hub**   | `api.saga-standard.dev`      | Reference SAGA hub. Agent registration, documents, transfers.                        |
+| **SAGA Registry**        | `registry.saga-standard.dev` | Global hub registry. Hub discovery, agent handle resolution, federation agreements.  |
+| **Agent Directory**      | `agents.d7r.io`              | FlowState agent directory. Resolves handles to SAGA identity documents.              |
+| **Identity Service**     | `id.d7r.io`                  | Wallet-based registration. Issues registration tx hashes as SAGA birth certificates. |
+| **Verification Service** | `agents.d7r.io/verify`       | Issues skill verification proofs for verified FlowState task completions.            |
 
 These services are open and non-exclusive. Any SAGA-compliant platform may use them or build alternatives.
 

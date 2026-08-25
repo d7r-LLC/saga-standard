@@ -340,7 +340,7 @@ git add packages/server/src/services/ams.ts packages/server/src/__tests__/ams.te
 git commit -m "$(cat <<'EOF'
 feat(server): add AMS client for working memory management
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -400,7 +400,7 @@ git add packages/server/src/bindings.ts packages/server/wrangler.toml packages/s
 git commit -m "$(cat <<'EOF'
 feat(server): add AMS_BASE_URL and AMS_AUTH_TOKEN env bindings
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -553,7 +553,7 @@ git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.te
 git commit -m "$(cat <<'EOF'
 feat(server): init AMS session on conversation create
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -789,7 +789,7 @@ git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.te
 git commit -m "$(cat <<'EOF'
 feat(server): use AMS context for chat messages with D1 fallback
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -917,7 +917,7 @@ git add packages/server/src/routes/chat.ts packages/server/src/__tests__/chat.te
 git commit -m "$(cat <<'EOF'
 feat(server): remove AMS session on conversation delete
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1006,7 +1006,7 @@ git add packages/server/src/__tests__/chat.test.ts
 git commit -m "$(cat <<'EOF'
 test(server): add AMS-disabled verification tests
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```
@@ -1041,7 +1041,7 @@ git add -A
 git commit -m "$(cat <<'EOF'
 fix(server): resolve Phase 3 type compilation issues
 
-Built with Epic Flowstate
+Built with d7r FlowState
 EOF
 )"
 ```

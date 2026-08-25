@@ -338,7 +338,7 @@ describe('SagaServerClient', () => {
   describe('organizations', () => {
     const orgRecord = {
       orgId: 'org_001',
-      handle: 'd7r-llc',
+      handle: 'd7r',
       name: 'd7r LLC',
       walletAddress: WALLET,
       chain: 'eip155:8453',
@@ -349,10 +349,10 @@ describe('SagaServerClient', () => {
     it('gets an org by handle', async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ organization: orgRecord }))
 
-      const result = await client.getOrg('d7r-llc')
+      const result = await client.getOrg('d7r')
 
       expect(result.organization).toEqual(orgRecord)
-      expect(mockFetch.mock.calls[0][0]).toBe(`${SERVER_URL}/v1/orgs/d7r-llc`)
+      expect(mockFetch.mock.calls[0][0]).toBe(`${SERVER_URL}/v1/orgs/d7r`)
     })
 
     it('lists orgs with pagination params', async () => {

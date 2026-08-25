@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deployment verification script for FlowState Marketplace
 # Usage: ./scripts/verify-deployment.sh <base-url>
-# Example: ./scripts/verify-deployment.sh https://marketplace-staging.epicflowstate.com
+# Example: ./scripts/verify-deployment.sh https://marketplace-staging.d7r.io
 
 set -euo pipefail
 

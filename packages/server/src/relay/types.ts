@@ -3,7 +3,7 @@
 
 // ── Relay Envelope ──────────────────────────────────────────────
 // The relay's view of a SagaEncryptedEnvelope.
-// Matches @epicdm/saga-crypto's SagaEncryptedEnvelope but defined
+// Matches @d7r/saga-crypto's SagaEncryptedEnvelope but defined
 // independently — the relay never decrypts, it only routes.
 
 export interface RelayEnvelope {

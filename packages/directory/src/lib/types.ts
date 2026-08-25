@@ -1,7 +1,7 @@
 // Copyright 2026 d7r LLC
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AgentRecord, OrgRecord } from '@epicdm/saga-client'
+import type { AgentRecord, OrgRecord } from '@d7r/saga-client'
 
 // Re-export client types for convenience
 export type { AgentRecord, OrgRecord }

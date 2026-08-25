@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-app",
+  "name": "@d7r/saga-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,7 +13,7 @@
     "clean": "rm -rf android/app/build ios/build"
   },
   "dependencies": {
-    "@epicdm/saga-client": "workspace:*",
+    "@d7r/saga-client": "workspace:*",
     "@react-native-async-storage/async-storage": "^3.0.2",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-navigation/bottom-tabs": "^7.15.8",

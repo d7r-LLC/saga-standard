@@ -90,7 +90,7 @@ if (!senderState || !senderState.handle) {
 
 ## Acceptance criteria
 
-- `pnpm --filter @epicdm/saga-server test` green (existing 310 + new tests for each of 2.1, 2.2, 2.3, 2.4, 2.7, 2.8)
+- `pnpm --filter @d7r/saga-server test` green (existing 310 + new tests for each of 2.1, 2.2, 2.3, 2.4, 2.7, 2.8)
 - New tests:
   - `/admin/reindex` returns 403 when `ADMIN_SECRET` unset, regardless of header
   - DELETE `/v1/auth/sessions/:token` removes the token from KV; subsequent requests return 401
@@ -98,7 +98,7 @@ if (!senderState || !senderState.handle) {
   - Session TTL is now 15 minutes (assert `expiresAt - issuedAt === 900_000` ms)
   - PublicKey rejection: empty, too-short, non-base64, valid 32-byte all assert correctly
   - relay:send rejected when sent before auth:success
-- `pnpm --filter @epicdm/saga-server typecheck` green
+- `pnpm --filter @d7r/saga-server typecheck` green
 
 ## Out of scope
 
@@ -113,5 +113,5 @@ Single commit:
 ```
 feat(server): Phase 2 — auth & session hardening
 
-Built with Epic Flowstate
+Built with d7r FlowState
 ```

@@ -41,13 +41,13 @@ importers:
 
   packages/cli:
     dependencies:
-      '@epicdm/saga-client':
+      '@d7r/saga-client':
         specifier: workspace:*
         version: link:../client
-      '@epicdm/saga-collectors':
+      '@d7r/saga-collectors':
         specifier: workspace:*
         version: link:../collectors
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       chalk:
@@ -84,7 +84,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       '@saga-standard/contracts':
@@ -109,7 +109,7 @@ importers:
 
   packages/collectors:
     dependencies:
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       better-sqlite3:
@@ -159,7 +159,7 @@ importers:
 
   packages/directory:
     dependencies:
-      '@epicdm/saga-client':
+      '@d7r/saga-client':
         specifier: workspace:*
         version: link:../client
       '@headlessui/react':
@@ -232,7 +232,7 @@ importers:
 
   packages/saga-app:
     dependencies:
-      '@epicdm/saga-client':
+      '@d7r/saga-client':
         specifier: workspace:*
         version: link:../client
       '@react-native-async-storage/async-storage':
@@ -347,7 +347,7 @@ importers:
 
   packages/saga-client-rt:
     dependencies:
-      '@epicdm/saga-crypto':
+      '@d7r/saga-crypto':
         specifier: workspace:*
         version: link:../saga-crypto
     devDependencies:
@@ -440,7 +440,7 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.48
         version: 3.0.48(zod@4.3.6)
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       '@saga-standard/contracts':

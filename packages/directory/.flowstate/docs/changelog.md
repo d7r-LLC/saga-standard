@@ -1,7 +1,7 @@
 ---
 title: Changelog
 order: 99
-description: 'Release history for the Epic FlowState documentation site'
+description: 'Release history for the d7r FlowState documentation site'
 ---
 
 All notable changes to the `@epicdm/flowstate-docs` package are documented here.

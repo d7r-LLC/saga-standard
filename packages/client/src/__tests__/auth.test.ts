@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SagaAuthError, authenticateWithServer, isSessionValid, refreshSession } from '../auth'
 import type { WalletSigner } from '../auth'
-import type { ChainId } from '@epicdm/saga-sdk'
+import type { ChainId } from '@d7r/saga-sdk'
 
 // ── Helpers ───────────────────────────────────────────────────────────
 

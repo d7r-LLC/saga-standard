@@ -154,7 +154,7 @@ export interface StreamHandle {
 git add package.json pnpm-lock.yaml jest.config.js __mocks__/react-native-sse.js src/features/chat/types.ts
 git commit -m "feat(saga-app): add react-native-sse and streaming types
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -408,7 +408,7 @@ Expected: PASS (9 tests)
 git add src/features/chat/api/stream.ts __tests__/features/chat/api/stream.test.ts
 git commit -m "feat(saga-app): add SSE stream API client for chat messages
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -921,7 +921,7 @@ Expected: PASS (11 tests)
 git add src/features/chat/hooks/useChat.ts __tests__/features/chat/hooks/useChat.test.tsx
 git commit -m "feat(saga-app): add useChat hook for SSE stream management
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
 git add src/features/chat/components/StreamingMessage.tsx
 git commit -m "feat(saga-app): add StreamingMessage component with blinking cursor
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1209,7 +1209,7 @@ Expected: PASS (all existing + 4 new tests)
 git add src/features/chat/components/ChatInput.tsx __tests__/features/chat/components/ChatInput.test.tsx
 git commit -m "feat(saga-app): add stop button to ChatInput during streaming
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -1689,7 +1689,7 @@ Replace send-and-refetch with streaming via useChat hook. ChatScreen
 now shows streaming text with a blinking cursor as the LLM responds.
 Users can stop generation mid-stream.
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---

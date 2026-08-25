@@ -2,8 +2,8 @@
 // Copyright 2026 d7r LLC
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryBackend, createSagaKeyRing } from '@epicdm/saga-crypto'
-import type { SagaEncryptedEnvelope } from '@epicdm/saga-crypto'
+import { MemoryBackend, createSagaKeyRing } from '@d7r/saga-crypto'
+import type { SagaEncryptedEnvelope } from '@d7r/saga-crypto'
 import { createSagaClient } from '../client'
 import type { SagaMemory } from '../types'
 import { MockWebSocket, createMockSigner, simulateAuthFlow } from './test-helpers'
@@ -456,7 +456,7 @@ describe('SagaClient integration', () => {
       })
 
       // Create a real encrypted memory envelope using seal
-      const { seal } = await import('@epicdm/saga-crypto')
+      const { seal } = await import('@d7r/saga-crypto')
 
       const memory: SagaMemory = {
         id: 'sync-mem-001',

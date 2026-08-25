@@ -6,8 +6,8 @@ import type { SagaClientConfig, SagaEncryptedEnvelope, SagaMemory } from '../typ
 import { createSagaClient } from '../client'
 import { MockWebSocket, createMockSigner, simulateAuthFlow } from './test-helpers'
 
-// Mock @epicdm/saga-crypto
-vi.mock('@epicdm/saga-crypto', () => {
+// Mock @d7r/saga-crypto
+vi.mock('@d7r/saga-crypto', () => {
   const mockStore = {
     _data: new Map<string, unknown>(),
     put: vi.fn(async (key: string, value: unknown) => {
@@ -94,7 +94,7 @@ describe('createSagaClient', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     // Reset mock store data
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 
@@ -119,7 +119,7 @@ describe('createSagaClient', () => {
   it('storeMemory() stores in local encrypted store', async () => {
     const { config, getWs } = createTestConfig()
     const { client } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     const mockStore = (crypto as unknown as { _mockStore: { put: ReturnType<typeof vi.fn> } })
       ._mockStore
 
@@ -138,7 +138,7 @@ describe('createSagaClient', () => {
   it('storeMemory() also pushes envelope through relay', async () => {
     const { config, getWs } = createTestConfig()
     const { client, ws } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     const memory: SagaMemory = {
       id: 'mem-1',
@@ -234,7 +234,7 @@ describe('createSagaClient', () => {
   it('sendMessage() seals and sends through relay', async () => {
     const { config, getWs } = createTestConfig()
     const { client } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     client.registerPeerKey('bob@epicflow', new Uint8Array(32))
 
@@ -379,7 +379,7 @@ describe('createSagaClient', () => {
   it('sendGroupMessage() seals with group scope', async () => {
     const { config, getWs } = createTestConfig()
     const { client } = await connectClient(config, getWs)
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
 
     await client.sendGroupMessage('team-alpha', {
       messageType: 'coordination',
@@ -402,7 +402,7 @@ describe('sync-on-activation', () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
     // Reset mock store data
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 
@@ -447,7 +447,7 @@ describe('sync-on-activation', () => {
     })
 
     // Wait for store.put to be called with the checkpoint
-    const cryptoModule = vi.mocked(await import('@epicdm/saga-crypto'))
+    const cryptoModule = vi.mocked(await import('@d7r/saga-crypto'))
     const mockStoreRef = (
       cryptoModule as unknown as { _mockStore: { _data: Map<string, unknown> } }
     )._mockStore
@@ -544,7 +544,7 @@ describe('group key distribution', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 
@@ -612,7 +612,7 @@ describe('group key distribution', () => {
     _client.registerPeerKey('bob@epicflow', new Uint8Array(32).fill(1))
 
     // Override the open mock to return key-distribution payload
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     crypto.open.mockImplementationOnce(async () => {
       return new TextEncoder().encode(
         JSON.stringify({
@@ -662,7 +662,7 @@ describe('governance — storeMemory', () => {
   beforeEach(async () => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    const crypto = vi.mocked(await import('@epicdm/saga-crypto'))
+    const crypto = vi.mocked(await import('@d7r/saga-crypto'))
     ;(crypto as unknown as { _mockStore: { _data: Map<string, unknown> } })._mockStore._data.clear()
   })
 

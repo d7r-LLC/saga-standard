@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 d7r LLC
 
-import { MemoryBackend, createEncryptedStore, open, seal } from '@epicdm/saga-crypto'
+import { MemoryBackend, createEncryptedStore, open, seal } from '@d7r/saga-crypto'
 import type {
   ConnectedPeer,
   MemoryFilter,

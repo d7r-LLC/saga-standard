@@ -145,7 +145,7 @@ describe('useWalletSigner', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter @epicdm/saga-app test 2>&1`
+Run: `pnpm --filter @d7r/saga-app test 2>&1`
 Expected: FAIL — `useWalletSigner` module not found
 
 - [ ] **Step 3: Write the useWalletSigner implementation**
@@ -239,7 +239,7 @@ export function useWalletSigner(walletId: string | null): UseWalletSignerResult 
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `pnpm --filter @epicdm/saga-app test 2>&1`
+Run: `pnpm --filter @d7r/saga-app test 2>&1`
 Expected: All tests PASS (59 existing + 4 new = 63 total)
 
 - [ ] **Step 5: Commit**
@@ -248,7 +248,7 @@ Expected: All tests PASS (59 existing + 4 new = 63 total)
 git add packages/saga-app/src/features/wallet/hooks/useWalletSigner.ts packages/saga-app/__tests__/features/wallet/hooks/useWalletSigner.test.tsx
 git commit -m "feat(saga-app): add useWalletSigner hook for reusable transaction signing
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -503,12 +503,12 @@ Add these styles to the `StyleSheet.create` call at the bottom of the file (befo
 
 - [ ] **Step 5: Run the tests to verify nothing is broken**
 
-Run: `pnpm --filter @epicdm/saga-app test 2>&1`
+Run: `pnpm --filter @d7r/saga-app test 2>&1`
 Expected: All tests PASS (63 total)
 
 - [ ] **Step 6: Run typecheck**
 
-Run: `pnpm --filter @epicdm/saga-app typecheck 2>&1`
+Run: `pnpm --filter @d7r/saga-app typecheck 2>&1`
 Expected: Clean — no errors
 
 - [ ] **Step 7: Commit**
@@ -517,7 +517,7 @@ Expected: Clean — no errors
 git add packages/saga-app/src/features/identity/screens/MintWizard.tsx
 git commit -m "feat(saga-app): wire wallet signing into MintWizard confirmation step
 
-Built with Epic Flowstate"
+Built with d7r FlowState"
 ```
 
 ---
@@ -528,12 +528,12 @@ Built with Epic Flowstate"
 
 - [ ] **Step 1: Run the full test suite**
 
-Run: `pnpm --filter @epicdm/saga-app test 2>&1`
+Run: `pnpm --filter @d7r/saga-app test 2>&1`
 Expected: All 63 tests PASS across all suites
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `pnpm --filter @epicdm/saga-app typecheck 2>&1`
+Run: `pnpm --filter @d7r/saga-app typecheck 2>&1`
 Expected: Clean — no errors
 
 - [ ] **Step 3: Verify SPDX headers**
