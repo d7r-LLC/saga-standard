@@ -39,13 +39,13 @@ vaultCommand
         return
       }
 
-      let items = vault.items
+      let items: VaultItem[] = vault.items
 
       if (opts.type) {
-        items = items.filter(i => i.type === opts.type)
+        items = items.filter((i: VaultItem) => i.type === opts.type)
       }
       if (opts.tag) {
-        items = items.filter(i => i.tags?.includes(opts.tag))
+        items = items.filter((i: VaultItem) => i.tags?.includes(opts.tag))
       }
 
       console.log(chalk.bold(`Vault: ${items.length} item(s)`))
@@ -180,7 +180,7 @@ vaultCommand
         process.exit(1)
       }
 
-      const idx = vault.items.findIndex(i => i.itemId === itemId)
+      const idx = vault.items.findIndex((i: VaultItem) => i.itemId === itemId)
       if (idx === -1) {
         console.error(chalk.red(`Item not found: ${itemId}`))
         process.exit(1)
@@ -216,7 +216,7 @@ vaultCommand
         process.exit(1)
       }
 
-      const item = vault.items.find(i => i.itemId === itemId)
+      const item = vault.items.find((i: VaultItem) => i.itemId === itemId)
       if (!item) {
         console.error(chalk.red(`Item not found: ${itemId}`))
         process.exit(1)
@@ -250,7 +250,9 @@ vaultCommand
             Buffer.from(vault.encryption.salt, 'base64')
           )
 
-          const selfWrap = item.keyWraps.find(kw => kw.recipient === 'self')
+          const selfWrap = item.keyWraps.find(
+            (kw: VaultItem['keyWraps'][number]) => kw.recipient === 'self'
+          )
           if (!selfWrap) throw new Error('No self key wrap found')
 
           const fields = decryptVaultItem(item.fields, selfWrap, masterKey)
@@ -294,7 +296,7 @@ vaultCommand
         process.exit(1)
       }
 
-      const item = vault.items.find(i => i.itemId === itemId)
+      const item = vault.items.find((i: VaultItem) => i.itemId === itemId)
       if (!item) {
         spinner.fail(`Item not found: ${itemId}`)
         process.exit(1)

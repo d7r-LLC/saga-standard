@@ -62,11 +62,21 @@ app.use('*', (c, next) => {
 // Root — redirect browsers, return JSON for API clients
 app.get('/', c => {
   const accept = c.req.header('Accept') ?? ''
-  if (accept.includes('text/html')) {
+  // Production redirects browsers to the public docs site
+  // (saga-server.epicdm.workers.dev is an API-only origin). For
+  // staging / dev we return the JSON endpoints map even when the
+  // Accept header is text/html, so operators can introspect the
+  // worker in a browser without being kicked out to prod docs.
+  // Detect non-prod via SERVER_NAME containing the env tag — the
+  // wrangler env blocks set this to "SAGA Reference Hub (Staging)"
+  // for staging and similar for any future preview environments.
+  const serverName = c.env.SERVER_NAME ?? 'SAGA Reference Hub'
+  const isProductionLike = !/\((staging|dev|local|preview)\)/i.test(serverName)
+  if (isProductionLike && accept.includes('text/html')) {
     return c.redirect('https://saga-standard.dev')
   }
   return c.json({
-    name: c.env.SERVER_NAME ?? 'SAGA Reference Hub',
+    name: serverName,
     version: SERVER_VERSION,
     sagaVersion: '1.0',
     docs: 'https://saga-standard.dev',

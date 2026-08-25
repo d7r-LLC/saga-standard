@@ -17,7 +17,7 @@ export const collectCommand = new Command('collect')
 
     try {
       const detections = await detectCollectors()
-      const available = detections.filter(d => d.found)
+      const available = detections.filter((d: { found: boolean }) => d.found)
 
       if (available.length === 0) {
         spinner.fail('No agent tools detected')
@@ -28,11 +28,16 @@ export const collectCommand = new Command('collect')
       spinner.succeed(`Found ${available.length} agent tool(s)`)
 
       // Filter by source if specified
-      const sources = opts.source ? available.filter(d => d.source === opts.source) : available
+      const sources = opts.source
+        ? available.filter((d: { source: string }) => d.source === opts.source)
+        : available
 
       if (sources.length === 0) {
         console.error(chalk.red(`Source not found: ${opts.source}`))
-        console.log('Available sources:', available.map(d => d.source).join(', '))
+        console.log(
+          'Available sources:',
+          available.map((d: { source: string }) => d.source).join(', ')
+        )
         process.exit(1)
       }
 

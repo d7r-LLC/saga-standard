@@ -188,9 +188,25 @@ export async function runIndexer(env: Env): Promise<void> {
     toBlock,
   })
 
-  // Process each log, tracking failures for safe cursor advancement
-  let lastSuccessBlock = fromBlock > 0n ? fromBlock - 1n : 0n
-  let hasFailure = false
+  // Process each log, tracking the FIRST block in the range that had any
+  // failure. The cursor advances cleanly to (firstFailureBlock - 1) on
+  // any failure — i.e. we re-fetch the failing block and everything
+  // after on the next poll. This is the only safe semantic given that:
+  //
+  //   1. A single block typically contains MULTIPLE related events from
+  //      one transaction (e.g. mint emits Transfer + AgentRegistered).
+  //   2. The Transfer-mint case in processDecodedLog is an early-return
+  //      success (the catch branch is never taken) — so an old
+  //      "advance lastSuccessBlock on every successful log" approach
+  //      would advance INTO the same block where the immediately-
+  //      following AgentRegistered fails. That tracking-per-log model
+  //      let cursor land on a partially-failed block, dropping the
+  //      Registered event silently.
+  //   3. We don't have per-handler retry / DLQ infrastructure, so the
+  //      only retry mechanism is "leave the cursor unmoved past the
+  //      first failure". Block-level granularity is the simplest unit
+  //      that's guaranteed to retry every log we couldn't process.
+  let firstFailureBlock: bigint | null = null
 
   for (const log of logs) {
     const logBlock = log.blockNumber ?? 0n
@@ -215,27 +231,59 @@ export async function runIndexer(env: Env): Promise<void> {
         directoryContract?.toLowerCase(),
         env.SESSIONS
       )
-      // Only advance success marker if no prior failure (preserve ordering)
-      if (!hasFailure) {
-        lastSuccessBlock = logBlock
-      }
     } catch (err) {
-      hasFailure = true
+      if (firstFailureBlock === null || logBlock < firstFailureBlock) {
+        firstFailureBlock = logBlock
+      }
       // eslint-disable-next-line no-console
       console.error(`Failed to process log in tx ${meta.txHash}:`, err)
     }
   }
 
-  // Advance cursor safely:
-  // - If all logs succeeded (or no logs at all), advance to toBlock
-  // - If there were failures, advance to the last block before the first failure
-  //   so failed events will be retried on the next poll
-  if (!hasFailure) {
-    await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, toBlock.toString())
-  } else if (lastSuccessBlock >= fromBlock) {
-    await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, lastSuccessBlock.toString())
+  const newCursor = decideCursorAdvance(firstFailureBlock, fromBlock, toBlock)
+  if (newCursor !== null) {
+    await env.INDEXER_STATE.put(INDEXER_CURSOR_KEY, newCursor.toString())
   }
-  // If the very first log failed, don't advance the cursor at all
+}
+
+/**
+ * Decide where to write the indexer cursor after a poll, given the
+ * first-failure block (if any) and the scanned range.
+ *
+ * Pure function — no I/O — so it can be unit-tested without mocking
+ * out viem, the RPC, or KV. Three possible outcomes:
+ *
+ *   1. firstFailureBlock === null            → cursor = toBlock
+ *      All logs in the range processed. Resume past `toBlock` next poll.
+ *
+ *   2. firstFailureBlock > fromBlock         → cursor = firstFailureBlock - 1
+ *      At least one earlier block in the range processed cleanly.
+ *      Roll back to the block BEFORE the failure so the failing block
+ *      (and everything after it) is re-scanned next poll. The caller
+ *      must NEVER advance cursor INTO the failure block; doing so
+ *      drops failed events silently. (This was the prior bug — the
+ *      lastSuccessBlock approach could land cursor on a block where
+ *      a Transfer-mint succeeded via early-return BEFORE the
+ *      AgentRegistered failure in the same tx.)
+ *
+ *   3. firstFailureBlock === fromBlock       → return null (don't advance)
+ *      The first block in the scan range itself failed. We have no
+ *      successful blocks to commit. Leaving the cursor unmoved means
+ *      the next poll re-attempts the same range, which is the loud-
+ *      stuck behavior we want — operators should see "indexer not
+ *      progressing" in metrics before silently dropping events.
+ *
+ * Caller convention: write `cursor` to KV iff the return value is
+ * non-null. Null means "do nothing".
+ */
+export function decideCursorAdvance(
+  firstFailureBlock: bigint | null,
+  fromBlock: bigint,
+  toBlock: bigint
+): bigint | null {
+  if (firstFailureBlock === null) return toBlock
+  if (firstFailureBlock > fromBlock) return firstFailureBlock - 1n
+  return null
 }
 
 /**

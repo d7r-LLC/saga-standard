@@ -7,23 +7,31 @@ account_id = "63396a5b2b279efdc0e1618233dcdc17"
 [triggers]
 crons = ["* * * * *"]
 
+# [vars] applies to LOCAL DEV ONLY (`pnpm dev`, `pnpm build` for
+# dry-run). For staging and production deploys, see the env-scoped
+# [env.staging.vars] / [env.production.vars] blocks at the bottom of
+# this file. Wrangler does NOT merge top-level [vars] into env blocks;
+# each env block is its own self-contained worker config.
 [vars]
-SERVER_NAME = "SAGA Reference Hub"
+SERVER_NAME = "SAGA Reference Hub (local dev)"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
-# On-chain indexer (Base Sepolia for local dev)
 BASE_RPC_URL = "https://sepolia.base.org"
-AGENT_IDENTITY_CONTRACT = "0x1a706cc37ea90af568dce0f637aeb60884c9fadb"
-ORG_IDENTITY_CONTRACT = "0x4f297f7b3439d1bdd548ba897d3b82b5fc2bdd26"
-DIRECTORY_IDENTITY_CONTRACT = ""
+# Local-dev contract addresses point at the same Phase 12 Sepolia
+# deploy as staging — convenience for `pnpm dev` against real
+# on-chain state without rebuilding the indexer KV.
 INDEXER_CHAIN = "eip155:84532"
-INDEXER_START_BLOCK = "39400000"
-# Federation: set to your directoryId to enable cross-directory routing (opt-in)
+INDEXER_START_BLOCK = "41116517"
+HANDLE_REGISTRY_CONTRACT = "0x347948059E8aBA66F45fAcb853bb5d5064a2309e"
+AGENT_IDENTITY_CONTRACT = "0x097FA17d59A072920063D7F85817239066ED3595"
+ORG_IDENTITY_CONTRACT = "0xF27b400f0E00b9e316BD5cBed9241ad9284C31f6"
+DIRECTORY_IDENTITY_CONTRACT = "0xC54c7958719c3bC3aB0e524be56eCb1c0408dFf6"
+# SAGATBAHelper is consumed only by client SDK / on-chain reads (not
+# the indexer), so no `bindings.ts` slot exists yet. Recording for
+# operator reference; remove if it stays unused after staging burn-in.
+# TBA_HELPER = "0x00613a2b5Ca4b457b45BC20B8D1E182a13614142"
 LOCAL_DIRECTORY_ID = ""
-# AI Gateway (set CF_GATEWAY_NAME to enable; API keys are secrets)
 CF_ACCOUNT_ID = "63396a5b2b279efdc0e1618233dcdc17"
 CF_GATEWAY_NAME = ""
-# Agent Memory Server (set to enable context management; unset = D1 fallback)
-# AMS_AUTH_TOKEN is a secret — set via: wrangler secret put AMS_AUTH_TOKEN
 AMS_BASE_URL = ""
 
 # ── Local development ────────────────────────────────────────────────
@@ -85,6 +93,35 @@ SERVER_NAME = "SAGA Reference Hub (Staging)"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
 BASE_RPC_URL = "https://sepolia.base.org"
 LOCAL_DIRECTORY_ID = ""
+# Phase 12 testnet deploy on Base Sepolia (commit ae4078f equivalent
+# on-chain). The chain indexer (`packages/server/src/indexer/chain-indexer.ts`)
+# watches Transfer events on the three identity contracts —
+# AGENT_IDENTITY_CONTRACT, ORG_IDENTITY_CONTRACT, and the optional
+# DIRECTORY_IDENTITY_CONTRACT — to populate the `agents` / `orgs` /
+# `directories` tables. INDEXER_START_BLOCK is pinned to the
+# SAGAHandleRegistry deploy block so the worker doesn't burn cron
+# cycles re-scanning blocks where our contracts didn't exist yet.
+#
+# HANDLE_REGISTRY_CONTRACT is recorded here for operator reference and
+# downstream client lookup, but the indexer itself does NOT read it
+# today (handle resolution flows through identity-contract events).
+# Will surface in bindings.ts + indexer when handle-level event
+# indexing lands.
+INDEXER_CHAIN = "eip155:84532"
+INDEXER_START_BLOCK = "41116517"
+HANDLE_REGISTRY_CONTRACT = "0x347948059E8aBA66F45fAcb853bb5d5064a2309e"
+AGENT_IDENTITY_CONTRACT = "0x097FA17d59A072920063D7F85817239066ED3595"
+ORG_IDENTITY_CONTRACT = "0xF27b400f0E00b9e316BD5cBed9241ad9284C31f6"
+DIRECTORY_IDENTITY_CONTRACT = "0xC54c7958719c3bC3aB0e524be56eCb1c0408dFf6"
+# SAGATBAHelper is consumed only by client SDK / on-chain reads (not
+# the indexer), so no `bindings.ts` slot exists yet. Recording for
+# operator reference; remove if it stays unused after staging burn-in.
+# TBA_HELPER = "0x00613a2b5Ca4b457b45BC20B8D1E182a13614142"
+# Cloudflare AI Gateway opt-in. Unset = direct provider calls.
+CF_ACCOUNT_ID = "63396a5b2b279efdc0e1618233dcdc17"
+CF_GATEWAY_NAME = ""
+# Agent Memory Server opt-in. Unset = D1 fallback.
+AMS_BASE_URL = ""
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -105,7 +142,17 @@ id = "8557943d39f74dc9a6198e6dee6a19f8"
 
 [[env.staging.kv_namespaces]]
 binding = "RELAY_MAILBOX"
-id = "saga-relay-mailbox-staging"
+id = "1c0778866a134c53b133e8c1dd1a9284"
+
+# Phase 5 (A-Med) IP-keyed rate limiter on auth endpoints. Wrangler
+# emits a warning if [unsafe.bindings] is only declared at top level —
+# env blocks don't inherit it. Replicate per-env with a distinct
+# namespace_id so staging and production don't share rate-limit state.
+[[env.staging.unsafe.bindings]]
+name = "RATE_LIMITER_AUTH"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
 
 # ── Production ───────────────────────────────────────────────────────
 
@@ -123,6 +170,22 @@ crons = ["* * * * *"]
 SERVER_NAME = "SAGA Reference Hub"
 SUPPORTED_CHAINS = "eip155:8453,eip155:1,eip155:137,solana:mainnet"
 LOCAL_DIRECTORY_ID = ""
+# Mainnet Base. Contract addresses + start block populated by the
+# mainnet deploy operator after `saga deploy --chain base --broadcast`
+# lands. Worker fails closed (indexer skips its tick) when these are
+# unset, so an empty/missing value here cannot accidentally route a
+# production worker to testnet contracts.
+BASE_RPC_URL = "https://mainnet.base.org"
+INDEXER_CHAIN = "eip155:8453"
+INDEXER_START_BLOCK = ""
+HANDLE_REGISTRY_CONTRACT = ""
+AGENT_IDENTITY_CONTRACT = ""
+ORG_IDENTITY_CONTRACT = ""
+DIRECTORY_IDENTITY_CONTRACT = ""
+# TBA_HELPER intentionally omitted; not in bindings.ts yet.
+CF_ACCOUNT_ID = "63396a5b2b279efdc0e1618233dcdc17"
+CF_GATEWAY_NAME = ""
+AMS_BASE_URL = ""
 
 [[env.production.d1_databases]]
 binding = "DB"
@@ -137,6 +200,13 @@ bucket_name = "saga-documents-production"
 binding = "SESSIONS"
 id = "5983236e52ad4f1c973cf059c52a2611"
 
+# NOTE: id values below are placeholder titles, NOT real namespace IDs.
+# Wrangler requires KV namespace UUIDs at deploy time. Before the first
+# mainnet deploy, create these via:
+#   wrangler kv namespace create INDEXER_STATE --env production
+#   wrangler kv namespace create RELAY_MAILBOX --env production
+# and replace the title strings below with the returned UUIDs. The
+# staging counterparts already use real UUIDs (created 2026-05-05).
 [[env.production.kv_namespaces]]
 binding = "INDEXER_STATE"
 id = "saga-indexer-production"
@@ -144,3 +214,13 @@ id = "saga-indexer-production"
 [[env.production.kv_namespaces]]
 binding = "RELAY_MAILBOX"
 id = "saga-relay-mailbox-production"
+
+# Phase 5 (A-Med) IP-keyed rate limiter on auth endpoints. Distinct
+# namespace_id from staging so the two envs don't share rate-limit
+# state — a flooded testnet client should not be able to consume
+# production's rate budget.
+[[env.production.unsafe.bindings]]
+name = "RATE_LIMITER_AUTH"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }

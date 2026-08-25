@@ -70,6 +70,47 @@ describe('SAGA Reference Server', () => {
     await runMigrations(env.DB)
   })
 
+  // -- Root-route browser-vs-API negotiation --
+
+  describe('GET / (root)', () => {
+    it('returns endpoints JSON when Accept lacks text/html', async () => {
+      const res = await req('GET', '/', { headers: { Accept: 'application/json' } })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { name: string; endpoints: Record<string, string> }
+      expect(body.endpoints.health).toBe('/health')
+    })
+
+    it('redirects browsers to docs site when SERVER_NAME has no env tag (production-like)', async () => {
+      env.SERVER_NAME = 'SAGA Reference Hub'
+      const res = await req('GET', '/', { headers: { Accept: 'text/html' } })
+      expect(res.status).toBe(302)
+      expect(res.headers.get('Location')).toBe('https://saga-standard.dev')
+    })
+
+    it('returns JSON to browsers on staging (SERVER_NAME contains "(Staging)")', async () => {
+      // Phase: staging worker exposes endpoints map even to text/html
+      // clients so operators can introspect the worker in a browser
+      // without being redirected to the production docs site.
+      env.SERVER_NAME = 'SAGA Reference Hub (Staging)'
+      const res = await req('GET', '/', { headers: { Accept: 'text/html' } })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { name: string }
+      expect(body.name).toBe('SAGA Reference Hub (Staging)')
+    })
+
+    it('returns JSON to browsers when SERVER_NAME has "(Dev)" tag', async () => {
+      env.SERVER_NAME = 'SAGA Reference Hub (Dev)'
+      const res = await req('GET', '/', { headers: { Accept: 'text/html' } })
+      expect(res.status).toBe(200)
+    })
+
+    it('returns JSON to browsers when SERVER_NAME has "(Preview)" tag', async () => {
+      env.SERVER_NAME = 'SAGA Reference Hub (Preview)'
+      const res = await req('GET', '/', { headers: { Accept: 'text/html' } })
+      expect(res.status).toBe(200)
+    })
+  })
+
   // -- Health --
 
   describe('GET /health', () => {
