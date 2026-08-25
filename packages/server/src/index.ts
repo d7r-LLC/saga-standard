@@ -63,7 +63,7 @@ app.use('*', (c, next) => {
 app.get('/', c => {
   const accept = c.req.header('Accept') ?? ''
   // Production redirects browsers to the public docs site
-  // (saga-server.epicdm.workers.dev is an API-only origin). For
+  // (saga-server.d7r.workers.dev is an API-only origin). For
   // staging / dev we return the JSON endpoints map even when the
   // Accept header is text/html, so operators can introspect the
   // worker in a browser without being kicked out to prod docs.
