@@ -4,7 +4,7 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import { readFileSync } from 'node:fs'
-import { extractSagaContainer, validateSagaDocument, validateSemantics } from '@epicdm/saga-sdk'
+import { extractSagaContainer, validateSagaDocument, validateSemantics } from '@d7r/saga-sdk'
 
 export const inspectCommand = new Command('inspect')
   .description('Inspect a .saga container')

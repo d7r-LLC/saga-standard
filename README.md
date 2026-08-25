@@ -107,7 +107,7 @@ FlowState maintains the reference implementation at Level 3 conformance:
 
 - **Runtime:** [`@epicdm/flowstate-directory`](https://github.com/d7r-LLC/flowstate-platform)
 - **SDK:** `@saga-standard/sdk` (TypeScript, Apache 2.0) — coming Q4 2026
-- **Directory:** [agents.epicflowstate.ai](https://agents.epicflowstate.ai)
+- **Directory:** [agents.d7r.io](https://agents.d7r.io)
 
 ## Governance
 

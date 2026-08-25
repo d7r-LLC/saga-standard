@@ -35,13 +35,13 @@ importers:
 
   packages/cli:
     dependencies:
-      '@epicdm/saga-client':
+      '@d7r/saga-client':
         specifier: workspace:*
         version: link:../client
-      '@epicdm/saga-collectors':
+      '@d7r/saga-collectors':
         specifier: workspace:*
         version: link:../collectors
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       chalk:
@@ -69,7 +69,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
     devDependencies:
@@ -88,7 +88,7 @@ importers:
 
   packages/collectors:
     dependencies:
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       better-sqlite3:
@@ -159,7 +159,7 @@ importers:
 
   packages/server:
     dependencies:
-      '@epicdm/saga-sdk':
+      '@d7r/saga-sdk':
         specifier: workspace:*
         version: link:../sdk
       drizzle-orm:

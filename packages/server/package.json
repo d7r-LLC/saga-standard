@@ -1,5 +1,5 @@
 {
-  "name": "@epicdm/saga-server",
+  "name": "@d7r/saga-server",
   "version": "0.1.0",
   "description": "SAGA reference server — Cloudflare Worker implementing Appendix D",
   "type": "module",
@@ -15,7 +15,7 @@
     "lint": "eslint src/ --ext .ts,.tsx,.js"
   },
   "dependencies": {
-    "@epicdm/saga-sdk": "workspace:*",
+    "@d7r/saga-sdk": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "hono": "^4.7.0"
   },

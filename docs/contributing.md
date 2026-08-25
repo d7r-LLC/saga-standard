@@ -91,4 +91,4 @@ Maintainers may remove comments or contributions that violate this standard with
 
 ## Questions
 
-Open an issue or email saga@d7r.io.
+Open an issue or email hello@d7r.io.

@@ -99,10 +99,10 @@ The machine-readable schema for validating SAGA documents:
 
 FlowState maintains the reference implementation at Level 3 conformance:
 
-- **SDK:** [`@epicdm/saga-sdk`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/sdk) (TypeScript, Apache 2.0)
-- **CLI:** [`@epicdm/saga-cli`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/cli)
-- **Server:** [`@epicdm/saga-server`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/server) (Cloudflare Workers)
-- **Directory:** [agents.epicflowstate.ai](https://agents.epicflowstate.ai)
+- **SDK:** [`@d7r/saga-sdk`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/sdk) (TypeScript, Apache 2.0)
+- **CLI:** [`@d7r/saga-cli`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/cli)
+- **Server:** [`@d7r/saga-server`](https://github.com/d7r-LLC/saga-standard/tree/main/packages/server) (Cloudflare Workers)
+- **Directory:** [agents.d7r.io](https://agents.d7r.io)
 
 ## Governance
 

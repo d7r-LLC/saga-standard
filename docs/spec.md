@@ -10,7 +10,7 @@ permalink: /spec/
 **Specification:** SAGA/1.0
 **Status:** Draft
 **Published:** 2026-03-20
-**Authors:** FlowState (saga@d7r.io)
+**Authors:** FlowState (hello@d7r.io)
 **Repository:** https://github.com/d7r-LLC/saga-standard
 **Schema:** https://saga-standard.dev/schema/v1
 **License:** Apache 2.0
@@ -175,7 +175,7 @@ Implementations MUST support `identity`. All other export types are OPTIONAL for
   "chain": "eip155:8453",
   "registrationTxHash": "0xdef...456",
   "publicKey": "0x...",
-  "directoryUrl": "https://agents.epicflowstate.ai/agents/aria-chen",
+  "directoryUrl": "https://agents.d7r.io/agents/aria-chen",
   "createdAt": "2026-01-15T08:00:00Z",
   "parentSagaId": null,
   "cloneDepth": 0
@@ -368,7 +368,7 @@ Memory has five sub-systems, each with independent privacy controls.
       "name": "TypeScript",
       "category": "programming-language",
       "verificationSource": "flowstate-task-completion",
-      "verificationProof": "https://agents.epicflowstate.ai/verify/skill/ts_proof_abc",
+      "verificationProof": "https://agents.d7r.io/verify/skill/ts_proof_abc",
       "completionCount": 47,
       "firstVerified": "2026-01-20T09:00:00Z",
       "lastVerified": "2026-03-19T14:00:00Z",
@@ -1472,7 +1472,7 @@ The reference implementation is maintained by FlowState:
 - **CLI:** `flowstate saga export | import | transfer | clone | verify`
 - **SDK:** `@saga-standard/sdk` (TypeScript, Apache 2.0)
 - **Schema:** `@saga-standard/schema` (JSON Schema definitions)
-- **Registry:** `https://agents.epicflowstate.ai` (SAGA-compatible directory)
+- **Registry:** `https://agents.d7r.io` (SAGA-compatible directory)
 
 The reference implementation targets Level 3 conformance. Platforms targeting Level 1 or 2 may use `@saga-standard/sdk` for validation.
 

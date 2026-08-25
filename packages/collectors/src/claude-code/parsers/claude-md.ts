@@ -2,7 +2,7 @@
 // Copyright 2026 d7r LLC
 
 import { existsSync, readFileSync } from 'node:fs'
-import type { CognitiveLayer } from '@epicdm/saga-sdk'
+import type { CognitiveLayer } from '@d7r/saga-sdk'
 
 /**
  * Parse CLAUDE.md files into cognitive system prompt fragments.
