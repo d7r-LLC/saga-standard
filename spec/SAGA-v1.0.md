@@ -108,7 +108,7 @@ SAGA defines a common format at the layer beneath any individual platform: the a
 
 **Runtime Capability Profile:** The set of capabilities a Runtime provides, declared from a fixed vocabulary defined by this specification. Platforms and sessions operate within the bounds of the Runtime's declared profile.
 
-**DERP (Deterministic Environment Runtime Platform):** A full-capability Runtime that provides persistent state, tool access, encrypted memory sync, credential vault access, network access, and isolated execution. The reference Runtime type for SAGA agents. Defined in detail by the [DERP Spec](https://github.com/d7r-LLC/derp-spec/blob/main/spec/DERP-v1.0.md).
+**DERP (Dignified Environment for Responsible Processing):** A full-capability Runtime that provides persistent state, tool access, encrypted memory sync, credential vault access, network access, and isolated execution. The reference Runtime type for SAGA agents. Defined in detail by the [DERP Spec](https://github.com/d7r-LLC/derp-spec/blob/main/spec/DERP-v1.0.md).
 
 **Hosted Session Runtime:** A lightweight Runtime instantiated on-demand when a user interacts with an agent through a directory or gateway, typically using a user-supplied LLM API token. Loads the agent's public SAGA layers (persona, skills, cognitive config) and constructs an LLM context. Minimal capability profile by default, extensible with tool access and memory sync if the agent owner authorizes it.
 
