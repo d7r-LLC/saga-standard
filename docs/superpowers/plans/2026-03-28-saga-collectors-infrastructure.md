@@ -103,7 +103,7 @@ describe('detectClaudeMem', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
 Expected: FAIL with "Cannot find module '../detector'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -140,7 +140,7 @@ export function detectClaudeMem(homeDir?: string): CollectorDetection {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -311,7 +311,7 @@ describe('parseObservations', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/observations'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -462,7 +462,7 @@ function tryParseArray(json: string): string[] | undefined {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/observations.test.ts`
 Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
@@ -591,7 +591,7 @@ describe('parseSessions', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/sessions'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -696,7 +696,7 @@ export function parseSessions(dbPath: string): ParsedSessions {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/sessions.test.ts`
 Expected: PASS (5 tests)
 
 - [ ] **Step 5: Commit**
@@ -764,7 +764,7 @@ describe('aggregateKnowledge', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/knowledge'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -816,7 +816,7 @@ function frequencyToLevel(count: number): ExpertiseLevel {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/parsers/knowledge.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -1083,7 +1083,7 @@ describe('ClaudeMemCollector', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
 Expected: FAIL with "Cannot find module '../extractor'"
 
 - [ ] **Step 3: Write the extractor**
@@ -1218,12 +1218,12 @@ registerCollector('claude-mem', () => new ClaudeMemCollector())
 
 - [ ] **Step 6: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/claude-mem/__tests__/extractor.test.ts`
 Expected: PASS (7 tests)
 
 - [ ] **Step 7: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All existing + new tests pass
 
 - [ ] **Step 8: Commit**
@@ -1367,7 +1367,7 @@ describe('FlowstateMemoryClient', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
 Expected: FAIL with "Cannot find module '../client'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1469,7 +1469,7 @@ export class FlowstateMemoryClient {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/client.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -1541,7 +1541,7 @@ describe('detectFlowstateMemory', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
 Expected: FAIL with "Cannot find module '../detector'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1584,7 +1584,7 @@ export async function detectFlowstateMemory(url?: string): Promise<CollectorDete
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -1716,7 +1716,7 @@ describe('FlowstateMemoryCollector', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
 Expected: FAIL with "Cannot find module '../extractor'"
 
 - [ ] **Step 3: Write the scanner**
@@ -1928,12 +1928,12 @@ registerCollector('flowstate-memory', () => new FlowstateMemoryCollector())
 
 - [ ] **Step 7: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/flowstate-memory/__tests__/extractor.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 8: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 9: Commit**
@@ -2069,7 +2069,7 @@ describe('parseAgentProfiles', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/agents'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2153,7 +2153,7 @@ function parseAgentMarkdown(content: string): AgentProfileResult {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/agents.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
@@ -2240,7 +2240,7 @@ describe('parseRules', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
 Expected: FAIL with "Cannot find module '../../parsers/rules'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2299,7 +2299,7 @@ export function parseRules(claudeDir: string, projectRoot?: string): string | nu
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/parsers/rules.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
@@ -2829,17 +2829,17 @@ registerCollector('project-claude', () => new ProjectClaudeCollector())
 
 - [ ] **Step 8: Run detector tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/detector.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/detector.test.ts`
 Expected: PASS (3 tests)
 
 - [ ] **Step 9: Run extractor tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/extractor.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/project-claude/__tests__/extractor.test.ts`
 Expected: PASS (6 tests)
 
 - [ ] **Step 10: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 11: Commit**
@@ -2985,7 +2985,7 @@ export type {
 
 - [ ] **Step 4: Verify typecheck**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk typecheck`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk typecheck`
 Expected: No type errors
 
 - [ ] **Step 5: Commit**
@@ -3089,7 +3089,7 @@ describe('loadSagaConfig', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
 Expected: FAIL with "Cannot find module '../config'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -3138,17 +3138,17 @@ export { loadSagaConfig } from './config'
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/config.test.ts`
 Expected: PASS (4 tests)
 
 - [ ] **Step 6: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass
 
 - [ ] **Step 7: Typecheck**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors typecheck`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors typecheck`
 Expected: No type errors
 
 - [ ] **Step 8: Commit**
@@ -3305,17 +3305,17 @@ describe('project-claude full pipeline', () => {
 
 - [ ] **Step 2: Run integration tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/all-collectors.test.ts`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test -- src/__tests__/all-collectors.test.ts`
 Expected: PASS
 
 - [ ] **Step 3: Run complete test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors test`
 Expected: All tests pass (existing + new)
 
 - [ ] **Step 4: Build check**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors build`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-collectors build`
 Expected: Build succeeds
 
 - [ ] **Step 5: Commit**

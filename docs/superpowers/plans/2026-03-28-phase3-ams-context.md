@@ -38,7 +38,7 @@
 
 - [ ] **Step 1: Install the AMS client dependency**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context && pnpm --filter @d7r/saga-server add @epicdm/flowstate-agents-memory-client`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context && pnpm --filter @d7r/saga-server add @epicdm/flowstate-agents-memory-client`
 
 Expected: package.json updated, lockfile updated.
 
@@ -298,7 +298,7 @@ describe('Memory Service', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/memory.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/memory.test.ts`
 
 Expected: FAIL (module `../services/memory` not found)
 
@@ -406,7 +406,7 @@ export async function removeConversationMemory(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/memory.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/memory.test.ts`
 
 Expected: All tests PASS
 
@@ -518,7 +518,7 @@ it('initializes AMS session and sets amsSessionId on create', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts -t "initializes AMS session"`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts -t "initializes AMS session"`
 
 Expected: FAIL (AMS addMessage not called)
 
@@ -556,7 +556,7 @@ await db.update(chatConversations).set({ amsSessionId: id }).where(eq(chatConver
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts -t "initializes AMS session"`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts -t "initializes AMS session"`
 
 Expected: PASS
 
@@ -588,7 +588,7 @@ it('skips AMS system message when no systemPrompt provided', async () => {
 
 - [ ] **Step 6: Run full chat test suite to verify no regressions**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts`
 
 Expected: All tests PASS
 
@@ -806,7 +806,7 @@ if (memoryClient) {
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts`
 
 Expected: All tests PASS (including new AMS tests and existing tests)
 
@@ -841,7 +841,7 @@ it('works without AMS when AMS_BASE_URL is not set', async () => {
 
 - [ ] **Step 7: Run full test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts src/__tests__/memory.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts src/__tests__/memory.test.ts`
 
 Expected: All tests PASS
 
@@ -950,7 +950,7 @@ it('still deletes from D1 when AMS cleanup fails', async () => {
 
 - [ ] **Step 4: Run all tests**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts src/__tests__/memory.test.ts`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run src/__tests__/chat.test.ts src/__tests__/memory.test.ts`
 
 Expected: All tests PASS
 
@@ -976,13 +976,13 @@ EOF
 
 - [ ] **Step 1: Run full server test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx vitest run`
 
 Expected: All tests pass (existing tests + new AMS tests). Note the pre-existing `saga-client-rt` test failures are expected and unrelated.
 
 - [ ] **Step 2: Verify TypeScript compilation**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx tsc --noEmit`
+Run: `cd ~/code/epic/saga-standard/.worktrees/phase3-ams-context/packages/server && npx tsc --noEmit`
 
 Expected: Clean (only pre-existing `@saga-standard/contracts` error is acceptable).
 

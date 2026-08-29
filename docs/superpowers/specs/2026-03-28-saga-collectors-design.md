@@ -180,7 +180,7 @@ Org-internal and org-confidential memory stays in the DERP's local storage, encr
                   ▼                 ▼                   ▼
         ┌──────────────┐   ┌──────────────┐    ┌──────────────┐
         │ DERP: Marcus │   │ DERP: Marcus │    │ External Hub │
-        │ @ FlowState  │   │ @ CanMonkey  │    │ (future)     │
+        │ @ FlowState  │   │ @ Acme Corp  │    │ (future)     │
         │              │   │              │    └──────────────┘
         │ ┌──────────┐ │   │ ┌──────────┐ │
         │ │Sync Svc  │◄├───├─┤Sync Svc  │ │
@@ -317,19 +317,19 @@ The recommended approach is **SSE from the hub sync endpoint**, with polling as 
 
 ### Step 7: Cross-Org Scenarios
 
-**Marcus at CanMonkey (unregistered org):**
+**Marcus at Acme Corp (unregistered org):**
 
-- CanMonkey runs a DERP with the SAGA collector and sync service
-- Memory is classified with CanMonkey's orgId
-- If CanMonkey is not a registered SAGA system, push fails gracefully; memory stays local
-- If CanMonkey later registers with the SAGA hub, historical agent-portable memory can be synced retroactively
+- Acme Corp runs a DERP with the SAGA collector and sync service
+- Memory is classified with Acme Corp's orgId
+- If Acme Corp is not a registered SAGA system, push fails gracefully; memory stays local
+- If Acme Corp later registers with the SAGA hub, historical agent-portable memory can be synced retroactively
 
-**Marcus at CanMonkey (registered org):**
+**Marcus at Acme Corp (registered org):**
 
-- CanMonkey's spoke authenticates with the hub via wallet-based SAGA token
+- Acme Corp's spoke authenticates with the hub via wallet-based SAGA token
 - Agent-portable memory pushes through
-- Marcus pulls FlowState portable memory into CanMonkey DERP
-- Org-internal CanMonkey memory stays in CanMonkey's DERP, encrypted with CanMonkey's org key
+- Marcus pulls FlowState portable memory into Acme Corp DERP
+- Org-internal Acme Corp memory stays in Acme Corp's DERP, encrypted with Acme Corp's org key
 - Org-internal FlowState memory stays in FlowState's DERP, encrypted with FlowState's org key
 
 **"What are you working on?" response pipeline:**

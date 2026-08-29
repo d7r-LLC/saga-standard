@@ -39,7 +39,7 @@
 - [ ] **Step 1: Install js-yaml dependency**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli add js-yaml && pnpm --filter @d7r/saga-cli add -D @types/js-yaml
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli add js-yaml && pnpm --filter @d7r/saga-cli add -D @types/js-yaml
 ```
 
 - [ ] **Step 2: Write failing tests for config loader**
@@ -220,7 +220,7 @@ describe('deploy-config', () => {
 - [ ] **Step 3: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
 ```
 
 Expected: FAIL — module `../deploy-config` does not exist.
@@ -350,7 +350,7 @@ export function deriveNetworkAllowlist(
 - [ ] **Step 5: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-config.test.ts
 ```
 
 Expected: all tests PASS.
@@ -358,7 +358,7 @@ Expected: all tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/deploy-config.ts packages/cli/src/__tests__/deploy-config.test.ts packages/cli/package.json pnpm-lock.yaml && git commit -m "feat(cli): add deploy config loader with YAML parsing and validation"
+cd ~/code/epic/saga-standard && git add packages/cli/src/deploy-config.ts packages/cli/src/__tests__/deploy-config.test.ts packages/cli/package.json pnpm-lock.yaml && git commit -m "feat(cli): add deploy config loader with YAML parsing and validation"
 ```
 
 ---
@@ -542,7 +542,7 @@ describe('deploy-docker', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
 ```
 
 Expected: FAIL — module `../deploy-docker` does not exist.
@@ -636,7 +636,7 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-docker.test.ts
 ```
 
 Expected: all tests PASS.
@@ -644,7 +644,7 @@ Expected: all tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/deploy-docker.ts packages/cli/src/__tests__/deploy-docker.test.ts && git commit -m "feat(cli): add Docker orchestration for deploy container"
+cd ~/code/epic/saga-standard && git add packages/cli/src/deploy-docker.ts packages/cli/src/__tests__/deploy-docker.test.ts && git commit -m "feat(cli): add Docker orchestration for deploy container"
 ```
 
 ---
@@ -815,7 +815,7 @@ describe('deploy-post', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
 ```
 
 Expected: FAIL — module `../deploy-post` does not exist.
@@ -918,7 +918,7 @@ export function clearPendingDeploy(deploysDir: string, chain: string): void {
 - [ ] **Step 4: Run tests to verify they pass**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test -- src/__tests__/deploy-post.test.ts
 ```
 
 Expected: all tests PASS.
@@ -926,7 +926,7 @@ Expected: all tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/deploy-post.ts packages/cli/src/__tests__/deploy-post.test.ts && git commit -m "feat(cli): add post-deploy actions for address updates and pending state"
+cd ~/code/epic/saga-standard && git add packages/cli/src/deploy-post.ts packages/cli/src/__tests__/deploy-post.test.ts && git commit -m "feat(cli): add post-deploy actions for address updates and pending state"
 ```
 
 ---
@@ -1283,7 +1283,7 @@ program.addCommand(deployCommand)
 - [ ] **Step 3: Verify the CLI builds**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
 ```
 
 Expected: build succeeds with no TypeScript errors.
@@ -1291,7 +1291,7 @@ Expected: build succeeds with no TypeScript errors.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/commands/deploy.ts packages/cli/src/index.ts && git commit -m "feat(cli): add saga deploy command with Docker orchestration"
+cd ~/code/epic/saga-standard && git add packages/cli/src/commands/deploy.ts packages/cli/src/index.ts && git commit -m "feat(cli): add saga deploy command with Docker orchestration"
 ```
 
 ---
@@ -1361,7 +1361,7 @@ networkAllowlist:
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/contracts/deploy.config.yaml && git commit -m "feat(contracts): add deploy config with chain targets and 1Password references"
+cd ~/code/epic/saga-standard && git add packages/contracts/deploy.config.yaml && git commit -m "feat(contracts): add deploy config with chain targets and 1Password references"
 ```
 
 ---
@@ -1376,7 +1376,7 @@ cd /Users/sthornock/code/epic/saga-standard && git add packages/contracts/deploy
 - [ ] **Step 1: Create the scripts directory**
 
 ```bash
-mkdir -p /Users/sthornock/code/epic/saga-standard/packages/contracts/scripts
+mkdir -p ~/code/epic/saga-standard/packages/contracts/scripts
 ```
 
 - [ ] **Step 2: Create the entrypoint script**
@@ -1657,13 +1657,13 @@ ENTRYPOINT ["/entrypoint.sh"]
 - [ ] **Step 4: Verify Dockerfile syntax**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/contracts && docker build --check -f Dockerfile.deploy . 2>&1 || echo "Docker syntax check complete (--check may not be available, that is fine)"
+cd ~/code/epic/saga-standard/packages/contracts && docker build --check -f Dockerfile.deploy . 2>&1 || echo "Docker syntax check complete (--check may not be available, that is fine)"
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/contracts/Dockerfile.deploy packages/contracts/scripts/deploy-entrypoint.sh && git commit -m "feat(contracts): add hardened Dockerfile and entrypoint for secure deployment"
+cd ~/code/epic/saga-standard && git add packages/contracts/Dockerfile.deploy packages/contracts/scripts/deploy-entrypoint.sh && git commit -m "feat(contracts): add hardened Dockerfile and entrypoint for secure deployment"
 ```
 
 ---
@@ -1686,7 +1686,7 @@ Add to `.gitignore`:
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add .gitignore && git commit -m "chore: gitignore .saga/deploys pending state directory"
+cd ~/code/epic/saga-standard && git add .gitignore && git commit -m "chore: gitignore .saga/deploys pending state directory"
 ```
 
 ---
@@ -1700,7 +1700,7 @@ cd /Users/sthornock/code/epic/saga-standard && git add .gitignore && git commit 
 - [ ] **Step 1: Run all CLI tests**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli test
 ```
 
 Expected: all tests pass (existing + new deploy-config, deploy-docker, deploy-post).
@@ -1708,7 +1708,7 @@ Expected: all tests pass (existing + new deploy-config, deploy-docker, deploy-po
 - [ ] **Step 2: Verify CLI builds cleanly**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
+cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build
 ```
 
 Expected: build succeeds.
@@ -1716,7 +1716,7 @@ Expected: build succeeds.
 - [ ] **Step 3: Verify deploy command appears in help**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && node packages/cli/dist/index.js deploy --help
+cd ~/code/epic/saga-standard && node packages/cli/dist/index.js deploy --help
 ```
 
 Expected: shows deploy command usage with `--chain`, `--broadcast`, `--production`, `--status`, `--finalize` options.
@@ -1724,7 +1724,7 @@ Expected: shows deploy command usage with `--chain`, `--broadcast`, `--productio
 - [ ] **Step 4: Verify dry-run fails gracefully without Docker**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && node packages/cli/dist/index.js deploy --chain base-sepolia 2>&1 || true
+cd ~/code/epic/saga-standard && node packages/cli/dist/index.js deploy --chain base-sepolia 2>&1 || true
 ```
 
 Expected: fails with a clear error about Docker or config, not an unhandled exception.
@@ -1732,5 +1732,5 @@ Expected: fails with a clear error about Docker or config, not an unhandled exce
 - [ ] **Step 5: Commit (if any test fixes were needed)**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add -A && git commit -m "fix(cli): address integration test findings" || echo "Nothing to commit — all clean"
+cd ~/code/epic/saga-standard && git add -A && git commit -m "fix(cli): address integration test findings" || echo "Nothing to commit — all clean"
 ```

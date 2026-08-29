@@ -12,8 +12,8 @@
 
 **Spec:** `docs/specs/2026-03-11-marketplace-oidc-integration-design.md`
 
-**Marketplace root:** `/Users/sthornock/code/epic/flowstate-marketplace/packages/template-directory`
-**Identity server root:** `/Users/sthornock/code/epic/epic-flowstate-identity`
+**Marketplace root:** `~/code/epic/flowstate-marketplace/packages/template-directory`
+**Identity server root:** `~/code/epic/epic-flowstate-identity`
 
 **Test runner:** Jest (`npm test` or `npx jest --passWithNoTests`)
 
@@ -32,7 +32,7 @@
 - [ ] **Step 1: Install arctic and oslo, remove next-auth and @auth/drizzle-adapter**
 
 ```bash
-cd /Users/sthornock/code/epic/flowstate-marketplace/packages/template-directory
+cd ~/code/epic/flowstate-marketplace/packages/template-directory
 npm install arctic oslo
 npm uninstall next-auth @auth/drizzle-adapter
 ```
@@ -1318,7 +1318,7 @@ git commit -m "feat: remove NextAuth, update login page and all auth references 
 
 **Files:**
 
-- Modify: `/Users/sthornock/code/epic/epic-flowstate-identity/scripts/seed-clients.ts`
+- Modify: `~/code/epic/epic-flowstate-identity/scripts/seed-clients.ts`
 
 - [ ] **Step 1: Add staging callback URL to marketplace client**
 
@@ -1342,7 +1342,7 @@ In the identity server's `scripts/seed-clients.ts`, update the marketplace clien
 - [ ] **Step 2: Generate seed SQL and apply to local D1**
 
 ```bash
-cd /Users/sthornock/code/epic/epic-flowstate-identity
+cd ~/code/epic/epic-flowstate-identity
 npx tsx scripts/seed-clients.ts > /tmp/seed-clients.sql
 npx wrangler d1 execute flowstate-identity --local --file=/tmp/seed-clients.sql
 ```
@@ -1380,7 +1380,7 @@ Before deploying, verify:
 - [ ] **Step 1: Verify marketplace builds**
 
 ```bash
-cd /Users/sthornock/code/epic/flowstate-marketplace/packages/template-directory
+cd ~/code/epic/flowstate-marketplace/packages/template-directory
 npx opennextjs-cloudflare build
 ```
 

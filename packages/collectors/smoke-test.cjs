@@ -88,14 +88,14 @@ async function main() {
   // Test project-claude collector
   console.log('\n=== project-claude Collector ===')
   const pcCollector = createCollector('project-claude')
-  const pcDetect = await pcCollector.detect('/Users/sthornock/code/epic/saga-standard')
+  const pcDetect = await pcCollector.detect('~/code/epic/saga-standard')
   console.log('Detect:', JSON.stringify(pcDetect, null, 2))
 
   if (pcDetect.found) {
-    const pcScan = await pcCollector.scan('/Users/sthornock/code/epic/saga-standard')
+    const pcScan = await pcCollector.scan('~/code/epic/saga-standard')
     console.log('Scan:', JSON.stringify(pcScan, null, 2))
 
-    const pcDoc = await pcCollector.extract({ paths: ['/Users/sthornock/code/epic/saga-standard'] })
+    const pcDoc = await pcCollector.extract({ paths: ['~/code/epic/saga-standard'] })
     const pcLayers = pcDoc.layers ?? pcDoc
     console.log('Layers:', Object.keys(pcLayers))
     if (pcLayers.cognitive) {

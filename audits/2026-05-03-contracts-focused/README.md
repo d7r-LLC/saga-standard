@@ -6,11 +6,11 @@ It is **input** to the `saga audit` CLI tool, not output. After running the CLI,
 
 ## Files
 
-| File          | Purpose                                                                                                        |
-| ------------- | -------------------------------------------------------------------------------------------------------------- |
-| `system.md`   | Auditor persona — Solidity-specialist tuning, references the standards the LLM should cross-check against.    |
-| `prompt.md`   | Engagement scope, already-remediated exclusions, priority dimensions A–I, and the required output structure.   |
-| `README.md`   | This file — invocation cheatsheet + rationale.                                                                 |
+| File        | Purpose                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `system.md` | Auditor persona — Solidity-specialist tuning, references the standards the LLM should cross-check against.   |
+| `prompt.md` | Engagement scope, already-remediated exclusions, priority dimensions A–I, and the required output structure. |
+| `README.md` | This file — invocation cheatsheet + rationale.                                                               |
 
 ## Why a focused brief
 
@@ -29,7 +29,7 @@ The focused brief:
 ### One provider (Anthropic, default)
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard
+cd ~/code/epic/saga-standard
 pnpm --filter @d7r/saga-cli build      # ensure CLI is fresh
 
 node packages/cli/dist/index.js audit \
