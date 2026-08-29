@@ -103,7 +103,7 @@ describe('deriveVaultMasterKey', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: FAIL — `deriveVaultMasterKey` not found
 
 - [ ] **Step 3: Implement `deriveVaultMasterKey`**
@@ -151,7 +151,7 @@ Pick whichever approach fits the project's dependency policy. The `@noble/hashes
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: 3 passing
 
 - [ ] **Step 5: Write failing tests for item-level AES-256-GCM encrypt/decrypt**
@@ -212,7 +212,7 @@ describe('encryptVaultItem + decryptVaultItem', () => {
 
 - [ ] **Step 6: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: FAIL — `encryptVaultItem`/`decryptVaultItem` not found
 
 - [ ] **Step 7: Implement `encryptVaultItem` and `decryptVaultItem`**
@@ -319,7 +319,7 @@ export async function decryptVaultItem(
 
 - [ ] **Step 8: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run vault-crypto`
 Expected: All 6 tests passing
 
 - [ ] **Step 9: Export new functions from encrypt/index.ts and sdk index.ts**
@@ -340,13 +340,13 @@ export type { EncryptedVaultItemResult } from './encrypt'
 
 - [ ] **Step 10: Run full SDK test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
 Expected: All tests pass (existing + new)
 
 - [ ] **Step 11: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/sdk/src/encrypt/vault-crypto.ts packages/sdk/src/encrypt/vault-crypto.test.ts packages/sdk/src/encrypt/index.ts packages/sdk/src/index.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/sdk/src/encrypt/vault-crypto.ts packages/sdk/src/encrypt/vault-crypto.test.ts packages/sdk/src/encrypt/index.ts packages/sdk/src/index.ts && git commit -m "$(cat <<'EOF'
 feat(sdk): implement three-tier vault encryption engine
 
 AES-256-GCM with HKDF-SHA256 key derivation from wallet private key.
@@ -425,12 +425,12 @@ Note: `applyDefaultEncryption` may already be importable from `@d7r/saga-sdk` si
 
 - [ ] **Step 3: Test the export pipeline manually**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 
 Verify the CLI builds without errors. If there is a collect step already run, test with:
 
 ```
-cd /Users/sthornock/code/epic/saga-standard && node packages/cli/dist/index.js export --type full --partials .saga-partials --output test-encrypted.saga
+cd ~/code/epic/saga-standard && node packages/cli/dist/index.js export --type full --partials .saga-partials --output test-encrypted.saga
 ```
 
 Check the output file: unzip and inspect `agent.saga.json` to verify `privacy.encryptedLayers` is populated and `memory.longTerm` content is ciphertext, not plaintext.
@@ -438,7 +438,7 @@ Check the output file: unzip and inspect `agent.saga.json` to verify `privacy.en
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/commands/export.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/cli/src/commands/export.ts && git commit -m "$(cat <<'EOF'
 feat(cli): wire encryption into export pipeline
 
 Calls applyDefaultEncryption between validation and signing.
@@ -543,13 +543,13 @@ if (walletInfo && item.fields.__encrypted) {
 
 - [ ] **Step 3: Build and verify**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/cli/src/commands/vault.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/cli/src/commands/vault.ts && git commit -m "$(cat <<'EOF'
 fix(cli): replace base64 vault placeholder with real AES-256-GCM
 
 Vault add now derives master key from wallet via HKDF-SHA256 and
@@ -616,7 +616,7 @@ it('requires auth for document download', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: New tests FAIL because GET endpoints currently return 200 without auth
 
 - [ ] **Step 3: Add `requireAuth` to document GET endpoints**
@@ -661,13 +661,13 @@ const res = await req('GET', '/v1/agents/nonexistent/documents', {
 
 - [ ] **Step 5: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/server/src/routes/documents.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/server/src/routes/documents.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
 fix(server): require auth for document list and retrieval endpoints
 
 GET /v1/agents/:handle/documents and
@@ -804,7 +804,7 @@ it('accepts upload with properly encrypted vault layer', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: First new test FAILs (server returns 201, expected 400)
 
 - [ ] **Step 3: Implement validation middleware**
@@ -874,13 +874,13 @@ if (encryptionError) {
 
 - [ ] **Step 5: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/server/src/middleware/validate-document.ts packages/server/src/routes/documents.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/server/src/middleware/validate-document.ts packages/server/src/routes/documents.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
 feat(server): validate encryption requirements on document upload
 
 Rejects uploads where vault layer items have __encrypted !== true
@@ -985,7 +985,7 @@ it('throws if vault layer has unencrypted items', () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
 Expected: New tests FAIL
 
 - [ ] **Step 3: Add vault handling to `applyDefaultEncryption`**
@@ -1015,13 +1015,13 @@ Also add the import for VaultLayer at the top if needed. Since the function alre
 
 - [ ] **Step 4: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run layer-encryptor`
 Expected: All tests pass (existing + 2 new)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/sdk/src/encrypt/layer-encryptor.ts packages/sdk/src/encrypt/layer-encryptor.test.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/sdk/src/encrypt/layer-encryptor.ts packages/sdk/src/encrypt/layer-encryptor.test.ts && git commit -m "$(cat <<'EOF'
 feat(sdk): validate vault encryption in applyDefaultEncryption
 
 Checks that all vault items have __encrypted: true before export.
@@ -1117,7 +1117,7 @@ it('rejects import with missing identity layer', async () => {
 
 - [ ] **Step 2: Run tests — should fail**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: New tests FAIL (import is a stub)
 
 - [ ] **Step 3: Implement real transfer import**
@@ -1276,13 +1276,13 @@ import { agents, documents, transfers } from '../db/schema'
 
 - [ ] **Step 4: Run tests — should pass**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git add packages/server/src/routes/transfers.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
+cd ~/code/epic/saga-standard && git add packages/server/src/routes/transfers.ts packages/server/src/__tests__/server.test.ts && git commit -m "$(cat <<'EOF'
 feat(server): implement real transfer import with validation
 
 Replaces stub import endpoint with real agent creation, document
@@ -1304,27 +1304,27 @@ EOF
 
 - [ ] **Step 1: Run full SDK test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 2: Run full server test suite**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-server test -- --run`
 Expected: All tests pass
 
 - [ ] **Step 3: Build CLI to verify compilation**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-cli build`
 Expected: Build succeeds
 
 - [ ] **Step 4: Build SDK to verify compilation**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk build`
+Run: `cd ~/code/epic/saga-standard && pnpm --filter @d7r/saga-sdk build`
 Expected: Build succeeds
 
 - [ ] **Step 5: Run lint**
 
-Run: `cd /Users/sthornock/code/epic/saga-standard && pnpm lint`
+Run: `cd ~/code/epic/saga-standard && pnpm lint`
 Expected: No errors (warnings acceptable)
 
 - [ ] **Step 6: Verify encryption audit checklist**
@@ -1343,7 +1343,7 @@ Manually verify each finding is addressed:
 - [ ] **Step 7: Final commit if any cleanup was needed**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && git status
+cd ~/code/epic/saga-standard && git status
 # If clean, no commit needed
 # If changes exist from lint/format fixes:
 git add -A && git commit -m "$(cat <<'EOF'

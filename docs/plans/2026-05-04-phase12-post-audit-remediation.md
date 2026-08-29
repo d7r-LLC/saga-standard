@@ -449,7 +449,7 @@ Built with d7r FlowState"
 **Step 1: Read current state**
 
 ```bash
-cat /Users/sthornock/code/epic/saga-standard/packages/contracts/script/DeployOrg.s.sol
+cat ~/code/epic/saga-standard/packages/contracts/script/DeployOrg.s.sol
 ```
 
 The script ends with `registry.setAuthorizedContract(address(orgIdentity), true)`. Phase 11 J-3's bootstrap-finalized gate makes this revert if the registry is already finalized.
@@ -1235,7 +1235,7 @@ Built with d7r FlowState"
 **Step 1: Read current state**
 
 ```bash
-cat /Users/sthornock/code/epic/saga-standard/packages/contracts/script/TransferOwnership.s.sol
+cat ~/code/epic/saga-standard/packages/contracts/script/TransferOwnership.s.sol
 ```
 
 The script `require`s deployer-is-still-owner for all four contracts before any transfer. Partial Safe acceptance bricks subsequent runs.

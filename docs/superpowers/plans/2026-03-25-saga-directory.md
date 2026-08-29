@@ -6,7 +6,7 @@
 
 **Goal:** Build the SAGA Official Directory — a Next.js app on Cloudflare Workers for browsing, registering, and managing SAGA agents/orgs with wallet auth and transfer protocol UI.
 
-**Architecture:** Deep fork of FlowState Directory (`/Users/sthornock/code/epic/flowstate-platform/packages/directory`), replacing OIDC auth with wallet-based auth (ported from `flowstate-platform/packages/id`), replacing local D1 queries with SAGA server API calls via `@d7r/saga-client`, and adding transfer protocol UI. The directory is a thin frontend — all agent/org data lives on the SAGA server.
+**Architecture:** Deep fork of FlowState Directory (`~/code/epic/flowstate-platform/packages/directory`), replacing OIDC auth with wallet-based auth (ported from `flowstate-platform/packages/id`), replacing local D1 queries with SAGA server API calls via `@d7r/saga-client`, and adding transfer protocol UI. The directory is a thin frontend — all agent/org data lives on the SAGA server.
 
 **Tech Stack:** Next.js 15, React 19, Tailwind CSS v4, Cloudflare Workers (OpenNextJS), KV (sessions), `@d7r/saga-client`, viem, WalletConnect
 
@@ -14,10 +14,10 @@
 
 **Source Repos:**
 
-- FlowState Directory: `/Users/sthornock/code/epic/flowstate-platform/packages/directory`
-- FlowState Identity (wallet auth): `/Users/sthornock/code/epic/flowstate-platform/packages/id`
-- FlowState Chrome (UI components): `/Users/sthornock/code/epic/flowstate-platform/packages/shared/chrome`
-- SAGA Standard: `/Users/sthornock/code/epic/saga-standard`
+- FlowState Directory: `~/code/epic/flowstate-platform/packages/directory`
+- FlowState Identity (wallet auth): `~/code/epic/flowstate-platform/packages/id`
+- FlowState Chrome (UI components): `~/code/epic/flowstate-platform/packages/shared/chrome`
+- SAGA Standard: `~/code/epic/saga-standard`
 
 ---
 
@@ -136,13 +136,13 @@ packages/directory/
 - [ ] **Step 1: Copy the FlowState directory package into saga-standard**
 
 ```bash
-cp -r /Users/sthornock/code/epic/flowstate-platform/packages/directory /Users/sthornock/code/epic/saga-standard/packages/directory
+cp -r ~/code/epic/flowstate-platform/packages/directory ~/code/epic/saga-standard/packages/directory
 ```
 
 - [ ] **Step 2: Remove unwanted directories and files**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/directory
+cd ~/code/epic/saga-standard/packages/directory
 
 # Database layer (replaced by SAGA API)
 rm -rf src/db
@@ -426,7 +426,7 @@ Replace `packages/directory/tsconfig.json`:
 - [ ] **Step 6: Install dependencies**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard && pnpm install
+cd ~/code/epic/saga-standard && pnpm install
 ```
 
 - [ ] **Step 7: Commit**
@@ -462,9 +462,9 @@ These are all direct copies from `flowstate-platform/packages/shared/chrome` wit
 - [ ] **Step 1: Copy font files**
 
 ```bash
-mkdir -p /Users/sthornock/code/epic/saga-standard/packages/directory/src/fonts
-cp /Users/sthornock/code/epic/flowstate-platform/packages/shared/chrome/src/fonts/MavenPro.woff2 /Users/sthornock/code/epic/saga-standard/packages/directory/src/fonts/
-cp /Users/sthornock/code/epic/flowstate-platform/packages/shared/chrome/src/fonts/Comfortaa.woff2 /Users/sthornock/code/epic/saga-standard/packages/directory/src/fonts/
+mkdir -p ~/code/epic/saga-standard/packages/directory/src/fonts
+cp ~/code/epic/flowstate-platform/packages/shared/chrome/src/fonts/MavenPro.woff2 ~/code/epic/saga-standard/packages/directory/src/fonts/
+cp ~/code/epic/flowstate-platform/packages/shared/chrome/src/fonts/Comfortaa.woff2 ~/code/epic/saga-standard/packages/directory/src/fonts/
 ```
 
 - [ ] **Step 2: Create font index**
@@ -491,7 +491,7 @@ export const comfortaa = localFont({
 
 - [ ] **Step 3: Copy and adapt UI components**
 
-Copy the following files from `/Users/sthornock/code/epic/flowstate-platform/packages/shared/chrome/src/`:
+Copy the following files from `~/code/epic/flowstate-platform/packages/shared/chrome/src/`:
 
 - `components/Navigation.tsx` → `packages/directory/src/components/ui/Navigation.tsx`
 - `components/Header.tsx` → `packages/directory/src/components/ui/Header.tsx`
@@ -733,27 +733,27 @@ git commit -m "feat(directory): add session management and SAGA client factory
 - [ ] **Step 1: Copy wallet utility files**
 
 ```bash
-mkdir -p /Users/sthornock/code/epic/saga-standard/packages/directory/src/lib/wallet
-mkdir -p /Users/sthornock/code/epic/saga-standard/packages/directory/src/hooks
+mkdir -p ~/code/epic/saga-standard/packages/directory/src/lib/wallet
+mkdir -p ~/code/epic/saga-standard/packages/directory/src/hooks
 
 # Copy wallet utilities (no changes needed)
-cp /Users/sthornock/code/epic/flowstate-platform/packages/id/src/lib/wallet/evm.ts \
-   /Users/sthornock/code/epic/saga-standard/packages/directory/src/lib/wallet/evm.ts
+cp ~/code/epic/flowstate-platform/packages/id/src/lib/wallet/evm.ts \
+   ~/code/epic/saga-standard/packages/directory/src/lib/wallet/evm.ts
 
-cp /Users/sthornock/code/epic/flowstate-platform/packages/id/src/lib/wallet/solana.ts \
-   /Users/sthornock/code/epic/saga-standard/packages/directory/src/lib/wallet/solana.ts
+cp ~/code/epic/flowstate-platform/packages/id/src/lib/wallet/solana.ts \
+   ~/code/epic/saga-standard/packages/directory/src/lib/wallet/solana.ts
 
-cp /Users/sthornock/code/epic/flowstate-platform/packages/id/src/lib/wallet/walletconnect.ts \
-   /Users/sthornock/code/epic/saga-standard/packages/directory/src/lib/wallet/walletconnect.ts
+cp ~/code/epic/flowstate-platform/packages/id/src/lib/wallet/walletconnect.ts \
+   ~/code/epic/saga-standard/packages/directory/src/lib/wallet/walletconnect.ts
 
 # Copy hooks (EIP6963 discovery needs no changes)
-cp /Users/sthornock/code/epic/flowstate-platform/packages/id/src/hooks/useEIP6963Discovery.ts \
-   /Users/sthornock/code/epic/saga-standard/packages/directory/src/hooks/useEIP6963Discovery.ts
+cp ~/code/epic/flowstate-platform/packages/id/src/hooks/useEIP6963Discovery.ts \
+   ~/code/epic/saga-standard/packages/directory/src/hooks/useEIP6963Discovery.ts
 ```
 
 - [ ] **Step 2: Create adapted useWalletLogin hook**
 
-Copy from `/Users/sthornock/code/epic/flowstate-platform/packages/id/src/hooks/useWalletLogin.ts` then modify the API endpoints. The key changes:
+Copy from `~/code/epic/flowstate-platform/packages/id/src/hooks/useWalletLogin.ts` then modify the API endpoints. The key changes:
 
 1. Challenge endpoint: `/api/auth/challenge` (directory proxy → SAGA server)
 2. Verify endpoint: `/api/auth/verify` (directory proxy → SAGA server, creates local session)
@@ -1145,7 +1145,7 @@ git commit -m "feat(directory): SAGA site layout with wallet connect menu
 
 - [ ] **Step 1: Copy and adapt WalletLoginSection**
 
-Copy from `/Users/sthornock/code/epic/flowstate-platform/packages/id/src/components/wallet/WalletLoginSection.tsx` to `packages/directory/src/components/wallet/WalletLoginSection.tsx`.
+Copy from `~/code/epic/flowstate-platform/packages/id/src/components/wallet/WalletLoginSection.tsx` to `packages/directory/src/components/wallet/WalletLoginSection.tsx`.
 
 Update imports:
 
@@ -2776,7 +2776,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 - [ ] **Step 3: Remove any remaining FlowState-specific files**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/directory
+cd ~/code/epic/saga-standard/packages/directory
 
 # Remove dashboard components we haven't replaced
 rm -f src/components/dashboard/company-form.tsx
@@ -2817,7 +2817,7 @@ Note: Be careful not to delete files we created in earlier tasks. The `rm -rf sr
 - [ ] **Step 4: Run typecheck to find remaining broken imports**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/directory && npx tsc --noEmit 2>&1 | head -50
+cd ~/code/epic/saga-standard/packages/directory && npx tsc --noEmit 2>&1 | head -50
 ```
 
 Fix any remaining import errors by removing stale imports or updating paths. Common fixes:
@@ -2830,7 +2830,7 @@ Fix any remaining import errors by removing stale imports or updating paths. Com
 - [ ] **Step 5: Run build**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/directory && pnpm build
+cd ~/code/epic/saga-standard/packages/directory && pnpm build
 ```
 
 Fix any build errors.
@@ -2857,7 +2857,7 @@ git commit -m "chore(directory): clean up remaining FlowState references
 - [ ] **Step 1: Create KV namespaces**
 
 ```bash
-cd /Users/sthornock/code/epic/saga-standard/packages/directory
+cd ~/code/epic/saga-standard/packages/directory
 npx wrangler kv namespace create SESSIONS
 npx wrangler kv namespace create SESSIONS --env staging
 ```
