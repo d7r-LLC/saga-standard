@@ -1,20 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-accent="saga">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ page.title }} — {{ site.title }}</title>
-  <meta name="description" content="{{ page.description | default: site.description }}">
-  <meta property="og:title" content="{{ page.title }}">
-  <meta property="og:description" content="{{ page.description | default: site.description }}">
-  <meta property="og:url" content="{{ page.url | absolute_url }}">
-  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+{% include head.html %}
 </head>
 <body>
-  {% include header.html %}
-  <div class="page-wrapper">
-    <aside class="sidebar">
+{% include header.html %}
+<div class="page-wrapper">
+<aside class="sidebar">
       <div class="section-label">Specification v1.0</div>
       <ul>
         <li><a href="#abstract">Abstract</a></li>
@@ -60,10 +52,10 @@
         <li><a href="#appendix-f-compliance-framework-mapping">F. Compliance</a></li>
       </ul>
     </aside>
-    <main class="content">
-      {{ content }}
-    </main>
-  </div>
-  {% include footer.html %}
+  <main class="content prose">
+{{ content }}
+  </main>
+</div>
+{% include footer.html %}
 </body>
 </html>
