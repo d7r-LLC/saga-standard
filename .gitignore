@@ -40,8 +40,27 @@ pnpm-debug.log*
 
 # SAGA working directories
 .saga-partials/
+.saga/deploys/
+
+# Collector exports (contains local user data)
+exports/
 
 # Plans / scratch
 .plans/
 
 # Lock files are committed (pnpm-lock.yaml)
+
+# Worktrees
+.worktrees/
+.superpowers/
+
+# Local AI-audit run outputs and planning scratch — never publish.
+# Tracked audit summaries (audits/*/README.md, gas reports) stay; the raw
+# timestamped run folders and dry-run manifests are local working data.
+audits/*T*__*/
+audits/*-three-way-comparison/
+audits/last-dry-run-manifest.json
+docs/plans/2026-05-03-contract-audit-remediation.md
+docs/superpowers/specs/2026-05-03-directory-mvp1-gap-analysis.md
+docs/superpowers/specs/2026-05-03-directory-mvp1-implementation-plan.md
+docs/superpowers/specs/2026-05-03-security-remediation-plan.md
