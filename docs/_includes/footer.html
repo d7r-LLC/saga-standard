@@ -1,7 +1,33 @@
-<footer class="site-footer">
-  <p>
-    SAGA Standard v1.0 &middot; Apache 2.0 &middot;
-    <a href="https://github.com/d7r-LLC/saga-standard">GitHub</a> &middot;
-    <a href="https://d7r.io">FlowState</a>
-  </p>
+<footer class="colophon">
+  <div class="wrap cols">
+    <div>
+      <p>SAGA Standard v1.0 · Apache 2.0 &middot; part of <a href="https://d7r.io">d7r Open Source</a>.</p>
+      <p>A draft; nothing is adopted until it lands as a decision record.</p>
+    </div>
+    <div>
+      <p><a href="https://github.com/d7r-LLC/saga-standard">GitHub</a> &middot;
+    <a href="https://d7r.io">d7r Open Source</a></p>
+    </div>
+  </div>
 </footer>
+<script>
+(function () {
+  var t = document.getElementById('theme-toggle');
+  if (t) t.addEventListener('click', function () {
+    var root = document.documentElement;
+    var cur = root.getAttribute('data-theme');
+    if (!cur) cur = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('d7r-theme', next); } catch (e) {}
+  });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+  }
+})();
+</script>
