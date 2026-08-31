@@ -49,8 +49,9 @@ COPY foundry.toml .
 COPY scripts/deploy-entrypoint.sh /entrypoint.sh
 COPY scripts/fund-entrypoint.sh /fund-entrypoint.sh
 COPY scripts/admin-entrypoint.sh /admin-entrypoint.sh
+COPY scripts/smoke-test-entrypoint.sh /smoke-test-entrypoint.sh
 COPY scripts/derive-mnemonic.mjs /usr/local/lib/saga-deploy/derive-mnemonic.mjs
-RUN chmod +x /entrypoint.sh /fund-entrypoint.sh /admin-entrypoint.sh \
+RUN chmod +x /entrypoint.sh /fund-entrypoint.sh /admin-entrypoint.sh /smoke-test-entrypoint.sh \
     && chmod 755 /usr/local/lib/saga-deploy/derive-mnemonic.mjs
 
 # Tell the derive helper where to find @scure/* (installed globally above).
@@ -61,6 +62,32 @@ ENV NODE_PATH=/usr/lib/node_modules
 # Forge + cast caches go to a tmpfs path, set by the runtime via --tmpfs flag
 # in deploy-docker.ts. Read-only root + tmpfs at /forge-cache + /tmp.
 ENV FOUNDRY_CACHE_PATH=/forge-cache
+
+# `forge build`/`forge script` write compiled artifacts to $FOUNDRY_OUT
+# (defaults to `out/` inside the project dir). With --read-only rootfs,
+# the project dir is immutable, so redirect to the existing /tmp tmpfs
+# (mounted by deploy-docker.ts at size=128m). Forge creates the
+# subdirectory on first compile. Without this override, the first
+# `forge script` invocation fails with "Read-only file system (os
+# error 30)" trying to write artifacts.
+ENV FOUNDRY_OUT=/tmp/forge-out
+
+# `forge script` writes simulation + broadcast logs to $FOUNDRY_BROADCAST
+# (defaults to `broadcast/` inside the project dir) — even in dry-run
+# mode it creates the chain-id subdirectory and writes the run log.
+# Same read-only constraint as FOUNDRY_OUT; redirect to the /tmp tmpfs.
+ENV FOUNDRY_BROADCAST=/tmp/forge-broadcast
+
+# Forge ALSO writes home-relative caches under ~/.foundry (function
+# signature cache, etherscan API cache, etc.) via the Rust `dirs` crate.
+# The default HOME=/root sits on the read-only rootfs, so forge fails
+# with "Read-only file system (os error 30)" before any project-relative
+# path even matters. Pointing HOME at /tmp routes those caches to the
+# already-mounted /tmp tmpfs. XDG_* variants are set too for any tool
+# that consults them instead of HOME directly.
+ENV HOME=/tmp
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV XDG_CONFIG_HOME=/tmp/.config
 
 # Security: disable shell history
 ENV HISTFILE=/dev/null

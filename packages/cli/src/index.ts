@@ -17,6 +17,8 @@ import { fundCommand } from './commands/fund'
 import { secretsGenerateCommand } from './commands/secrets-generate'
 import { secretsPushCommand } from './commands/secrets-push'
 import { secretsDeployCommand } from './commands/secrets-deploy'
+import { auditCommand } from './commands/audit'
+import { smokeTestCommand } from './commands/smoke-test'
 
 const program = new Command()
 
@@ -38,6 +40,8 @@ program.addCommand(verifyCommand)
 program.addCommand(vaultCommand)
 program.addCommand(deployCommand)
 program.addCommand(fundCommand)
+program.addCommand(auditCommand)
+program.addCommand(smokeTestCommand)
 
 // `saga secrets …` — secret lifecycle for the saga-server worker.
 // Subcommands:

@@ -29,10 +29,17 @@ export interface DockerRunOptions {
   resolved: ResolvedChainConfig
   networkName: string
   mode: 'dry-run' | 'broadcast' | 'finalize'
+  /**
+   * When true, the container expects deploy secrets to arrive via stdin
+   * as a JSON object (resolved on the host via the user's interactive
+   * `op` CLI). When false, the container reads secrets itself using
+   * OP_SERVICE_ACCOUNT_TOKEN from its env. Defaults to false.
+   */
+  secretsViaStdin?: boolean
 }
 
 export function buildDockerRunArgs(options: DockerRunOptions): string[] {
-  const { resolved, networkName, mode } = options
+  const { resolved, networkName, mode, secretsViaStdin = false } = options
 
   const configPayload: Record<string, unknown> = {
     chain: resolved.chain,
@@ -67,28 +74,51 @@ export function buildDockerRunArgs(options: DockerRunOptions): string[] {
   // The mnemonic-via-stdin helper (scripts/derive-mnemonic.mjs) means the
   // deploy signer never lands on argv inside the container, so /proc/$pid/cmdline
   // does not leak the seed phrase to sibling processes.
-  return [
+  const args: string[] = [
     'run',
     '--rm',
+    // -i keeps stdin open. Required for the host-resolved secrets path
+    // (the CLI pipes a JSON blob to the entrypoint's `cat`); harmless
+    // for the OP_SERVICE_ACCOUNT_TOKEN path since the entrypoint never
+    // reads stdin in that mode.
+    '-i',
     '--name',
     `saga-deploy-${Date.now()}`,
     '--network',
     networkName,
-    '-e',
-    'OP_SERVICE_ACCOUNT_TOKEN',
+  ]
+
+  if (secretsViaStdin) {
+    // Container resolves nothing via op — secrets arrive on stdin.
+    args.push('-e', 'SECRETS_VIA_STDIN=1')
+  } else {
+    // Container reads secrets itself using OP_SERVICE_ACCOUNT_TOKEN
+    // (sourced from the host's env at `docker run` time — Docker
+    // resolves -e VAR with no value from the calling environment).
+    args.push('-e', 'OP_SERVICE_ACCOUNT_TOKEN')
+  }
+
+  args.push(
     '-e',
     `DEPLOY_CONFIG=${configBase64}`,
     '-e',
     `DEPLOY_MODE=${mode}`,
     '--read-only',
+    // Note: `exec` is REQUIRED here — Docker's tmpfs default is noexec,
+    // which blocks forge's solc-version-manager (svm) from running the
+    // solc binary it downloads to ~/.svm under HOME=/tmp. Without `exec`
+    // forge fails with "Permission denied (os error 13)" before any
+    // compile happens. nosuid + nodev keep the rest of the hardening.
     '--tmpfs',
-    '/forge-cache:rw,size=512m,mode=1777',
+    '/forge-cache:rw,exec,nosuid,nodev,size=512m,mode=1777',
     '--tmpfs',
-    '/tmp:rw,size=128m,mode=1777',
+    '/tmp:rw,exec,nosuid,nodev,size=256m,mode=1777',
     '--cap-drop',
     'ALL',
     '--security-opt',
     'no-new-privileges',
-    'saga-deploy:latest',
-  ]
+    'saga-deploy:latest'
+  )
+
+  return args
 }
