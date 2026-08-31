@@ -65,10 +65,10 @@ just `wrangler deploy --env production` with no migration chained.
 ### 5. Smoke test
 
 ```bash
-curl -s https://saga-server.d7r.workers.dev/v1/info | jq .
-curl -s -o /dev/null -w "%{http_code}\n" https://saga-server.d7r.workers.dev/health
+curl -s https://saga-server.epicdm.workers.dev/v1/info | jq .
+curl -s -o /dev/null -w "%{http_code}\n" https://saga-server.epicdm.workers.dev/health
 # Verify ADMIN_SECRET is configured (returns 401, not 403):
-curl -s -o /dev/null -w "%{http_code}\n" -X POST https://saga-server.d7r.workers.dev/admin/reindex
+curl -s -o /dev/null -w "%{http_code}\n" -X POST https://saga-server.epicdm.workers.dev/admin/reindex
 ```
 
 Expected: `/v1/info` returns the production `SERVER_NAME` JSON,
@@ -80,7 +80,7 @@ would be 403 if the secret were missing).
 ```bash
 SECRET=$(op read "op://saga-prod/saga-server-production-admin-secret/value")
 curl -s -X POST -H "X-Admin-Secret: $SECRET" \
-  https://saga-server.d7r.workers.dev/admin/reindex | jq .
+  https://saga-server.epicdm.workers.dev/admin/reindex | jq .
 ```
 
 The response includes `prevCursor` and `cursor`. If `cursor` is the

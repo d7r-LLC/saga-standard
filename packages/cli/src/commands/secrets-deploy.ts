@@ -337,6 +337,6 @@ export const secretsDeployCommand = new Command('deploy')
     console.log()
     console.log(chalk.bold('Next:'))
     console.log(
-      `  pnpm --filter @d7r/saga-server deploy:${envName}   ${chalk.dim('# deploy the worker code itself')}`
+      `  pnpm --filter @epicdm/saga-server deploy:${envName}   ${chalk.dim('# deploy the worker code itself')}`
     )
   })
