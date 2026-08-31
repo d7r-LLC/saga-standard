@@ -115,6 +115,28 @@ describe('deploy-docker', () => {
       )
     })
 
+    it('mounts tmpfs with exec so forge can run solc downloaded under HOME=/tmp', () => {
+      // svm (Solidity Version Manager, used by forge) downloads solc
+      // binaries to ~/.svm and execs them. Docker tmpfs defaults to
+      // noexec; without an explicit `exec` option the binary download
+      // succeeds but `Permission denied (os error 13)` fires on
+      // exec — see commit history for the deploy plumbing.
+      const args = buildDockerRunArgs({
+        resolved: MOCK_RESOLVED,
+        networkName: 'saga-deploy-net',
+        mode: 'broadcast',
+      })
+      const tmpfsValues = args.reduce<string[]>((acc, val, i) => {
+        if (val === '--tmpfs' && typeof args[i + 1] === 'string') acc.push(args[i + 1])
+        return acc
+      }, [])
+      for (const t of tmpfsValues) {
+        expect(t.split(',')).toContain('exec')
+        expect(t.split(',')).toContain('nosuid')
+        expect(t.split(',')).toContain('nodev')
+      }
+    })
+
     it('uses the specified network', () => {
       const args = buildDockerRunArgs({
         resolved: MOCK_RESOLVED,
@@ -145,7 +167,7 @@ describe('deploy-docker', () => {
       expect(decoded.op.vault).toBe('SAGA Deploys')
     })
 
-    it('passes OP_SERVICE_ACCOUNT_TOKEN as env name only (resolved from host env)', () => {
+    it('passes OP_SERVICE_ACCOUNT_TOKEN as env name only (resolved from host env) by default', () => {
       const args = buildDockerRunArgs({
         resolved: MOCK_RESOLVED,
         networkName: 'saga-deploy-net',
@@ -157,6 +179,44 @@ describe('deploy-docker', () => {
       )
       expect(opEnvIdx).toBeGreaterThan(-1)
       expect(args[opEnvIdx + 1]).toBe('OP_SERVICE_ACCOUNT_TOKEN')
+      // No SECRETS_VIA_STDIN marker in env-token mode.
+      expect(args.some(a => a.startsWith('SECRETS_VIA_STDIN='))).toBe(false)
+    })
+
+    it('switches to SECRETS_VIA_STDIN=1 and drops OP_SERVICE_ACCOUNT_TOKEN when stdin mode set', () => {
+      const args = buildDockerRunArgs({
+        resolved: MOCK_RESOLVED,
+        networkName: 'saga-deploy-net',
+        mode: 'broadcast',
+        secretsViaStdin: true,
+      })
+
+      const stdinIdx = args.findIndex((a, i) => a === '-e' && args[i + 1] === 'SECRETS_VIA_STDIN=1')
+      expect(stdinIdx).toBeGreaterThan(-1)
+
+      const opEnvIdx = args.findIndex(
+        (a, i) => a === '-e' && args[i + 1] === 'OP_SERVICE_ACCOUNT_TOKEN'
+      )
+      expect(opEnvIdx).toBe(-1)
+    })
+
+    it('always includes -i so the container can receive stdin in either mode', () => {
+      // -i keeps stdin attached. Required for stdin-secrets mode (the
+      // CLI pipes a JSON blob to the entrypoint's `cat`); harmless for
+      // env-token mode since the entrypoint never reads stdin there.
+      const envTokenArgs = buildDockerRunArgs({
+        resolved: MOCK_RESOLVED,
+        networkName: 'saga-deploy-net',
+        mode: 'broadcast',
+      })
+      const stdinArgs = buildDockerRunArgs({
+        resolved: MOCK_RESOLVED,
+        networkName: 'saga-deploy-net',
+        mode: 'broadcast',
+        secretsViaStdin: true,
+      })
+      expect(envTokenArgs).toContain('-i')
+      expect(stdinArgs).toContain('-i')
     })
 
     it('ends with image name', () => {

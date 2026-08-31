@@ -14,6 +14,11 @@ CHAIN_ID=$(echo "$CONFIG" | jq -r '.chainId') || die "missing .chainId"
 RPC=$(echo "$CONFIG" | jq -r '.rpc') || die "missing .rpc"
 VAULT=$(echo "$CONFIG" | jq -r '.op.vault') || die "missing .op.vault"
 SIGNER_ITEM=$(echo "$CONFIG" | jq -r '.op.signerItem') || die "missing .op.signerItem"
+# Phase 12 follow-on: signer field is configurable so items that store
+# the mnemonic in a custom CONCEALED field (e.g. /mnemonic) work without
+# code changes. Defaults to "password" for back-compat with the original
+# convention of storing credentials in the standard PASSWORD-purpose field.
+SIGNER_FIELD=$(echo "$CONFIG" | jq -r '.op.signerField // "password"')
 EXPLORER_KEY_ITEM=$(echo "$CONFIG" | jq -r '.op.explorerKeyItem') || die "missing .op.explorerKeyItem"
 SAFE_ADDR=$(echo "$CONFIG" | jq -r '.safe') || die "missing .safe"
 SAFE_TX_SERVICE=$(echo "$CONFIG" | jq -r '.safeTransactionService') || die "missing .safeTransactionService"
@@ -39,23 +44,53 @@ MODE=${DEPLOY_MODE:-dry-run}
 
 log "chain=${CHAIN} chainId=${CHAIN_ID} mode=${MODE}"
 
-# ── Validate 1Password token ───────────────────────────────────────────
-[ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && die "OP_SERVICE_ACCOUNT_TOKEN not set"
-
-# ── Fetch secrets from 1Password (in-memory only) ──────────────────────
+# ── Fetch secrets ──────────────────────────────────────────────────────
+# Two modes (decided by the CLI before launching this container):
+#
+#   (1) env-token mode:    OP_SERVICE_ACCOUNT_TOKEN is set; this script
+#                          calls `op read` itself. Hermetic — secrets
+#                          never appear on the host shell or in /proc.
+#
+#   (2) stdin mode:        SECRETS_VIA_STDIN=1; the CLI resolved secrets
+#                          on the host via the user's interactive `op`
+#                          session and piped them in as JSON. No
+#                          OP_SERVICE_ACCOUNT_TOKEN required.
+#
 # The signer credential MAY be either:
 #   (a) a hex private key (64 hex chars, optional 0x prefix), or
 #   (b) a BIP-39 mnemonic seed phrase (12/15/18/21/24 space-separated words)
-# In either case the value lives at op://${VAULT}/${SIGNER_ITEM}/password.
+#
+# In env-token mode the value lives at op://${VAULT}/${SIGNER_ITEM}/${SIGNER_FIELD},
+# where SIGNER_FIELD defaults to "password" but can be overridden per-chain
+# via the deploy.config.yaml `op.signerField` option.
+#
 # This script is the ONLY supported way to read or validate the signer.
 # Do not `op read` the credential elsewhere — see .claude/rules/secrets-management.md.
-log "reading signer credential from 1password"
-SIGNER_INPUT=$(op read "op://${VAULT}/${SIGNER_ITEM}/password" 2>/dev/null) \
-  || die "failed to read signer credential from 1password"
 
-log "reading explorer api key from 1password"
-EXPLORER_KEY=$(op read "op://${VAULT}/${EXPLORER_KEY_ITEM}/password" 2>/dev/null) \
-  || die "failed to read explorer api key from 1password"
+if [ "${SECRETS_VIA_STDIN:-0}" = "1" ]; then
+  log "secrets mode: stdin (host-resolved via op CLI)"
+  # Read all of stdin in one shot. The CLI sends a single JSON object.
+  STDIN_JSON=$(cat)
+  [ -z "$STDIN_JSON" ] && die "SECRETS_VIA_STDIN=1 but stdin was empty"
+  SIGNER_INPUT=$(echo "$STDIN_JSON" | jq -r '.signer // empty') \
+    || die "failed to parse signer from stdin"
+  [ -z "$SIGNER_INPUT" ] && die "stdin payload missing .signer"
+  EXPLORER_KEY=$(echo "$STDIN_JSON" | jq -r '.explorerKey // empty') \
+    || die "failed to parse explorerKey from stdin"
+  [ -z "$EXPLORER_KEY" ] && die "stdin payload missing .explorerKey"
+  # Optional in stdin payload — only used when signer is a mnemonic.
+  STDIN_DERIVATION_PATH=$(echo "$STDIN_JSON" | jq -r '.derivationPath // empty')
+  unset STDIN_JSON
+else
+  log "secrets mode: env-token (container resolves via op)"
+  [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && die "OP_SERVICE_ACCOUNT_TOKEN not set"
+  log "reading signer credential from 1password (field=${SIGNER_FIELD})"
+  SIGNER_INPUT=$(op read "op://${VAULT}/${SIGNER_ITEM}/${SIGNER_FIELD}" 2>/dev/null) \
+    || die "failed to read signer credential from 1password (op://${VAULT}/${SIGNER_ITEM}/${SIGNER_FIELD})"
+  log "reading explorer api key from 1password"
+  EXPLORER_KEY=$(op read "op://${VAULT}/${EXPLORER_KEY_ITEM}/password" 2>/dev/null) \
+    || die "failed to read explorer api key from 1password"
+fi
 
 # ── Detect credential format and resolve to a hex private key ──────────
 # Mnemonic detection: count whitespace-separated words. BIP-39 valid lengths
@@ -83,9 +118,25 @@ case "$WORD_COUNT" in
     log "credential format: mnemonic (${WORD_COUNT} words)"
     [ -z "$DERIVE_HELPER" ] && die "derive-mnemonic.mjs not found"
     # Default derivation path: m/44'/60'/0'/0/0 (Ethereum, account 0, address 0).
-    # Override with op://${VAULT}/${SIGNER_ITEM}/derivation_path if non-default.
-    DERIVATION_PATH=$(op read "op://${VAULT}/${SIGNER_ITEM}/derivation_path" 2>/dev/null \
-      || echo "m/44'/60'/0'/0/0")
+    # In stdin mode, the CLI may have supplied a non-default path via the
+    # JSON payload (STDIN_DERIVATION_PATH). In env-token mode, fall back
+    # to op://${VAULT}/${SIGNER_ITEM}/derivation_path if present.
+    # Note: bash `${VAR:-default}` parameter expansion does NOT neutralize
+    # apostrophes inside the default literal, even when the whole thing is
+    # wrapped in double quotes — `m/44'/60'/0'/0/0` would be parsed as an
+    # unmatched single quote and trip "unexpected end of file" at script
+    # tail. Use an explicit if/else instead so the path literal lives
+    # inside a normal double-quoted string where `'` is harmless.
+    if [ "${SECRETS_VIA_STDIN:-0}" = "1" ]; then
+      if [ -n "${STDIN_DERIVATION_PATH:-}" ]; then
+        DERIVATION_PATH="$STDIN_DERIVATION_PATH"
+      else
+        DERIVATION_PATH="m/44'/60'/0'/0/0"
+      fi
+    else
+      DERIVATION_PATH=$(op read "op://${VAULT}/${SIGNER_ITEM}/derivation_path" 2>/dev/null \
+        || echo "m/44'/60'/0'/0/0")
+    fi
     SIGNER_KEY=$(printf '%s' "$SIGNER_INPUT" \
       | node "$DERIVE_HELPER" "$DERIVATION_PATH" 2>/dev/null) \
       || die "failed to derive private key from mnemonic"
@@ -113,19 +164,56 @@ log "signer=${SIGNER_ADDR}"
 log "simulating deployment"
 export ERC6551_REGISTRY
 export TBA_IMPLEMENTATION
+# Capture forge stderr to a file so a non-zero exit produces an
+# actionable error message instead of a silent "simulation failed".
+# We scrub the SIGNER_KEY out of the captured stderr before it ever
+# reaches the entrypoint's stderr (which the CLI captures in turn) —
+# forge has been observed to echo `--private-key` values on certain
+# argument-parse errors, and `DEPLOYER_PRIVATE_KEY=...` would
+# otherwise appear verbatim in a stack trace.
+SIM_STDERR_FILE="$(mktemp /tmp/saga-sim-stderr.XXXXXX)"
+trap 'rm -f "$SIM_STDERR_FILE"' EXIT
 SIM_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
   forge script script/Deploy.s.sol \
   --fork-url "$RPC" \
-  --json 2>/dev/null) || die "simulation failed"
+  --json 2>"$SIM_STDERR_FILE") || {
+    SIM_ERR=$(cat "$SIM_STDERR_FILE" 2>/dev/null || true)
+    # Redact the private key value if it slipped into stderr. SIGNER_KEY
+    # is always 0x + 64 hex chars; a literal sed substitution on the
+    # exact value (plus its no-prefix variant) is sufficient.
+    SIGNER_KEY_BARE="${SIGNER_KEY#0x}"
+    SIM_ERR_REDACTED=$(printf '%s\n' "$SIM_ERR" \
+      | sed -e "s|${SIGNER_KEY}|***REDACTED-KEY***|g" \
+            -e "s|${SIGNER_KEY_BARE}|***REDACTED-KEY***|g" 2>/dev/null \
+      || echo "(stderr redaction failed; suppressing raw output)")
+    # Echo redacted stderr to our own stderr so the CLI can capture it.
+    if [ -n "$SIM_ERR_REDACTED" ]; then
+      printf '%s\n' "$SIM_ERR_REDACTED" >&2
+    fi
+    die "simulation failed (forge exited non-zero; see redacted stderr above)"
+  }
 
-# Parse simulation results (forge --json may produce multiple JSON objects)
+# Parse simulation results. `forge script --fork-url ... --json` (no
+# --broadcast) emits a single JSON object per run with shape:
+#   {"logs":["SAGAHandleRegistry: 0xabc...", ...], "success":true,
+#    "returns":{}, "raw_logs":[...]}
+# i.e. console.log lines from Deploy.s.sol come back as the `logs[]`
+# array of strings. The structured `transactions[]` array is only
+# populated under `--broadcast`. Extract addresses by capturing
+# "<ContractName>: 0x<40 hex>" pairs from the log strings.
 ADDRESSES=$(echo "$SIM_OUTPUT" | jq -sc '
-  [.[].transactions[]? | select(.transactionType == "CREATE") |
-   {key: .contractName, value: .contractAddress}] |
-  from_entries // {}
+  [
+    .[].logs[]?
+    | capture("^(?<key>SAGA[A-Za-z]+): (?<value>0x[a-fA-F0-9]{40})$")
+  ]
+  | from_entries // {}
 ' 2>/dev/null || echo '{}')
 
-GAS_ESTIMATE=$(echo "$SIM_OUTPUT" | jq -sc '[.[].transactions[]?.gas // 0] | add // 0' 2>/dev/null || echo '"unknown"')
+# Gas estimate is not present in the fork-only --json output; would
+# require --broadcast to populate transactions[]. Surface a known
+# sentinel so dry-run callers know they need to broadcast for the
+# real estimate.
+GAS_ESTIMATE='"unavailable-in-dry-run"'
 
 log "simulation complete"
 
@@ -144,22 +232,69 @@ if [ "$MODE" = "broadcast" ]; then
   if [ "$SAFE_THRESHOLD_EFFECTIVE" = "1" ]; then
     log "deploying directly (effective threshold=1, signer broadcasts)"
 
+    # Capture forge stderr the same way the dry-run path does — without
+    # this the broadcast can silently no-op (RPC failures, gas issues,
+    # nonce conflicts) and the JSON parser falls through to empty
+    # addresses. SIGNER_KEY is sed'd out before stderr is surfaced.
+    BCAST_STDERR_FILE="$(mktemp /tmp/saga-bcast-stderr.XXXXXX)"
     BROADCAST_OUTPUT=$(DEPLOYER_PRIVATE_KEY="$SIGNER_KEY" \
       forge script script/Deploy.s.sol \
       --fork-url "$RPC" \
       --broadcast \
-      --json 2>/dev/null) || die "broadcast deployment failed"
+      --json 2>"$BCAST_STDERR_FILE") || {
+        BCAST_ERR=$(cat "$BCAST_STDERR_FILE" 2>/dev/null || true)
+        SIGNER_KEY_BARE="${SIGNER_KEY#0x}"
+        BCAST_ERR_REDACTED=$(printf '%s\n' "$BCAST_ERR" \
+          | sed -e "s|${SIGNER_KEY}|***REDACTED-KEY***|g" \
+                -e "s|${SIGNER_KEY_BARE}|***REDACTED-KEY***|g" 2>/dev/null \
+          || echo "(stderr redaction failed; suppressing raw output)")
+        rm -f "$BCAST_STDERR_FILE"
+        if [ -n "$BCAST_ERR_REDACTED" ]; then
+          printf '%s\n' "$BCAST_ERR_REDACTED" >&2
+        fi
+        die "broadcast deployment failed (forge exited non-zero; see redacted stderr above)"
+      }
+    # Forge succeeded — but it can also "succeed" without broadcasting
+    # any transactions (e.g. all calls were view/pure or simulation-only
+    # fell through). Surface stderr to our own stderr too so the caller
+    # can see any warnings even on a no-op success.
+    if [ -s "$BCAST_STDERR_FILE" ]; then
+      SIGNER_KEY_BARE="${SIGNER_KEY#0x}"
+      sed -e "s|${SIGNER_KEY}|***REDACTED-KEY***|g" \
+          -e "s|${SIGNER_KEY_BARE}|***REDACTED-KEY***|g" \
+          "$BCAST_STDERR_FILE" >&2 || true
+    fi
+    rm -f "$BCAST_STDERR_FILE"
 
-    # Parse deployed addresses from broadcast output
+    # Parse deployed addresses from broadcast output. Forge --broadcast
+    # emits transactions[] objects with contractName/contractAddress for
+    # CREATE/CREATE2 ops. Fall back to the same logs[] regex the
+    # simulation path uses if transactions[] is empty (covers cases
+    # where forge logged the deploys but didn't populate the
+    # transactions array under some flag combinations).
     DEPLOYED_ADDRESSES=$(echo "$BROADCAST_OUTPUT" | jq -sc '
-      [.[].transactions[]? | select(.transactionType == "CREATE") |
-       {key: .contractName, value: .contractAddress}] |
-      from_entries // {}
+      ([.[].transactions[]? | select(.transactionType == "CREATE" or .transactionType == "CREATE2") |
+        {key: .contractName, value: .contractAddress}] | from_entries) as $tx |
+      ($tx | length) as $tx_count |
+      if $tx_count > 0 then $tx
+      else
+        [.[].logs[]?
+         | capture("^(?<key>SAGA[A-Za-z]+): (?<value>0x[a-fA-F0-9]{40})$")]
+        | from_entries // {}
+      end
     ' 2>/dev/null || echo '{}')
 
     GAS_USED=$(echo "$BROADCAST_OUTPUT" | jq -sc '[.[].transactions[]?.gas // 0] | add // 0' 2>/dev/null || echo '0')
 
-    log "deployment broadcast complete"
+    # Verify at least one address landed on-chain. Empty result means
+    # forge didn't actually broadcast anything and we should fail loudly
+    # instead of returning a misleading "deployed" status.
+    ADDR_COUNT=$(echo "$DEPLOYED_ADDRESSES" | jq -r 'length' 2>/dev/null || echo 0)
+    if [ "$ADDR_COUNT" = "0" ]; then
+      die "broadcast produced zero deployed addresses — forge may have aborted silently. Check redacted stderr above."
+    fi
+
+    log "deployment broadcast complete (${ADDR_COUNT} contracts)"
     echo "{\"status\":\"deployed\",\"chain\":\"${CHAIN}\",\"chainId\":${CHAIN_ID},\"signer\":\"${SIGNER_ADDR}\",\"addresses\":${DEPLOYED_ADDRESSES},\"gasUsed\":${GAS_USED},\"mode\":\"direct\"}"
     exit 0
   fi

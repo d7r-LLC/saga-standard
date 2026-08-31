@@ -1,12 +1,12 @@
 {
   "chainId": 84532,
   "network": "base-sepolia",
-  "deployedAt": "2026-03-27T00:00:59.783Z",
+  "deployedAt": "2026-05-05T16:40:45.566Z",
   "contracts": {
-    "SAGAHandleRegistry": "",
-    "SAGAAgentIdentity": "",
-    "SAGAOrgIdentity": "",
-    "SAGATBAHelper": ""
+    "SAGAHandleRegistry": "0x347948059E8aBA66F45fAcb853bb5d5064a2309e",
+    "SAGAAgentIdentity": "0x097FA17d59A072920063D7F85817239066ED3595",
+    "SAGAOrgIdentity": "0xF27b400f0E00b9e316BD5cBed9241ad9284C31f6",
+    "SAGATBAHelper": "0x00613a2b5Ca4b457b45BC20B8D1E182a13614142"
   },
   "external": {
     "ERC6551Registry": "0x000000006551c19487814612e58FE06813775758",

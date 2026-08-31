@@ -4,9 +4,10 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import ora from 'ora'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
+import { scrubSecrets } from '../redact'
 import { deriveNetworkAllowlist, loadDeployConfig, resolveChainConfig } from '../deploy-config'
 import {
   buildDockerBuildArgs,
@@ -21,6 +22,7 @@ import {
   updateAddressesTs,
   updateDeploymentJson,
 } from '../deploy-post'
+import { isHostOpAvailable, resolveSecretsFromHostOp } from '../deploy-secrets'
 import { getSagaDir, loadConfig } from '../config'
 
 // Resolve paths relative to monorepo root
@@ -165,28 +167,118 @@ export const deployCommand = new Command('deploy')
       ).start()
 
       let containerOutput: string
+      // Secrets-provisioning strategy:
+      //   1. OP_SERVICE_ACCOUNT_TOKEN set (env or .env) → container reads
+      //      from 1Password itself (hermetic, no host-side secret handling).
+      //   2. Otherwise → resolve secrets here on the host via the user's
+      //      interactive `op` CLI session and pipe them to the container
+      //      via stdin (avoids env-var leak through /proc/$pid/environ).
       try {
-        const runArgs = buildDockerRunArgs({ resolved, networkName, mode })
-
-        // Load OP token from .env (project-specific token takes precedence)
         const envPath = join(process.cwd(), '.env')
-        if (existsSync(envPath)) {
+        if (existsSync(envPath) && !process.env.OP_SERVICE_ACCOUNT_TOKEN) {
           const envContent = readFileSync(envPath, 'utf-8')
           const match = envContent.match(/^OP_SERVICE_ACCOUNT_TOKEN=(.+)$/m)
           if (match) {
             process.env.OP_SERVICE_ACCOUNT_TOKEN = match[1].trim()
           }
         }
-        if (!process.env.OP_SERVICE_ACCOUNT_TOKEN) {
-          runSpinner.fail('OP_SERVICE_ACCOUNT_TOKEN not found in environment or .env file.')
-          process.exit(1)
+
+        const useStdinSecrets = !process.env.OP_SERVICE_ACCOUNT_TOKEN
+        let stdinPayload: string | undefined
+        // Track every concrete secret value we touch so we can pass them
+        // to scrubSecrets() as exact-match literals if any error message
+        // would otherwise carry them. We never log these directly.
+        const knownSecretLiterals: string[] = []
+
+        if (useStdinSecrets) {
+          if (!isHostOpAvailable()) {
+            runSpinner.fail(
+              'OP_SERVICE_ACCOUNT_TOKEN not set and host `op` CLI is not signed in. ' +
+                'Either export OP_SERVICE_ACCOUNT_TOKEN, add it to .env, or run `op signin`.'
+            )
+            process.exit(1)
+          }
+          const secrets = resolveSecretsFromHostOp({
+            vault: resolved.op.vault,
+            signerItem: resolved.op.signerItem,
+            signerField: resolved.op.signerField,
+            explorerKeyItem: resolved.op.explorerKeyItem,
+          })
+          knownSecretLiterals.push(secrets.signer, secrets.explorerKey)
+          if (secrets.derivationPath) knownSecretLiterals.push(secrets.derivationPath)
+          stdinPayload = JSON.stringify({
+            signer: secrets.signer,
+            explorerKey: secrets.explorerKey,
+            derivationPath: secrets.derivationPath,
+          })
+        } else if (process.env.OP_SERVICE_ACCOUNT_TOKEN) {
+          knownSecretLiterals.push(process.env.OP_SERVICE_ACCOUNT_TOKEN)
         }
 
-        containerOutput = execFileSync('docker', runArgs, {
+        const runArgs = buildDockerRunArgs({
+          resolved,
+          networkName,
+          mode,
+          secretsViaStdin: useStdinSecrets,
+        })
+
+        // Pass MINIMAL env to docker — only PATH (so docker resolves) and
+        // OP_SERVICE_ACCOUNT_TOKEN when env-token mode is active. Avoids
+        // forwarding any unrelated host env vars into the docker process.
+        const dockerEnv: NodeJS.ProcessEnv = { PATH: process.env.PATH ?? '' }
+        if (!useStdinSecrets && process.env.OP_SERVICE_ACCOUNT_TOKEN) {
+          dockerEnv.OP_SERVICE_ACCOUNT_TOKEN = process.env.OP_SERVICE_ACCOUNT_TOKEN
+        }
+
+        // Capture stdout AND stderr separately (no inherit) so any noise
+        // from the container — including JSON `log()` lines from the
+        // entrypoint or accidental forge output — is held in memory and
+        // scrubbed before any user-facing print.
+        //
+        // Timeout: 15 minutes. The first invocation against a chain pays
+        // for an svm cold-start (downloads solc 0.8.24, ~30MB), full
+        // Solidity compile of all four contracts plus OZ dependencies,
+        // and a fork simulation against the public RPC. /forge-cache and
+        // /tmp are tmpfs so every container start is cold; can't reuse
+        // the host's solc / compile cache without breaking the
+        // read-only-rootfs hardening.
+        const result = spawnSync('docker', runArgs, {
           encoding: 'utf-8',
-          timeout: 300_000, // 5 minute timeout
-          env: process.env, // Docker resolves OP_SERVICE_ACCOUNT_TOKEN from this env
-        }).trim()
+          timeout: 900_000, // 15 minute timeout
+          env: dockerEnv,
+          input: stdinPayload,
+          // Cap the buffer so a runaway entrypoint can't fill heap.
+          maxBuffer: 16 * 1024 * 1024,
+        })
+
+        // Best-effort: drop the secrets reference promptly.
+        stdinPayload = undefined
+
+        const containerStderr = scrubSecrets(result.stderr ?? '', knownSecretLiterals)
+        const containerStdout = scrubSecrets(result.stdout ?? '', knownSecretLiterals)
+
+        if (result.error) {
+          throw Object.assign(new Error(scrubSecrets(result.error.message, knownSecretLiterals)), {
+            containerStderr,
+            containerStdout,
+          })
+        }
+        if (typeof result.status === 'number' && result.status !== 0) {
+          // Pull the entrypoint's terminal {"error":"..."} line out of
+          // stderr if present — that's the actionable bit. Everything
+          // else is forge / op chatter that we already redacted.
+          const errLine = containerStderr
+            .split('\n')
+            .reverse()
+            .find(l => /^\s*\{"error"/.test(l))
+          throw Object.assign(
+            new Error(
+              `docker exited with status ${result.status}: ${errLine ?? '(no error line)'}`
+            ),
+            { containerStderr, containerStdout }
+          )
+        }
+        containerOutput = containerStdout.trim()
 
         runSpinner.succeed(
           mode === 'dry-run'
@@ -197,7 +289,17 @@ export const deployCommand = new Command('deploy')
         )
       } catch (err) {
         runSpinner.fail('Container execution failed.')
-        console.error(chalk.dim((err as Error).message))
+        const e = err as Error & { containerStderr?: string; containerStdout?: string }
+        // Message is already scrubbed via scrubSecrets() before throw.
+        console.error(chalk.dim(e.message))
+        // Show the container's scrubbed stderr below the message — it's
+        // where forge errors land. Skip empty / whitespace-only buffers.
+        if (e.containerStderr && e.containerStderr.trim()) {
+          console.error()
+          console.error(chalk.dim('--- container stderr (secrets scrubbed) ---'))
+          console.error(chalk.dim(e.containerStderr.trim()))
+          console.error(chalk.dim('--- end container stderr ---'))
+        }
         // Clean up network
         try {
           execFileSync('docker', buildDockerNetworkRmArgs(networkName), { stdio: 'pipe' })
