@@ -2,7 +2,8 @@
 
 **An open specification for portable AI agent identity, memory, and state.**
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Spec: CC BY-ND 4.0](https://img.shields.io/badge/Spec-CC%20BY--ND%204.0-blue.svg)](LICENSE)
+[![Schema: MIT](https://img.shields.io/badge/Schema-MIT-green.svg)](schema/LICENSE)
 [![Status: Draft](https://img.shields.io/badge/Status-Draft-yellow.svg)](spec/SAGA-v1.0.md)
 [![Version: 1.0](https://img.shields.io/badge/Version-1.0-green.svg)](spec/SAGA-v1.0.md)
 
@@ -103,14 +104,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full process. The short version:
 
 ## Packages
 
-| Package                                          | Description                                                     |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| [`@d7r/saga-sdk`](packages/sdk)                  | Core SDK: document creation, validation, signing, encryption    |
-| [`@saga-standard/contracts`](packages/contracts) | Solidity contracts + TypeScript bindings for identity NFTs      |
-| [`@d7r/saga-client`](packages/client)            | Client library for server interaction and on-chain operations   |
-| [`@d7r/saga-server`](packages/server)            | Reference server (Cloudflare Workers) with on-chain indexer     |
-| [`@d7r/saga-cli`](packages/cli)                  | CLI for agent registration, resolution, and document management |
-| [`@d7r/saga-collectors`](packages/collectors)    | Data collectors for assembling SAGA documents                   |
+The reference implementations live in the `saga` repository, separated from this one on
+2026-09-03 so that the specification and the software could carry different licences. This
+repository defines SAGA; that one implements it.
+
+| Package | Description |
+| --- | --- |
+| `@d7r/saga-sdk` | Core SDK: document creation, validation, signing, encryption |
+| `@saga-standard/contracts` | Solidity contracts and TypeScript bindings for identity NFTs |
+| `@d7r/saga-client` | Client library for server interaction and on-chain operations |
+| `@d7r/saga-server` | Reference server (Cloudflare Workers) with on-chain indexer |
+| `@d7r/saga-cli` | CLI for agent registration, resolution, and document management |
+| `@d7r/saga-collectors` | Data collectors for assembling SAGA documents |
 
 ## Identity NFTs
 
@@ -121,7 +126,7 @@ Agents and organizations can register on-chain with ERC-721 identity NFTs on Bas
 FlowState maintains the reference implementation at Level 3 conformance:
 
 - **Runtime:** [`@epicdm/flowstate-directory`](https://github.com/d7r-LLC/flowstate-platform)
-- **SDK:** `@d7r/saga-sdk` (TypeScript, Apache 2.0)
+- **SDK:** `@d7r/saga-sdk` (TypeScript, MIT, in the `saga` repository)
 - **Directory:** [agents.d7r.io](https://agents.d7r.io)
 
 ## Governance
@@ -132,7 +137,16 @@ Any individual, company, or organization may participate in the Working Group.
 
 ## License
 
-Apache 2.0. See [LICENSE](LICENSE).
+This repository is licensed by part, because the specification and the schema are different kinds
+of thing.
+
+| Part | Licence | Why |
+|---|---|---|
+| The specification prose, the RFCs and the documentation site | [CC BY-ND 4.0](LICENSE) | Read it, quote it, redistribute it. Do not publish a modified SAGA standard under the same name. |
+| `schema/v1/saga.schema.json` | [MIT](schema/LICENSE) | It is a machine-readable interface that implementations embed and extend, so a no-derivatives clause would obstruct the ecosystem the specification exists to enable. |
+| The reference implementations | MIT, in the `saga` repository | Separated from this repository on 2026-09-03. |
+
+See [schema/README.md](schema/README.md) for the reasoning behind the schema exception.
 
 ---
 
